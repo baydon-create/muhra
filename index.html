@@ -434,12 +434,12 @@ function App(){
     <button onClick={logout} style={{background:"transparent",color:"#9ca3af",border:"none",fontSize:13,marginTop:4}}>Back to Login</button>
   </div>;
 
-  return <div style={{fontFamily:"'DM Sans','Segoe UI',sans-serif",background:"#f5f4f0",minHeight:"100vh",maxWidth:480,margin:"0 auto",paddingBottom:110}}>
+  return <div style={{fontFamily:"'DM Sans','Segoe UI',sans-serif",background:"#f5f4f0",minHeight:"100vh",maxWidth:960,margin:"0 auto",paddingBottom:110}}>
     {/* HEADER */}
-    <header style={{background:"#1a1a2e",padding:"14px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:50,boxShadow:"0 2px 18px rgba(0,0,0,0.35)"}}>
-      <div style={{display:"flex",alignItems:"center",gap:10}}><Shoe size={26} color="#c9a96e"/><span style={{color:"#fff",fontSize:18,fontWeight:900,letterSpacing:"3px"}}>MUHRA</span></div>
+    <header style={{background:"#f5efe6",padding:"10px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:50,boxShadow:"0 1px 12px rgba(0,0,0,0.08)",borderBottom:"1px solid #e8ddd0"}}>
+      <img src="https://cdn.shopify.com/s/files/1/0679/6984/3251/files/logo_muhra.png?v=1777114424" alt="Muhra" style={{height:38,objectFit:"contain"}}/>
       <div style={{display:"flex",alignItems:"center",gap:10}}>
-        <div style={{textAlign:"right"}}><div style={{color:"#fff",fontSize:12,fontWeight:600}}>{user.name.split(" ")[0]}</div><div style={{color:"#c9a96e",fontSize:10}}>{isAdmin?"Admin":"Member"}</div></div>
+        <div style={{textAlign:"right"}}><div style={{color:"#3d2b1f",fontSize:12,fontWeight:600}}>{user.name.split(" ")[0]}</div><div style={{color:"#9c7c5a",fontSize:10}}>{isAdmin?"Admin":"Member"}</div></div>
         <Av member={user} photo={profiles[user.id]} size={36} onClick={logout} title="Tap to logout"/>
       </div>
     </header>
