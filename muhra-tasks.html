@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<title>Muhra Tasks</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
+body{font-family:'DM Sans','Segoe UI',sans-serif;background:#f5f4f0;min-height:100vh}
+@keyframes slideUp{from{transform:translateY(28px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.shake{animation:shake 0.4s ease}
+.mbtn:active{transform:scale(0.96)}
+.mcard{transition:all 0.18s;cursor:pointer}
+.mcard:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,0,0,0.1)!important}
+button{font-family:'DM Sans','Segoe UI',sans-serif;cursor:pointer}
+input,textarea,select{font-family:'DM Sans','Segoe UI',sans-serif}
+textarea{resize:none}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:4px}
+</style>
+</head>
+<body>
+<div id="root"><div style="min-height:100vh;background:#1a1a2e;display:flex;align-items:center;justify-content:center;color:#c9a96e;font-family:sans-serif;font-size:14px;letter-spacing:2px">LOADING…</div></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+const { createClient } = supabase;
+
+const sb = createClient(
+  "https://ltwzmjqrlvqbndmipufm.supabase.co",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0d3ptanFybHZxYm5kbWlwdWZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMDA3NTEsImV4cCI6MjA5MjY3Njc1MX0.pvp5NFr2tOTw_MJHIxHO9kK7cQ75QjL5N8AcewXIVOM"
+);
+
+const TEAM = [
+  {id:"mohamed",name:"Mohamed Baydon",title:"E-commerce Manager",role:"admin", pin:"8765",color:"#1a1a2e",initials:"MB"},
+  {id:"maha",   name:"Dr. Maha Adel", title:"Brand Owner",       role:"admin", pin:"6646",color:"#5c3d2e",initials:"MA"},
+  {id:"bassant",name:"Bassant",        title:"Co-ordinator",      role:"admin", pin:"9876",color:"#2d4a3e",initials:"BA"},
+  {id:"asmaa",  name:"Asmaa",          title:"Shopify Admin",     role:"member",pin:"4456",color:"#3d3566",initials:"AS"},
+  {id:"moussa", name:"Moussa",         title:"Content Creator",   role:"member",pin:"8845",color:"#7c4a1e",initials:"MO"},
+];
+const PRIO=["Low","Medium","High","Urgent"];
+const STAT=["To Do","In Progress","Review","Done"];
+const PM={Low:{bg:"#f0fdf4",text:"#15803d",dot:"#4ade80",border:"#bbf7d0"},Medium:{bg:"#fffbeb",text:"#b45309",dot:"#fbbf24",border:"#fde68a"},High:{bg:"#fff7ed",text:"#c2410c",dot:"#fb923c",border:"#fed7aa"},Urgent:{bg:"#fef2f2",text:"#991b1b",dot:"#f87171",border:"#fecaca"}};
+const SM={"To Do":{bg:"#f3f4f6",text:"#374151",border:"#e5e7eb"},"In Progress":{bg:"#eff6ff",text:"#1d4ed8",border:"#bfdbfe"},Review:{bg:"#fdf4ff",text:"#7e22ce",border:"#e9d5ff"},Done:{bg:"#f0fdf4",text:"#15803d",border:"#bbf7d0"}};
+const fD=iso=>{if(!iso)return"—";return new Date(iso).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})};
+const fT=iso=>{if(!iso)return"";return new Date(iso).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})};
+const isOD=(dl,st)=>dl&&new Date(dl)<new Date()&&st!=="Done";
+const lsG=(k,fb)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):fb}catch{return fb}};
+const lsS=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
+
+function Shoe({size=28,color="#c9a96e"}){
+  return <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
+    <path d="M50 8 C23 8 8 27 8 48 C8 71 27 88 43 88 L43 73 C31 73 20 62 20 48 C20 33 33 20 50 20 C67 20 80 33 80 48 C80 62 69 73 57 73 L57 88 C73 88 92 71 92 48 C92 27 77 8 50 8Z" fill={color}/>
+    <rect x="43" y="73" width="6" height="15" rx="2" fill={color}/>
+    <rect x="51" y="73" width="6" height="15" rx="2" fill={color}/>
+  </svg>;
+}
+
+function Av({member,photo,size=36,onClick,title}){
+  const s={width:size,height:size,borderRadius:"50%",flexShrink:0,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",backgroundColor:member?.color||"#333",color:"#fff",fontWeight:700,fontSize:size*0.36,cursor:onClick?"pointer":"default",border:"2px solid rgba(255,255,255,0.15)"};
+  return <div style={s} onClick={onClick} title={title||member?.name}>
+    {photo?<img src={photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:member?.initials}
+  </div>;
+}
+
+function FL({children}){return <div style={{fontSize:11,fontWeight:700,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.6px"}}>{children}</div>}
+function FS({label,children}){return <div style={{display:"flex",flexDirection:"column",gap:8}}><FL>{label}</FL>{children}</div>}
+
+// ── LOGIN ──
+function Login({onLogin}){
+  const [step,setStep]=useState("pick");
+  const [who,setWho]=useState(null);
+  const [pin,setPin]=useState("");
+  const [err,setErr]=useState("");
+  const [shake,setShake]=useState(false);
+
+  function pick(m){setWho(m);setPin("");setErr("");setStep("pin")}
+  function digit(d){
+    if(pin.length>=4)return;
+    const next=pin+d;setPin(next);
+    if(next.length===4){
+      setTimeout(()=>{
+        if(next===who.pin){onLogin(who.id)}
+        else{setErr("Incorrect PIN. Try again.");setShake(true);setPin("");setTimeout(()=>setShake(false),500)}
+      },180);
+    }
+  }
+
+  return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(155deg,#0f0f1e 0%,#1a1a2e 55%,#2a1a14 100%)",padding:20}}>
+    <div style={{background:"#fff",borderRadius:22,padding:"30px 24px",width:"100%",maxWidth:360,boxShadow:"0 16px 56px rgba(0,0,0,0.45)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:22}}>
+        <Shoe size={34} color="#1a1a2e"/>
+        <span style={{fontSize:22,fontWeight:900,color:"#1a1a2e",letterSpacing:3}}>MUHRA</span>
+      </div>
+      <div style={{fontSize:21,fontWeight:900,color:"#111",marginBottom:4}}>Team Workspace</div>
+
+      {step==="pick"?<>
+        <div style={{fontSize:13,color:"#9ca3af",marginBottom:20}}>Select your profile to continue</div>
+        {TEAM.map(m=><button key={m.id} className="mbtn" onClick={()=>pick(m)}
+          style={{display:"flex",alignItems:"center",gap:14,background:"#f8f7f4",border:"1.5px solid #e5e7eb",borderRadius:14,padding:"12px 16px",width:"100%",marginBottom:8,textAlign:"left"}}>
+          <div style={{width:44,height:44,borderRadius:"50%",background:m.color,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:15,flexShrink:0}}>{m.initials}</div>
+          <div style={{flex:1}}>
+            <div style={{fontWeight:700,fontSize:15,color:"#111"}}>{m.name}</div>
+            <div style={{fontSize:12,color:"#9ca3af"}}>{m.title}</div>
+          </div>
+          <span style={{color:"#d1d5db",fontSize:20}}>›</span>
+        </button>)}
+      </>:<div style={{animation:"slideUp 0.2s ease"}}>
+        <button onClick={()=>{setStep("pick");setErr("");setPin("")}}
+          style={{background:"none",border:"none",color:"#9ca3af",fontSize:13,padding:"2px 0 18px",display:"flex",alignItems:"center",gap:4}}>← Back</button>
+        <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:22}}>
+          <div style={{width:50,height:50,borderRadius:"50%",background:who.color,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:17}}>{who.initials}</div>
+          <div>
+            <div style={{fontWeight:700,fontSize:16,color:"#111"}}>{who.name}</div>
+            <div style={{fontSize:12,color:"#9ca3af"}}>{who.title}</div>
+          </div>
+        </div>
+        <div style={{fontSize:13,color:"#9ca3af",marginBottom:4}}>Enter your 4-digit PIN</div>
+        <div className={shake?"shake":""} style={{display:"flex",gap:14,justifyContent:"center",margin:"18px 0 6px"}}>
+          {[0,1,2,3].map(i=><div key={i} style={{width:16,height:16,borderRadius:"50%",background:i<pin.length?"#1a1a2e":"#e5e7eb",transition:"background 0.15s"}}/>)}
+        </div>
+        {err&&<div style={{color:"#dc2626",fontSize:13,textAlign:"center",marginBottom:6}}>{err}</div>}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:9,marginTop:16}}>
+          {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((d,i)=><button key={i} className="mbtn"
+            style={{height:58,borderRadius:14,border:`1.5px solid ${d===""?"transparent":"#e5e7eb"}`,background:d===""?"transparent":"#fff",fontSize:d==="⌫"?20:22,fontWeight:600,color:"#111",cursor:d===""?"default":"pointer",boxShadow:d===""?"none":"0 1px 3px rgba(0,0,0,0.06)"}}
+            onClick={()=>{if(d==="⌫"){setPin(p=>p.slice(0,-1));setErr("")}else if(d!=="")digit(String(d))}}>{d}</button>)}
+        </div>
+      </div>}
+    </div>
+  </div>;
+}
+
+// ── TASK CARD ──
+function TaskCard({task,profiles,onClick}){
+  const a=TEAM.find(m=>m.id===task.assigned_to);
+  const pm=PM[task.priority]||PM.Medium;
+  const sm=SM[task.status]||SM["To Do"];
+  const od=isOD(task.deadline,task.status);
+  return <div className="mcard" style={{background:"#fff",borderRadius:14,padding:"14px 16px",boxShadow:"0 1px 5px rgba(0,0,0,0.06)",borderLeft:`4px solid ${pm.dot}`}} onClick={onClick}>
+    <div style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:10}}>
+      <div style={{flex:1}}>
+        <div style={{fontSize:15,fontWeight:700,color:"#111",lineHeight:1.3}}>{task.title}</div>
+        {task.description&&<div style={{fontSize:13,color:"#6b7280",marginTop:3,lineHeight:1.4}}>{task.description.slice(0,85)}{task.description.length>85?"…":""}</div>}
+      </div>
+      <span style={{display:"inline-flex",alignItems:"center",fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:20,background:pm.bg,color:pm.text,border:`1px solid ${pm.border}`,flexShrink:0}}>
+        <span style={{width:6,height:6,borderRadius:"50%",background:pm.dot,display:"inline-block",marginRight:4}}/>
+        {task.priority}
+      </span>
+    </div>
+    <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
+      {a&&<div style={{display:"flex",alignItems:"center",gap:5}}><Av member={a} photo={profiles[a.id]} size={22}/><span style={{fontSize:12,color:"#6b7280"}}>{a.name.split(" ")[0]}</span></div>}
+      <span style={{display:"inline-flex",alignItems:"center",fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:20,background:sm.bg,color:sm.text,border:`1px solid ${sm.border}`}}>{task.status}</span>
+      {task.deadline&&<span style={{fontSize:11,color:od?"#dc2626":"#9ca3af",fontWeight:od?700:400}}>{od?"⚠ ":"📅 "}{fD(task.deadline)}</span>}
+      {task.comments?.length>0&&<span style={{fontSize:11,color:"#9ca3af"}}>💬 {task.comments.length}</span>}
+      {task.signed_by?.length>0&&<span style={{fontSize:11,color:"#15803d"}}>✅ {task.signed_by.length}</span>}
+      {task.edit_requests?.length>0&&<span style={{fontSize:11,color:"#b45309"}}>📝 {task.edit_requests.length}</span>}
+    </div>
+  </div>;
+}
+
+// ── TASK DETAIL ──
+function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelete,onComment,onEditReq,onSign,onEdit}){
+  const [cmt,setCmt]=useState("");
+  const [note,setNote]=useState("");
+  const [showReq,setShowReq]=useState(false);
+  const [editMode,setEditMode]=useState(false);
+  const [ef,setEf]=useState({});
+  const botRef=useRef(null);
+  useEffect(()=>{setTimeout(()=>botRef.current?.scrollIntoView({behavior:"smooth"}),80)},[task.comments?.length]);
+
+  const a=TEAM.find(m=>m.id===task.assigned_to);
+  const cr=TEAM.find(m=>m.id===task.created_by);
+  const pm=PM[task.priority]||PM.Medium;
+  const od=isOD(task.deadline,task.status);
+  const sig=task.signed_by?.includes(userId);
+  const canSign=task.assigned_to===userId&&!sig&&task.status==="Done";
+  const canStatus=isAdmin||task.assigned_to===userId;
+  const inp={width:"100%",padding:"10px 13px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:14,color:"#111",outline:"none",background:"#fafafa",boxSizing:"border-box"};
+
+  return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",backdropFilter:"blur(5px)",zIndex:100,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div style={{background:"#fff",borderRadius:"22px 22px 0 0",width:"100%",maxWidth:480,maxHeight:"94vh",overflowY:"auto",animation:"slideUp 0.28s ease"}}>
+      <div style={{width:40,height:4,background:"#e5e7eb",borderRadius:4,margin:"12px auto 0"}}/>
+      <div style={{padding:"14px 20px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,background:"#fff",zIndex:1,borderBottom:"1px solid #f3f4f6"}}>
+        <button style={{background:"none",border:"none",fontSize:15,fontWeight:700,color:"#1a1a2e",padding:"5px 0"}} onClick={onClose}>← Back</button>
+        <div style={{display:"flex",gap:8}}>
+          {isAdmin&&!editMode&&<button style={{background:"#f3f4f6",border:"none",width:36,height:36,borderRadius:10,fontSize:16}} onClick={()=>{setEf({title:task.title,description:task.description||"",deadline:task.deadline||"",priority:task.priority,assigned_to:task.assigned_to});setEditMode(true)}}>✏️</button>}
+          {isAdmin&&<button style={{background:"#fef2f2",border:"none",width:36,height:36,borderRadius:10,fontSize:16,color:"#dc2626"}} onClick={()=>window.confirm("Delete this task?")&&onDelete()}>🗑</button>}
+        </div>
+      </div>
+
+      <div style={{padding:"16px 20px 44px",display:"flex",flexDirection:"column",gap:16}}>
+        {editMode&&isAdmin?<div style={{display:"flex",flexDirection:"column",gap:12}}>
+          <FL>Title</FL><input style={inp} value={ef.title} onChange={e=>setEf(f=>({...f,title:e.target.value}))}/>
+          <FL>Description</FL><textarea style={{...inp,minHeight:80}} value={ef.description} onChange={e=>setEf(f=>({...f,description:e.target.value}))}/>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <div><FL>Priority</FL><select style={inp} value={ef.priority} onChange={e=>setEf(f=>({...f,priority:e.target.value}))}>{PRIO.map(p=><option key={p}>{p}</option>)}</select></div>
+            <div><FL>Deadline</FL><input type="date" style={inp} value={ef.deadline} onChange={e=>setEf(f=>({...f,deadline:e.target.value}))}/></div>
+          </div>
+          <FL>Assign To</FL>
+          <select style={inp} value={ef.assigned_to} onChange={e=>setEf(f=>({...f,assigned_to:e.target.value}))}>{TEAM.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select>
+          <div style={{display:"flex",gap:8}}>
+            <button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:12,padding:"12px 20px",fontSize:14,fontWeight:700}} onClick={async()=>{await onEdit(ef);setEditMode(false)}}>Save</button>
+            <button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:12,padding:"10px 16px",fontSize:14,fontWeight:600}} onClick={()=>setEditMode(false)}>Cancel</button>
+          </div>
+        </div>:<>
+          <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+            <div style={{flex:1}}>
+              <h2 style={{fontSize:21,fontWeight:900,color:"#111",margin:0,lineHeight:1.25}}>{task.title}</h2>
+              <div style={{fontSize:12,color:"#9ca3af",marginTop:5}}>By {cr?.name} · {fD(task.created_at)}</div>
+            </div>
+            <span style={{display:"inline-flex",alignItems:"center",fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:20,background:pm.bg,color:pm.text,border:`1px solid ${pm.border}`,flexShrink:0}}>
+              <span style={{width:6,height:6,borderRadius:"50%",background:pm.dot,display:"inline-block",marginRight:4}}/>{task.priority}
+            </span>
+          </div>
+
+          {task.description&&<FS label="Description"><p style={{fontSize:14,color:"#374151",lineHeight:1.65,margin:0}}>{task.description}</p></FS>}
+
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <FS label="Assigned To">{a&&<div style={{display:"flex",alignItems:"center",gap:8}}><Av member={a} photo={profiles[a.id]} size={30}/><div><div style={{fontSize:13,fontWeight:600}}>{a.name}</div><div style={{fontSize:11,color:"#9ca3af"}}>{a.title}</div></div></div>}</FS>
+            <FS label="Deadline"><div style={{fontSize:15,fontWeight:700,color:od?"#dc2626":"#111"}}>{od?"⚠ ":""}{fD(task.deadline)}</div></FS>
+          </div>
+
+          <FS label="Status">
+            <div style={{display:"flex",flexWrap:"wrap",gap:7}}>
+              {STAT.map(s=>{const sm=SM[s];const active=task.status===s;
+                return <button key={s} disabled={!canStatus} className="mbtn"
+                  style={{padding:"7px 15px",borderRadius:20,fontSize:12,fontWeight:active?700:500,cursor:canStatus?"pointer":"default",border:`1.5px solid ${active?sm.text:"#e5e7eb"}`,background:active?sm.bg:"#fff",color:active?sm.text:"#9ca3af"}}
+                  onClick={()=>canStatus&&onStatusChange(s)}>{s}</button>;})}
+            </div>
+          </FS>
+
+          {task.signed_by?.length>0&&<FS label="Signed By"><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{task.signed_by.map(uid=>{const m=TEAM.find(t=>t.id===uid);return m?<Av key={uid} member={m} photo={profiles[uid]} size={30} title={m.name}/>:null})}</div></FS>}
+          {canSign&&<button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:12,padding:"12px 20px",fontSize:14,fontWeight:700}} onClick={onSign}>✅ Sign & Approve Task</button>}
+          {sig&&<div style={{fontSize:13,color:"#15803d",fontWeight:700}}>✅ You signed this task</div>}
+
+          {!isAdmin&&<div>
+            <button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:12,padding:"10px 16px",fontSize:14,fontWeight:600}} onClick={()=>setShowReq(!showReq)}>📝 Request Edit</button>
+            {showReq&&<div style={{display:"flex",flexDirection:"column",gap:8,marginTop:8}}>
+              <textarea placeholder="Describe what needs to change…" value={note} onChange={e=>setNote(e.target.value)} style={{...inp,minHeight:70}}/>
+              <button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:12,padding:"12px 20px",fontSize:14,fontWeight:700}} onClick={async()=>{await onEditReq(note);setNote("");setShowReq(false)}}>Send Request</button>
+            </div>}
+          </div>}
+
+          {isAdmin&&task.edit_requests?.length>0&&<FS label={`Edit Requests (${task.edit_requests.length})`}>
+            {task.edit_requests.map(r=>{const au=TEAM.find(m=>m.id===r.author);
+              return <div key={r.id} style={{background:"#fffbeb",border:"1px solid #fde68a",borderRadius:10,padding:"10px 12px",marginBottom:6}}>
+                <div style={{fontSize:11,color:"#9ca3af",marginBottom:3}}>{au?.name} · {fD(r.created_at)}</div>
+                <div style={{fontSize:13}}>{r.note}</div>
+              </div>;})}
+          </FS>}
+        </>}
+
+        <FS label={`Comments (${task.comments?.length||0})`}>
+          <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:10}}>
+            {task.comments?.map(c=>{const au=TEAM.find(m=>m.id===c.author);const me=c.author===userId;
+              return <div key={c.id} style={{display:"flex",flexDirection:me?"row-reverse":"row",alignItems:"flex-end",gap:7}}>
+                <Av member={au} photo={profiles[au?.id]} size={26}/>
+                <div style={{maxWidth:"73%",background:me?"#1a1a2e":"#f3f4f6",color:me?"#f0e6d3":"#111",borderRadius:me?"16px 16px 4px 16px":"16px 16px 16px 4px",padding:"9px 13px",fontSize:14,lineHeight:1.45}}>
+                  <div style={{fontSize:10,opacity:0.6,marginBottom:2}}>{au?.name?.split(" ")[0]} · {fT(c.created_at)}</div>
+                  {c.text}
+                </div>
+              </div>;})}
+            <div ref={botRef}/>
+          </div>
+          <div style={{display:"flex",gap:8,alignItems:"flex-end"}}>
+            <textarea value={cmt} onChange={e=>setCmt(e.target.value)} placeholder="Comment…"
+              onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();if(cmt.trim()){onComment(cmt.trim());setCmt("")}}}}
+              style={{...inp,flex:1,minHeight:44}}/>
+            <button className="mbtn" style={{width:46,height:46,borderRadius:"50%",flexShrink:0,background:"#1a1a2e",color:"#c9a96e",border:"none",fontSize:20}} onClick={()=>{if(cmt.trim()){onComment(cmt.trim());setCmt("")}}}>→</button>
+          </div>
+        </FS>
+      </div>
+    </div>
+  </div>;
+}
+
+// ── NEW TASK ──
+function NewTaskModal({onClose,onSave}){
+  const [f,setF]=useState({title:"",description:"",priority:"Medium",assignedTo:TEAM.find(m=>m.role==="member")?.id||"",deadline:""});
+  const set=(k,v)=>setF(p=>({...p,[k]:v}));
+  const inp={width:"100%",padding:"10px 13px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:14,color:"#111",outline:"none",background:"#fafafa",boxSizing:"border-box"};
+  return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",backdropFilter:"blur(5px)",zIndex:100,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div style={{background:"#fff",borderRadius:"22px 22px 0 0",width:"100%",maxWidth:480,maxHeight:"94vh",overflowY:"auto",animation:"slideUp 0.28s ease"}}>
+      <div style={{width:40,height:4,background:"#e5e7eb",borderRadius:4,margin:"12px auto 0"}}/>
+      <div style={{padding:"14px 20px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:"1px solid #f3f4f6"}}>
+        <div style={{fontSize:18,fontWeight:800,color:"#111"}}>New Task</div>
+        <button style={{background:"#f3f4f6",border:"none",width:36,height:36,borderRadius:10,fontSize:16}} onClick={onClose}>✕</button>
+      </div>
+      <div style={{padding:"16px 20px 44px",display:"flex",flexDirection:"column",gap:12}}>
+        <FL>Title *</FL><input style={inp} placeholder="Task title…" value={f.title} onChange={e=>set("title",e.target.value)}/>
+        <FL>Description</FL><textarea style={{...inp,minHeight:80}} placeholder="Details…" value={f.description} onChange={e=>set("description",e.target.value)}/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <div><FL>Priority</FL><select style={inp} value={f.priority} onChange={e=>set("priority",e.target.value)}>{PRIO.map(p=><option key={p}>{p}</option>)}</select></div>
+          <div><FL>Deadline</FL><input type="date" style={inp} value={f.deadline} onChange={e=>set("deadline",e.target.value)}/></div>
+        </div>
+        <FL>Assign To</FL>
+        <select style={inp} value={f.assignedTo} onChange={e=>set("assignedTo",e.target.value)}>{TEAM.map(m=><option key={m.id} value={m.id}>{m.name} — {m.title}</option>)}</select>
+        <button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:12,padding:"14px",fontSize:15,fontWeight:700,marginTop:4}}
+          onClick={async()=>{if(!f.title.trim())return alert("Title required");await onSave(f);onClose()}}>Create Task</button>
+      </div>
+    </div>
+  </div>;
+}
+
+// ── CHAT ──
+function Chat({messages,onSend,userId,profiles}){
+  const [text,setText]=useState("");
+  const botRef=useRef(null);
+  useEffect(()=>{setTimeout(()=>botRef.current?.scrollIntoView({behavior:"smooth"}),80)},[messages.length]);
+  const inp={width:"100%",padding:"10px 13px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:14,color:"#111",outline:"none",background:"#fafafa",boxSizing:"border-box"};
+  return <div style={{display:"flex",flexDirection:"column",height:"calc(100vh - 265px)",minHeight:300}}>
+    <div style={{padding:"0 20px 10px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <div style={{fontSize:15,fontWeight:700,color:"#111"}}>🏇 Muhra Team Chat</div>
+      <div style={{fontSize:11,color:"#9ca3af"}}>{TEAM.length} members · Live</div>
+    </div>
+    <div style={{flex:1,overflowY:"auto",padding:"10px 20px"}}>
+      {messages.length===0&&<div style={{textAlign:"center",color:"#9ca3af",paddingTop:60}}><div style={{fontSize:36,marginBottom:10}}>💬</div><div>No messages yet</div></div>}
+      {messages.map((m,i)=>{
+        const au=TEAM.find(t=>t.id===m.author);const me=m.author===userId;
+        const showName=!messages[i-1]||messages[i-1].author!==m.author;
+        return <div key={m.id} style={{display:"flex",flexDirection:me?"row-reverse":"row",alignItems:"flex-end",gap:8,marginBottom:showName?14:4}}>
+          {showName?<Av member={au} photo={profiles[au?.id]} size={28}/>:<div style={{width:28,flexShrink:0}}/>}
+          <div style={{maxWidth:"76%"}}>
+            {showName&&!me&&<div style={{fontSize:11,color:"#9ca3af",marginBottom:3,paddingLeft:4}}>{au?.name}</div>}
+            <div style={{background:me?"#1a1a2e":"#fff",color:me?"#f0e6d3":"#111",borderRadius:me?"16px 16px 4px 16px":"16px 16px 16px 4px",padding:"10px 14px",fontSize:14,lineHeight:1.45,boxShadow:"0 1px 4px rgba(0,0,0,0.07)"}}>{m.text}</div>
+            <div style={{fontSize:10,color:"#9ca3af",marginTop:3,textAlign:me?"right":"left",paddingLeft:4}}>{fT(m.created_at)}</div>
+          </div>
+        </div>;})}
+      <div ref={botRef}/>
+    </div>
+    <div style={{padding:"10px 20px 16px",display:"flex",gap:8,alignItems:"center",borderTop:"1px solid #ede9e3",background:"#f5f4f0"}}>
+      <input value={text} onChange={e=>setText(e.target.value)} placeholder="Type a message…"
+        onKeyDown={e=>{if(e.key==="Enter"&&text.trim()){onSend(text.trim());setText("")}}}
+        style={{...inp,flex:1,height:46}}/>
+      <button className="mbtn" style={{width:46,height:46,borderRadius:"50%",flexShrink:0,background:"#1a1a2e",color:"#c9a96e",border:"none",fontSize:20}}
+        onClick={()=>{if(text.trim()){onSend(text.trim());setText("")}}}>→</button>
+    </div>
+  </div>;
+}
+
+// ── PROFILE MANAGER ──
+function ProfileManager({profiles,onUpdate}){
+  const [open,setOpen]=useState(false);
+  const refs=useRef({});
+  return <div style={{margin:"4px 20px 16px"}}>
+    <button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:12,padding:"10px 16px",fontSize:14,fontWeight:600}} onClick={()=>setOpen(!open)}>{open?"▲ Hide Profiles":"👥 Manage Team Photos"}</button>
+    {open&&<div style={{background:"#fff",borderRadius:16,padding:16,marginTop:10,boxShadow:"0 2px 12px rgba(0,0,0,0.07)"}}>
+      <div style={{fontSize:10,color:"#9ca3af",fontWeight:700,letterSpacing:"0.8px",marginBottom:12}}>TEAM PROFILE PHOTOS</div>
+      {TEAM.map(m=><div key={m.id} style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
+        <Av member={m} photo={profiles[m.id]} size={44}/>
+        <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600}}>{m.name}</div><div style={{fontSize:11,color:"#9ca3af"}}>{m.title}</div></div>
+        <input type="file" accept="image/*" ref={el=>refs.current[m.id]=el} style={{display:"none"}} onChange={e=>{const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=()=>onUpdate(m.id,r.result);r.readAsDataURL(file)}}/>
+        <button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:10,padding:"6px 12px",fontSize:12,fontWeight:600}} onClick={()=>refs.current[m.id]?.click()}>{profiles[m.id]?"Change":"Upload"}</button>
+        {profiles[m.id]&&<button className="mbtn" style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:10,padding:"6px 10px",fontSize:12,fontWeight:600}} onClick={()=>onUpdate(m.id,null)}>✕</button>}
+      </div>)}
+    </div>}
+  </div>;
+}
+
+// ── MAIN APP ──
+function App(){
+  const [userId,setUserId]=useState(()=>lsG("muhra_uid_v3",null));
+  const [tasks,setTasks]=useState([]);
+  const [chat,setChat]=useState([]);
+  const [profiles,setProfiles]=useState({});
+  const [loading,setLoading]=useState(true);
+  const [dbError,setDbError]=useState(null);
+  const [tab,setTab]=useState("tasks");
+  const [selected,setSelected]=useState(null);
+  const [showNew,setShowNew]=useState(false);
+  const [filterSt,setFilterSt]=useState("All");
+  const [filterAs,setFilterAs]=useState("All");
+
+  const user=TEAM.find(m=>m.id===userId);
+  const isAdmin=user?.role==="admin";
+
+  useEffect(()=>{if(!userId){setLoading(false);return}loadAll()},[userId]);
+
+  async function loadAll(){
+    setLoading(true);
+    try{
+      const [{data:t,error:te},{data:c},{data:p}]=await Promise.all([
+        sb.from("tasks").select("*, comments(*), edit_requests(*)").order("created_at",{ascending:false}),
+        sb.from("chat").select("*").order("created_at"),
+        sb.from("profiles").select("*"),
+      ]);
+      if(te)throw te;
+      setTasks(t||[]);setChat(c||[]);
+      const pm={};(p||[]).forEach(r=>{pm[r.user_id]=r.photo_url});setProfiles(pm);
+      setDbError(null);
+    }catch(e){console.error(e);setDbError(true)}
+    setLoading(false);
+  }
+
+  useEffect(()=>{
+    if(!userId)return;
+    const ch1=sb.channel("rt-t").on("postgres_changes",{event:"*",schema:"public",table:"tasks"},refreshTasks).on("postgres_changes",{event:"*",schema:"public",table:"comments"},refreshTasks).on("postgres_changes",{event:"*",schema:"public",table:"edit_requests"},refreshTasks).subscribe();
+    const ch2=sb.channel("rt-c").on("postgres_changes",{event:"INSERT",schema:"public",table:"chat"},p=>setChat(prev=>[...prev,p.new])).subscribe();
+    const ch3=sb.channel("rt-p").on("postgres_changes",{event:"*",schema:"public",table:"profiles"},p=>setProfiles(prev=>({...prev,[p.new.user_id]:p.new.photo_url}))).subscribe();
+    return()=>{sb.removeChannel(ch1);sb.removeChannel(ch2);sb.removeChannel(ch3)};
+  },[userId]);
+
+  async function refreshTasks(){const{data}=await sb.from("tasks").select("*, comments(*), edit_requests(*)").order("created_at",{ascending:false});if(data){setTasks(data);setSelected(s=>s?data.find(t=>t.id===s.id)||s:null)}}
+  async function addTask(form){await sb.from("tasks").insert([{title:form.title,description:form.description,priority:form.priority,assigned_to:form.assignedTo,created_by:userId,deadline:form.deadline||null,status:"To Do",signed_by:[]}]);refreshTasks()}
+  async function updateTask(id,upd){const row={};if("status"in upd)row.status=upd.status;if("signed_by"in upd)row.signed_by=upd.signed_by;if("title"in upd)row.title=upd.title;if("description"in upd)row.description=upd.description;if("priority"in upd)row.priority=upd.priority;if("assigned_to"in upd)row.assigned_to=upd.assigned_to;if("deadline"in upd)row.deadline=upd.deadline||null;await sb.from("tasks").update(row).eq("id",id);refreshTasks()}
+  async function deleteTask(id){await sb.from("tasks").delete().eq("id",id);setSelected(null);refreshTasks()}
+  async function addComment(tid,text){await sb.from("comments").insert([{task_id:tid,author:userId,text}]);refreshTasks()}
+  async function addEditReq(tid,note){await sb.from("edit_requests").insert([{task_id:tid,author:userId,note}]);refreshTasks()}
+  async function signTask(tid){const task=tasks.find(t=>t.id===tid);if(!task||task.signed_by?.includes(userId))return;await updateTask(tid,{signed_by:[...(task.signed_by||[]),userId]})}
+  async function sendChat(text){await sb.from("chat").insert([{author:userId,text}])}
+  async function updateProfile(mid,dataUrl){await sb.from("profiles").upsert({user_id:mid,photo_url:dataUrl,updated_at:new Date().toISOString()});setProfiles(p=>({...p,[mid]:dataUrl}))}
+  function logout(){lsS("muhra_uid_v3",null);setUserId(null);setTasks([]);setChat([]);setSelected(null)}
+
+  const filtered=tasks.filter(t=>(filterSt==="All"||t.status===filterSt)&&(filterAs==="All"||t.assigned_to===filterAs));
+
+  if(!user)return <Login onLogin={id=>{lsS("muhra_uid_v3",id);setUserId(id)}}/>;
+
+  if(loading)return <div style={{minHeight:"100vh",background:"#1a1a2e",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:20}}>
+    <Shoe size={52} color="#c9a96e"/>
+    <div style={{color:"#c9a96e",fontSize:13,letterSpacing:3,animation:"pulse 1.4s ease infinite"}}>LOADING</div>
+  </div>;
+
+  if(dbError)return <div style={{minHeight:"100vh",background:"#1a1a2e",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16,padding:24,textAlign:"center"}}>
+    <Shoe size={48} color="#c9a96e"/>
+    <div style={{color:"#f87171",fontSize:17,fontWeight:700}}>Connection Error</div>
+    <div style={{color:"#9ca3af",fontSize:14,maxWidth:300,lineHeight:1.65}}>Could not connect to database. Check your internet and try again.</div>
+    <button onClick={loadAll} style={{background:"#c9a96e",color:"#1a1a2e",border:"none",borderRadius:10,padding:"11px 22px",fontWeight:700,fontSize:14}}>Try Again</button>
+    <button onClick={logout} style={{background:"transparent",color:"#9ca3af",border:"none",fontSize:13,marginTop:4}}>Back to Login</button>
+  </div>;
+
+  return <div style={{fontFamily:"'DM Sans','Segoe UI',sans-serif",background:"#f5f4f0",minHeight:"100vh",maxWidth:480,margin:"0 auto",paddingBottom:110}}>
+    {/* HEADER */}
+    <header style={{background:"#1a1a2e",padding:"14px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:50,boxShadow:"0 2px 18px rgba(0,0,0,0.35)"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10}}><Shoe size={26} color="#c9a96e"/><span style={{color:"#fff",fontSize:18,fontWeight:900,letterSpacing:"3px"}}>MUHRA</span></div>
+      <div style={{display:"flex",alignItems:"center",gap:10}}>
+        <div style={{textAlign:"right"}}><div style={{color:"#fff",fontSize:12,fontWeight:600}}>{user.name.split(" ")[0]}</div><div style={{color:"#c9a96e",fontSize:10}}>{isAdmin?"Admin":"Member"}</div></div>
+        <Av member={user} photo={profiles[user.id]} size={36} onClick={logout} title="Tap to logout"/>
+      </div>
+    </header>
+
+    {/* GREETING */}
+    <div style={{padding:"16px 20px 10px"}}>
+      <div style={{fontSize:19,fontWeight:800,color:"#111"}}>Hello, {user.name.split(" ")[0]} 👋</div>
+      <div style={{fontSize:12,color:"#9ca3af",marginTop:2}}>{user.title}</div>
+    </div>
+
+    {/* STATS */}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,padding:"0 20px 14px"}}>
+      {[["Mine",tasks.filter(t=>t.assigned_to===userId).length,"#1a1a2e"],["Urgent",tasks.filter(t=>t.priority==="Urgent"&&t.status!=="Done").length,"#dc2626"],["Done",tasks.filter(t=>t.status==="Done").length,"#15803d"],["Overdue",tasks.filter(t=>isOD(t.deadline,t.status)).length,"#ea580c"]].map(([label,val,color])=>
+        <div key={label} style={{background:"#fff",borderRadius:14,padding:"12px 8px",textAlign:"center",boxShadow:"0 1px 4px rgba(0,0,0,0.06)"}}>
+          <div style={{fontSize:26,fontWeight:900,color,lineHeight:1}}>{val}</div>
+          <div style={{fontSize:9,color:"#9ca3af",marginTop:3,fontWeight:700,letterSpacing:"0.7px"}}>{label.toUpperCase()}</div>
+        </div>
+      )}
+    </div>
+
+    {/* TABS */}
+    <div style={{padding:"0 20px 14px"}}>
+      <div style={{display:"flex",background:"#e5e4df",borderRadius:12,padding:4}}>
+        {[["tasks","📋 Tasks"],["chat","💬 Group Chat"]].map(([k,lbl])=>
+          <button key={k} className="mbtn" style={{flex:1,padding:"9px 0",border:"none",background:tab===k?"#fff":"transparent",borderRadius:10,fontSize:13,fontWeight:tab===k?700:600,color:tab===k?"#1a1a2e":"#9ca3af",boxShadow:tab===k?"0 1px 4px rgba(0,0,0,0.1)":"none"}} onClick={()=>setTab(k)}>{lbl}</button>
+        )}
+      </div>
+    </div>
+
+    {tab==="tasks"?<div>
+      {/* Filters */}
+      <div style={{padding:"0 20px 12px",display:"flex",flexDirection:"column",gap:8}}>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {["All",...STAT].map(s=><button key={s} className="mbtn"
+            style={{padding:"6px 13px",borderRadius:20,border:filterSt===s?"1.5px solid #1a1a2e":"1.5px solid #e5e7eb",background:filterSt===s?"#1a1a2e":"#fff",fontSize:12,fontWeight:filterSt===s?700:500,color:filterSt===s?"#c9a96e":"#6b7280"}}
+            onClick={()=>setFilterSt(s)}>{s}</button>)}
+        </div>
+        <select style={{padding:"8px 12px",borderRadius:10,border:"1.5px solid #e5e7eb",background:"#fff",fontSize:13,color:"#374151",outline:"none"}} value={filterAs} onChange={e=>setFilterAs(e.target.value)}>
+          <option value="All">All Members</option>
+          {TEAM.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
+        </select>
+      </div>
+
+      {/* Task list */}
+      <div style={{padding:"0 20px",display:"flex",flexDirection:"column",gap:10,marginBottom:12}}>
+        {filtered.length===0&&<div style={{textAlign:"center",padding:"50px 0",color:"#9ca3af"}}><div style={{fontSize:40,marginBottom:10}}>📋</div><div>No tasks found</div></div>}
+        {filtered.map(t=><TaskCard key={t.id} task={t} profiles={profiles} onClick={()=>setSelected(t)}/>)}
+      </div>
+
+      {isAdmin&&<ProfileManager profiles={profiles} onUpdate={updateProfile}/>}
+      {isAdmin&&<button className="mbtn" style={{position:"fixed",bottom:26,right:"max(22px,calc(50vw - 218px))",width:58,height:58,borderRadius:"50%",background:"#1a1a2e",color:"#c9a96e",border:"none",boxShadow:"0 4px 22px rgba(26,26,46,0.45)",fontSize:28,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setShowNew(true)}>＋</button>}
+      {showNew&&<NewTaskModal onClose={()=>setShowNew(false)} onSave={addTask}/>}
+      {selected&&<TaskDetail task={tasks.find(t=>t.id===selected.id)||selected} profiles={profiles} userId={userId} isAdmin={isAdmin} onClose={()=>setSelected(null)} onStatusChange={st=>updateTask(selected.id,{status:st})} onDelete={()=>deleteTask(selected.id)} onComment={text=>addComment(selected.id,text)} onEditReq={note=>addEditReq(selected.id,note)} onSign={()=>signTask(selected.id)} onEdit={upd=>updateTask(selected.id,upd)}/>}
+    </div>:<Chat messages={chat} onSend={sendChat} userId={userId} profiles={profiles}/>}
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
