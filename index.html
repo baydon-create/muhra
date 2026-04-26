@@ -160,17 +160,21 @@ function TaskCard({task,profiles,onClick}){
       {task.comments?.length>0&&<span style={{fontSize:11,color:"#9ca3af"}}>💬 {task.comments.length}</span>}
       {task.signed_by?.length>0&&<span style={{fontSize:11,color:"#15803d"}}>✅ {task.signed_by.length}</span>}
       {task.edit_requests?.length>0&&<span style={{fontSize:11,color:"#b45309"}}>📝 {task.edit_requests.length}</span>}
+      {task.attachments?.length>0&&<span style={{fontSize:11,color:"#6366f1"}}>📎 {task.attachments.length}</span>}
     </div>
   </div>;
 }
 
 // ── TASK DETAIL ──
-function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelete,onComment,onEditReq,onSign,onEdit}){
+function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelete,onComment,onEditReq,onSign,onEdit,onAttach}){
   const [cmt,setCmt]=useState("");
   const [note,setNote]=useState("");
   const [showReq,setShowReq]=useState(false);
   const [editMode,setEditMode]=useState(false);
   const [ef,setEf]=useState({});
+  const [uploading,setUploading]=useState(false);
+  const [lightbox,setLightbox]=useState(null);
+  const fileRef=useRef(null);
   const botRef=useRef(null);
   useEffect(()=>{setTimeout(()=>botRef.current?.scrollIntoView({behavior:"smooth"}),80)},[task.comments?.length]);
 
@@ -182,6 +186,32 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
   const canSign=task.assigned_to===userId&&!sig&&task.status==="Done";
   const canStatus=isAdmin||task.assigned_to===userId;
   const inp={width:"100%",padding:"10px 13px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:14,color:"#111",outline:"none",background:"#fafafa",boxSizing:"border-box"};
+
+  async function handleAttach(e){
+    const files=Array.from(e.target.files);
+    if(!files.length)return;
+    setUploading(true);
+    for(const file of files){
+      if(!file.type.startsWith("image/")){alert("Images only please");continue;}
+      if(file.size>5*1024*1024){alert("Max image size is 5MB");continue;}
+      await new Promise(res=>{
+        const reader=new FileReader();
+        reader.onload=async()=>{
+          const existing=task.attachments||[];
+          await onAttach([...existing,{id:Date.now().toString(36)+Math.random().toString(36).slice(2),dataUrl:reader.result,name:file.name,uploadedBy:userId,uploadedAt:new Date().toISOString()}]);
+          res();
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+    setUploading(false);
+    e.target.value="";
+  }
+
+  async function removeAttach(id){
+    if(!window.confirm("Remove this image?"))return;
+    await onAttach((task.attachments||[]).filter(at=>at.id!==id));
+  }
 
   return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",backdropFilter:"blur(5px)",zIndex:100,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
     <div style={{background:"#fff",borderRadius:"22px 22px 0 0",width:"100%",maxWidth:480,maxHeight:"94vh",overflowY:"auto",animation:"slideUp 0.28s ease"}}>
@@ -255,6 +285,26 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
               </div>;})}
           </FS>}
         </>}
+
+        <FS label={`Attachments (${task.attachments?.length||0})`}>
+          <input type="file" accept="image/*" multiple ref={fileRef} style={{display:"none"}} onChange={handleAttach}/>
+          {task.attachments?.length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(100px,1fr))",gap:8}}>
+            {task.attachments.map(at=>{const uploader=TEAM.find(m=>m.id===at.uploadedBy);
+              return <div key={at.id} style={{position:"relative",borderRadius:10,overflow:"hidden",aspectRatio:"1",background:"#f3f4f6",cursor:"pointer"}} onClick={()=>setLightbox(at)}>
+                <img src={at.dataUrl} alt={at.name} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                {(isAdmin||at.uploadedBy===userId)&&<button onClick={e=>{e.stopPropagation();removeAttach(at.id)}} style={{position:"absolute",top:4,right:4,width:20,height:20,borderRadius:"50%",background:"rgba(0,0,0,0.6)",color:"#fff",border:"none",fontSize:11,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>✕</button>}
+                {uploader&&<div style={{position:"absolute",bottom:0,left:0,right:0,background:"rgba(0,0,0,0.5)",color:"#fff",fontSize:9,padding:"2px 4px",textAlign:"center"}}>{uploader.initials}</div>}
+              </div>;})}
+          </div>}
+          <button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:10,padding:"9px 16px",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",gap:6}} onClick={()=>fileRef.current?.click()} disabled={uploading}>
+            {uploading?"⏳ Uploading…":"📎 Add Images"}
+          </button>
+        </FS>
+
+        {lightbox&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:200,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setLightbox(null)}>
+          <img src={lightbox.dataUrl} alt={lightbox.name} style={{maxWidth:"100%",maxHeight:"80vh",borderRadius:12,objectFit:"contain"}}/>
+          <div style={{color:"#9ca3af",fontSize:12,marginTop:12}}>{lightbox.name} · Tap anywhere to close</div>
+        </div>}
 
         <FS label={`Comments (${task.comments?.length||0})`}>
           <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:10}}>
@@ -407,7 +457,7 @@ function App(){
   },[userId]);
 
   async function refreshTasks(){const{data}=await sb.from("tasks").select("*, comments(*), edit_requests(*)").order("created_at",{ascending:false});if(data){setTasks(data);setSelected(s=>s?data.find(t=>t.id===s.id)||s:null)}}
-  async function addTask(form){await sb.from("tasks").insert([{title:form.title,description:form.description,priority:form.priority,assigned_to:form.assignedTo,created_by:userId,deadline:form.deadline||null,status:"To Do",signed_by:[]}]);refreshTasks()}
+  async function addTask(form){await sb.from("tasks").insert([{title:form.title,description:form.description,priority:form.priority,assigned_to:form.assignedTo,created_by:userId,deadline:form.deadline||null,status:"To Do",signed_by:[],attachments:[]}]);refreshTasks()}
   async function updateTask(id,upd){const row={};if("status"in upd)row.status=upd.status;if("signed_by"in upd)row.signed_by=upd.signed_by;if("title"in upd)row.title=upd.title;if("description"in upd)row.description=upd.description;if("priority"in upd)row.priority=upd.priority;if("assigned_to"in upd)row.assigned_to=upd.assigned_to;if("deadline"in upd)row.deadline=upd.deadline||null;await sb.from("tasks").update(row).eq("id",id);refreshTasks()}
   async function deleteTask(id){await sb.from("tasks").delete().eq("id",id);setSelected(null);refreshTasks()}
   async function addComment(tid,text){await sb.from("comments").insert([{task_id:tid,author:userId,text}]);refreshTasks()}
@@ -492,7 +542,7 @@ function App(){
       {isAdmin&&<ProfileManager profiles={profiles} onUpdate={updateProfile}/>}
       {isAdmin&&<button className="mbtn" style={{position:"fixed",bottom:26,right:"max(22px,calc(50vw - 218px))",width:58,height:58,borderRadius:"50%",background:"#1a1a2e",color:"#c9a96e",border:"none",boxShadow:"0 4px 22px rgba(26,26,46,0.45)",fontSize:28,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setShowNew(true)}>＋</button>}
       {showNew&&<NewTaskModal onClose={()=>setShowNew(false)} onSave={addTask}/>}
-      {selected&&<TaskDetail task={tasks.find(t=>t.id===selected.id)||selected} profiles={profiles} userId={userId} isAdmin={isAdmin} onClose={()=>setSelected(null)} onStatusChange={st=>updateTask(selected.id,{status:st})} onDelete={()=>deleteTask(selected.id)} onComment={text=>addComment(selected.id,text)} onEditReq={note=>addEditReq(selected.id,note)} onSign={()=>signTask(selected.id)} onEdit={upd=>updateTask(selected.id,upd)}/>}
+      {selected&&<TaskDetail task={tasks.find(t=>t.id===selected.id)||selected} profiles={profiles} userId={userId} isAdmin={isAdmin} onClose={()=>setSelected(null)} onStatusChange={st=>updateTask(selected.id,{status:st})} onDelete={()=>deleteTask(selected.id)} onComment={text=>addComment(selected.id,text)} onEditReq={note=>addEditReq(selected.id,note)} onSign={()=>signTask(selected.id)} onEdit={upd=>updateTask(selected.id,upd)} onAttach={imgs=>updateTask(selected.id,{attachments:imgs})}/>}
     </div>:<Chat messages={chat} onSend={sendChat} userId={userId} profiles={profiles}/>}
   </div>;
 }
