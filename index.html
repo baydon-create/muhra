@@ -368,10 +368,15 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
                       onClick={async()=>{
                         const noteText=editingNote.text.trim();
                         const targetId=at.id;
-                        const {data:latest}=await sb.from("tasks").select("attachments").eq("id",task.id).single();
-                        const fresh=(latest?.attachments||task.attachments||[]);
-                        const updated=fresh.map(a=>a.id===targetId?{...a,note:noteText}:a);
-                        await onAttach(updated);setEditingNote(null);
+                        try{
+                          // Fetch absolute latest from DB, apply note, write back directly
+                          const {data:row}=await sb.from("tasks").select("attachments").eq("id",task.id).single();
+                          const baseList=Array.isArray(row?.attachments)?row.attachments:(task.attachments||[]);
+                          const updated=baseList.map(a=>a.id===targetId?{...a,note:noteText}:a);
+                          const {error}=await sb.from("tasks").update({attachments:updated}).eq("id",task.id);
+                          if(error){alert("Failed to save note: "+error.message);return;}
+                          setEditingNote(null);
+                        }catch(err){alert("Error saving note: "+err.message);}
                       }}>Save Note</button>
                     <button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:9,padding:"8px 14px",fontSize:13,fontWeight:600}}
                       onClick={()=>setEditingNote(null)}>Cancel</button>
