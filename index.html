@@ -9,8 +9,9 @@
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Alexandria:wght@400;500;600;700;800;900&display=swap');
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
-body{font-family:'DM Sans','Segoe UI',sans-serif;background:#f5f4f0;min-height:100vh}
+body{font-family:'Century Gothic','Nunito',Futura,'Trebuchet MS',sans-serif;background:#f5f4f0;min-height:100vh}
 @keyframes slideUp{from{transform:translateY(28px);opacity:0}to{transform:translateY(0);opacity:1}}
 @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
 @keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
@@ -19,8 +20,8 @@ body{font-family:'DM Sans','Segoe UI',sans-serif;background:#f5f4f0;min-height:1
 .mbtn:active{transform:scale(0.96)}
 .mcard{transition:all 0.18s;cursor:pointer}
 .mcard:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,0,0,0.1)!important}
-button{font-family:'DM Sans','Segoe UI',sans-serif;cursor:pointer}
-input,textarea,select{font-family:'DM Sans','Segoe UI',sans-serif}
+button{font-family:'Century Gothic','Nunito',Futura,'Trebuchet MS',sans-serif;cursor:pointer}
+input,textarea,select{font-family:'Century Gothic','Nunito',Futura,'Trebuchet MS',sans-serif}
 textarea{resize:none}
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:4px}
@@ -53,6 +54,25 @@ const fT=iso=>{if(!iso)return"";return new Date(iso).toLocaleTimeString("en-GB",
 const isOD=(dl,st)=>dl&&new Date(dl)<new Date()&&st!=="Done";
 const lsG=(k,fb)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):fb}catch{return fb}};
 const lsS=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
+
+const isArabic=str=>/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(str);
+const arabicStyle={fontFamily:"'Alexandria',sans-serif",direction:"rtl",textAlign:"right",unicodeBidi:"embed"};
+
+function SmartText({text,style={}}){
+  if(!text)return null;
+  const urlRegex=/(https?:\/\/[^\s]+)/g;
+  const parts=text.split(urlRegex);
+  const hasArabic=isArabic(text);
+  return <span style={{wordBreak:"break-word",overflowWrap:"anywhere",whiteSpace:"pre-wrap",...style,...(hasArabic?arabicStyle:{})}}>
+    {parts.map((part,i)=>
+      urlRegex.test(part)
+        ?<a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{color:"#2563eb",textDecoration:"underline",wordBreak:"break-all"}}>{part}</a>
+        :<span key={i}>{part}</span>
+    )}
+  </span>;
+}
+function Linkify({text}){return <SmartText text={text}/>;}
+
 
 function Shoe({size=28,color="#c9a96e"}){
   return <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
@@ -145,8 +165,8 @@ function TaskCard({task,profiles,onClick}){
   return <div className="mcard" style={{background:"#fff",borderRadius:14,padding:"14px 16px",boxShadow:"0 1px 5px rgba(0,0,0,0.06)",borderLeft:`4px solid ${pm.dot}`}} onClick={onClick}>
     <div style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:10}}>
       <div style={{flex:1}}>
-        <div style={{fontSize:15,fontWeight:700,color:"#111",lineHeight:1.3}}>{task.title}</div>
-        {task.description&&<div style={{fontSize:13,color:"#6b7280",marginTop:3,lineHeight:1.4}}>{task.description.slice(0,85)}{task.description.length>85?"…":""}</div>}
+        <div style={{fontSize:15,fontWeight:700,color:"#111",lineHeight:1.3}}><SmartText text={task.title}/></div>
+        {task.description&&<div style={{fontSize:13,color:"#6b7280",marginTop:3,lineHeight:1.4}}><SmartText text={task.description.slice(0,85)+(task.description.length>85?'…':'')}/></div>}
       </div>
       <span style={{display:"inline-flex",alignItems:"center",fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:20,background:pm.bg,color:pm.text,border:`1px solid ${pm.border}`,flexShrink:0}}>
         <span style={{width:6,height:6,borderRadius:"50%",background:pm.dot,display:"inline-block",marginRight:4}}/>
@@ -241,7 +261,7 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
         </div>:<>
           <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
             <div style={{flex:1}}>
-              <h2 style={{fontSize:21,fontWeight:900,color:"#111",margin:0,lineHeight:1.25}}>{task.title}</h2>
+              <h2 style={{fontSize:21,fontWeight:900,color:"#111",margin:0,lineHeight:1.25}}><SmartText text={task.title}/></h2>
               <div style={{fontSize:12,color:"#9ca3af",marginTop:5}}>By {cr?.name} · {fD(task.created_at)}</div>
             </div>
             <span style={{display:"inline-flex",alignItems:"center",fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:20,background:pm.bg,color:pm.text,border:`1px solid ${pm.border}`,flexShrink:0}}>
@@ -249,7 +269,7 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
             </span>
           </div>
 
-          {task.description&&<FS label="Description"><p style={{fontSize:14,color:"#374151",lineHeight:1.65,margin:0}}>{task.description}</p></FS>}
+          {task.description&&<FS label="Description"><p style={{fontSize:14,color:"#374151",lineHeight:1.65,margin:0,wordBreak:"break-word",overflowWrap:"anywhere"}}><Linkify text={task.description}/></p></FS>}
 
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
             <FS label="Assigned To">{a&&<div style={{display:"flex",alignItems:"center",gap:8}}><Av member={a} photo={profiles[a.id]} size={30}/><div><div style={{fontSize:13,fontWeight:600}}>{a.name}</div><div style={{fontSize:11,color:"#9ca3af"}}>{a.title}</div></div></div>}</FS>
@@ -309,11 +329,11 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
         <FS label={`Comments (${task.comments?.length||0})`}>
           <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:10}}>
             {task.comments?.map(c=>{const au=TEAM.find(m=>m.id===c.author);const me=c.author===userId;
-              return <div key={c.id} style={{display:"flex",flexDirection:me?"row-reverse":"row",alignItems:"flex-end",gap:7}}>
+              return <div key={c.id} style={{display:"flex",flexDirection:me?"row-reverse":"row",alignItems:"flex-end",gap:7,minWidth:0,overflow:"hidden"}}>
                 <Av member={au} photo={profiles[au?.id]} size={26}/>
-                <div style={{maxWidth:"73%",background:me?"#1a1a2e":"#f3f4f6",color:me?"#f0e6d3":"#111",borderRadius:me?"16px 16px 4px 16px":"16px 16px 16px 4px",padding:"9px 13px",fontSize:14,lineHeight:1.45}}>
+                <div style={{maxWidth:"73%",minWidth:0,background:me?"#1a1a2e":"#f3f4f6",color:me?"#f0e6d3":"#111",borderRadius:me?"16px 16px 4px 16px":"16px 16px 16px 4px",padding:"9px 13px",fontSize:14,lineHeight:1.45,wordBreak:"break-word",overflowWrap:"anywhere"}}>
                   <div style={{fontSize:10,opacity:0.6,marginBottom:2}}>{au?.name?.split(" ")[0]} · {fT(c.created_at)}</div>
-                  {c.text}
+                  <Linkify text={c.text}/>
                 </div>
               </div>;})}
             <div ref={botRef}/>
@@ -378,7 +398,7 @@ function Chat({messages,onSend,userId,profiles}){
           {showName?<Av member={au} photo={profiles[au?.id]} size={28}/>:<div style={{width:28,flexShrink:0}}/>}
           <div style={{maxWidth:"76%"}}>
             {showName&&!me&&<div style={{fontSize:11,color:"#9ca3af",marginBottom:3,paddingLeft:4}}>{au?.name}</div>}
-            <div style={{background:me?"#1a1a2e":"#fff",color:me?"#f0e6d3":"#111",borderRadius:me?"16px 16px 4px 16px":"16px 16px 16px 4px",padding:"10px 14px",fontSize:14,lineHeight:1.45,boxShadow:"0 1px 4px rgba(0,0,0,0.07)"}}>{m.text}</div>
+            <div style={{background:me?"#1a1a2e":"#fff",color:me?"#f0e6d3":"#111",borderRadius:me?"16px 16px 4px 16px":"16px 16px 16px 4px",padding:"10px 14px",fontSize:14,lineHeight:1.45,boxShadow:"0 1px 4px rgba(0,0,0,0.07)"}}><SmartText text={m.text}/></div>
             <div style={{fontSize:10,color:"#9ca3af",marginTop:3,textAlign:me?"right":"left",paddingLeft:4}}>{fT(m.created_at)}</div>
           </div>
         </div>;})}
@@ -458,7 +478,7 @@ function App(){
 
   async function refreshTasks(){const{data}=await sb.from("tasks").select("*, comments(*), edit_requests(*)").order("created_at",{ascending:false});if(data){setTasks(data);setSelected(s=>s?data.find(t=>t.id===s.id)||s:null)}}
   async function addTask(form){await sb.from("tasks").insert([{title:form.title,description:form.description,priority:form.priority,assigned_to:form.assignedTo,created_by:userId,deadline:form.deadline||null,status:"To Do",signed_by:[],attachments:[]}]);refreshTasks()}
-  async function updateTask(id,upd){const row={};if("status"in upd)row.status=upd.status;if("signed_by"in upd)row.signed_by=upd.signed_by;if("title"in upd)row.title=upd.title;if("description"in upd)row.description=upd.description;if("priority"in upd)row.priority=upd.priority;if("assigned_to"in upd)row.assigned_to=upd.assigned_to;if("deadline"in upd)row.deadline=upd.deadline||null;await sb.from("tasks").update(row).eq("id",id);refreshTasks()}
+  async function updateTask(id,upd){const row={};if("status"in upd)row.status=upd.status;if("signed_by"in upd)row.signed_by=upd.signed_by;if("title"in upd)row.title=upd.title;if("description"in upd)row.description=upd.description;if("priority"in upd)row.priority=upd.priority;if("assigned_to"in upd)row.assigned_to=upd.assigned_to;if("deadline"in upd)row.deadline=upd.deadline||null;if("attachments"in upd)row.attachments=upd.attachments;await sb.from("tasks").update(row).eq("id",id);refreshTasks()}
   async function deleteTask(id){await sb.from("tasks").delete().eq("id",id);setSelected(null);refreshTasks()}
   async function addComment(tid,text){await sb.from("comments").insert([{task_id:tid,author:userId,text}]);refreshTasks()}
   async function addEditReq(tid,note){await sb.from("edit_requests").insert([{task_id:tid,author:userId,note}]);refreshTasks()}
@@ -484,7 +504,7 @@ function App(){
     <button onClick={logout} style={{background:"transparent",color:"#9ca3af",border:"none",fontSize:13,marginTop:4}}>Back to Login</button>
   </div>;
 
-  return <div style={{fontFamily:"'DM Sans','Segoe UI',sans-serif",background:"#f5f4f0",minHeight:"100vh",maxWidth:960,margin:"0 auto",paddingBottom:110}}>
+  return <div style={{fontFamily:"'Century Gothic','Nunito',Futura,'Trebuchet MS',sans-serif",background:"#f5f4f0",minHeight:"100vh",maxWidth:960,margin:"0 auto",paddingBottom:110}}>
     {/* HEADER */}
     <header style={{background:"#f5efe6",padding:"10px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:50,boxShadow:"0 1px 12px rgba(0,0,0,0.08)",borderBottom:"1px solid #e8ddd0"}}>
       <img src="https://cdn.shopify.com/s/files/1/0679/6984/3251/files/logo_muhra.png?v=1777114424" alt="Muhra" style={{height:38,objectFit:"contain"}}/>
