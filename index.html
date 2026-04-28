@@ -344,9 +344,9 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
                 <div style={{position:"relative",cursor:"pointer"}} onClick={()=>!isEditingThis&&setLightbox(at)}>
                   <img src={at.url||at.dataUrl} alt={at.name} style={{width:"100%",maxHeight:200,objectFit:"cover",display:"block"}}/>
                   <div style={{position:"absolute",top:6,right:6,display:"flex",gap:4}}>
-                    {canEdit&&<button onClick={e=>{e.stopPropagation();setEditingNote(isEditingThis?null:{id:at.id,text:at.note||""})}}
-                      style={{background:"rgba(0,0,0,0.6)",color:"#fff",border:"none",borderRadius:8,padding:"4px 8px",fontSize:11,fontWeight:600,cursor:"pointer"}}>
-                      {isEditingThis?"✕":"📝 Note"}
+                    {canEdit&&<button className="mbtn" onClick={e=>{e.stopPropagation();setEditingNote(isEditingThis?null:{id:at.id,text:at.note||""})}}
+                      style={{background:"rgba(26,26,46,0.85)",color:"#c9a96e",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer",backdropFilter:"blur(4px)"}}>
+                      {isEditingThis?"✕ Close":"📝 Note"}
                     </button>}
                     {canEdit&&<button onClick={e=>{e.stopPropagation();removeAttach(at.id)}}
                       style={{background:"rgba(220,38,38,0.8)",color:"#fff",border:"none",borderRadius:8,padding:"4px 8px",fontSize:11,fontWeight:600,cursor:"pointer"}}>🗑</button>}
@@ -358,16 +358,20 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
                   <span style={{fontSize:10,color:"#9ca3af",fontWeight:700,marginRight:6}}>NOTE</span>
                   <SmartText text={at.note}/>
                 </div>}
-                {!isEditingThis&&!at.note&&canEdit&&<div style={{padding:"6px 12px",fontSize:12,color:"#9ca3af",borderTop:"1px solid #f3f4f6",background:"#fff",cursor:"pointer"}} onClick={()=>setEditingNote({id:at.id,text:""})}>+ Add a note to this image…</div>}
+                {!isEditingThis&&!at.note&&canEdit&&<button className="mbtn" onClick={()=>setEditingNote({id:at.id,text:""})} style={{width:"100%",padding:"8px 12px",fontSize:12,color:"#9ca3af",borderTop:"1px solid #f3f4f6",background:"#fff",border:"none",textAlign:"left",cursor:"pointer",display:"block"}}>+ Add a note to this image…</button>}
                 {/* Note editor */}
                 {isEditingThis&&<div style={{padding:10,borderTop:"1px solid #e5e7eb",background:"#fff",display:"flex",flexDirection:"column",gap:8}}>
                   <textarea placeholder="Add a note to this image…" value={editingNote.text} onChange={e=>setEditingNote(n=>({...n,text:e.target.value}))}
-                    style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1.5px solid #e5e7eb",fontSize:13,outline:"none",background:"#fafafa",boxSizing:"border-box",minHeight:70,resize:"none"}} autoFocus/>
+                    style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1.5px solid #1a1a2e",fontSize:13,outline:"none",background:"#fff",boxSizing:"border-box",minHeight:80,resize:"none"}} autoFocus/>
                   <div style={{display:"flex",gap:8}}>
                     <button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:9,padding:"8px 16px",fontSize:13,fontWeight:700,flex:1}}
-                      onClick={()=>{
-                        const updated=(task.attachments||[]).map(a=>a.id===at.id?{...a,note:editingNote.text.trim()}:a);
-                        onAttach(updated);setEditingNote(null);
+                      onClick={async()=>{
+                        const noteText=editingNote.text.trim();
+                        const targetId=at.id;
+                        const {data:latest}=await sb.from("tasks").select("attachments").eq("id",task.id).single();
+                        const fresh=(latest?.attachments||task.attachments||[]);
+                        const updated=fresh.map(a=>a.id===targetId?{...a,note:noteText}:a);
+                        await onAttach(updated);setEditingNote(null);
                       }}>Save Note</button>
                     <button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:9,padding:"8px 14px",fontSize:13,fontWeight:600}}
                       onClick={()=>setEditingNote(null)}>Cancel</button>
