@@ -215,26 +215,37 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
   async function handleAttach(e){
     const files=Array.from(e.target.files).filter(f=>f.type.startsWith("image/"));
     if(!files.length)return;
-    const oversized=files.filter(f=>f.size>5*1024*1024);
-    if(oversized.length){alert(`${oversized.length} image(s) exceed 5MB and will be skipped`)}
-    const validFiles=files.filter(f=>f.size<=5*1024*1024);
+    const oversized=files.filter(f=>f.size>10*1024*1024);
+    if(oversized.length){alert(`${oversized.length} image(s) exceed 10MB and will be skipped`);}
+    const validFiles=files.filter(f=>f.size<=10*1024*1024);
     if(!validFiles.length)return;
     setUploading(true);
-    // Read ALL files first, then save once with complete array
-    const newItems=await Promise.all(validFiles.map(file=>new Promise(res=>{
-      const reader=new FileReader();
-      reader.onload=()=>res({id:Date.now().toString(36)+Math.random().toString(36).slice(2),dataUrl:reader.result,name:file.name,uploadedBy:userId,uploadedAt:new Date().toISOString()});
-      reader.readAsDataURL(file);
-    })));
-    const existing=task.attachments||[];
-    await onAttach([...existing,...newItems]);
+    const newItems=[];
+    for(const file of validFiles){
+      try{
+        const ext=file.name.split(".").pop();
+        const path=`${task.id}/${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}.${ext}`;
+        const {data,error}=await sb.storage.from("task-attachments").upload(path,file,{cacheControl:"3600",upsert:false});
+        if(error){console.error(error);alert(`Failed to upload ${file.name}: ${error.message}`);continue;}
+        const {data:{publicUrl}}=sb.storage.from("task-attachments").getPublicUrl(path);
+        newItems.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2),url:publicUrl,path,name:file.name,uploadedBy:userId,uploadedAt:new Date().toISOString(),note:""});
+      }catch(err){console.error(err);alert(`Error uploading ${file.name}`);}
+    }
+    if(newItems.length>0){
+      const existing=task.attachments||[];
+      await onAttach([...existing,...newItems]);
+    }
     setUploading(false);
     e.target.value="";
   }
 
   async function removeAttach(id){
     if(!window.confirm("Remove this image?"))return;
-    await onAttach((task.attachments||[]).filter(at=>at.id!==id));
+    const at=(task.attachments||[]).find(a=>a.id===id);
+    if(at?.path){
+      await sb.storage.from("task-attachments").remove([at.path]);
+    }
+    await onAttach((task.attachments||[]).filter(a=>a.id!==id));
   }
 
   return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",backdropFilter:"blur(5px)",zIndex:100,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
@@ -320,7 +331,7 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
               return <div key={at.id} style={{background:"#f8f7f4",border:"1.5px solid #e5e7eb",borderRadius:12,overflow:"hidden"}}>
                 {/* Image row */}
                 <div style={{position:"relative",cursor:"pointer"}} onClick={()=>!isEditingThis&&setLightbox(at)}>
-                  <img src={at.dataUrl} alt={at.name} style={{width:"100%",maxHeight:200,objectFit:"cover",display:"block"}}/>
+                  <img src={at.url||at.dataUrl} alt={at.name} style={{width:"100%",maxHeight:200,objectFit:"cover",display:"block"}}/>
                   <div style={{position:"absolute",top:6,right:6,display:"flex",gap:4}}>
                     {canEdit&&<button onClick={e=>{e.stopPropagation();setEditingNote(isEditingThis?null:{id:at.id,text:at.note||""})}}
                       style={{background:"rgba(0,0,0,0.6)",color:"#fff",border:"none",borderRadius:8,padding:"4px 8px",fontSize:11,fontWeight:600,cursor:"pointer"}}>
@@ -359,7 +370,7 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
         </FS>
 
         {lightbox&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:200,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setLightbox(null)}>
-          <img src={lightbox.dataUrl} alt={lightbox.name} style={{maxWidth:"100%",maxHeight:"75vh",borderRadius:12,objectFit:"contain"}}/>
+          <img src={lightbox.url||lightbox.dataUrl} alt={lightbox.name} style={{maxWidth:"100%",maxHeight:"75vh",borderRadius:12,objectFit:"contain"}}/>
           {lightbox.note&&<div style={{color:"#f0e6d3",fontSize:14,marginTop:12,textAlign:"center",maxWidth:340,lineHeight:1.5,background:"rgba(255,255,255,0.1)",padding:"8px 16px",borderRadius:10}}>{lightbox.note}</div>}
           <div style={{color:"#9ca3af",fontSize:11,marginTop:8}}>Tap anywhere to close</div>
         </div>}
