@@ -198,6 +198,7 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
   const [newLinkName,setNewLinkName]=useState("");
   const [newLinkUrl,setNewLinkUrl]=useState("");
   const [showAddLink,setShowAddLink]=useState(false);
+  const [editingNote,setEditingNote]=useState(null); // {id, text}
   const fileRef=useRef(null);
   const botRef=useRef(null);
   useEffect(()=>{setTimeout(()=>botRef.current?.scrollIntoView({behavior:"smooth"}),80)},[task.comments?.length]);
@@ -311,12 +312,45 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
 
         <FS label={`Attachments (${task.attachments?.length||0})`}>
           <input type="file" accept="image/*" multiple ref={fileRef} style={{display:"none"}} onChange={handleAttach}/>
-          {task.attachments?.length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(100px,1fr))",gap:8}}>
-            {task.attachments.map(at=>{const uploader=TEAM.find(m=>m.id===at.uploadedBy);
-              return <div key={at.id} style={{position:"relative",borderRadius:10,overflow:"hidden",aspectRatio:"1",background:"#f3f4f6",cursor:"pointer"}} onClick={()=>setLightbox(at)}>
-                <img src={at.dataUrl} alt={at.name} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
-                {(isAdmin||at.uploadedBy===userId)&&<button onClick={e=>{e.stopPropagation();removeAttach(at.id)}} style={{position:"absolute",top:4,right:4,width:20,height:20,borderRadius:"50%",background:"rgba(0,0,0,0.6)",color:"#fff",border:"none",fontSize:11,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>✕</button>}
-                {uploader&&<div style={{position:"absolute",bottom:0,left:0,right:0,background:"rgba(0,0,0,0.5)",color:"#fff",fontSize:9,padding:"2px 4px",textAlign:"center"}}>{uploader.initials}</div>}
+          {task.attachments?.length>0&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {task.attachments.map(at=>{
+              const uploader=TEAM.find(m=>m.id===at.uploadedBy);
+              const canEdit=isAdmin||at.uploadedBy===userId;
+              const isEditingThis=editingNote?.id===at.id;
+              return <div key={at.id} style={{background:"#f8f7f4",border:"1.5px solid #e5e7eb",borderRadius:12,overflow:"hidden"}}>
+                {/* Image row */}
+                <div style={{position:"relative",cursor:"pointer"}} onClick={()=>!isEditingThis&&setLightbox(at)}>
+                  <img src={at.dataUrl} alt={at.name} style={{width:"100%",maxHeight:200,objectFit:"cover",display:"block"}}/>
+                  <div style={{position:"absolute",top:6,right:6,display:"flex",gap:4}}>
+                    {canEdit&&<button onClick={e=>{e.stopPropagation();setEditingNote(isEditingThis?null:{id:at.id,text:at.note||""})}}
+                      style={{background:"rgba(0,0,0,0.6)",color:"#fff",border:"none",borderRadius:8,padding:"4px 8px",fontSize:11,fontWeight:600,cursor:"pointer"}}>
+                      {isEditingThis?"✕":"📝 Note"}
+                    </button>}
+                    {canEdit&&<button onClick={e=>{e.stopPropagation();removeAttach(at.id)}}
+                      style={{background:"rgba(220,38,38,0.8)",color:"#fff",border:"none",borderRadius:8,padding:"4px 8px",fontSize:11,fontWeight:600,cursor:"pointer"}}>🗑</button>}
+                  </div>
+                  {uploader&&<div style={{position:"absolute",bottom:6,left:8,background:"rgba(0,0,0,0.55)",color:"#fff",fontSize:10,padding:"2px 7px",borderRadius:20,fontWeight:600}}>{uploader.name.split(" ")[0]}</div>}
+                </div>
+                {/* Note display */}
+                {!isEditingThis&&at.note&&<div style={{padding:"8px 12px",fontSize:13,color:"#374151",lineHeight:1.5,borderTop:"1px solid #e5e7eb",background:"#fff"}}>
+                  <span style={{fontSize:10,color:"#9ca3af",fontWeight:700,marginRight:6}}>NOTE</span>
+                  <SmartText text={at.note}/>
+                </div>}
+                {!isEditingThis&&!at.note&&canEdit&&<div style={{padding:"6px 12px",fontSize:12,color:"#9ca3af",borderTop:"1px solid #f3f4f6",background:"#fff",cursor:"pointer"}} onClick={()=>setEditingNote({id:at.id,text:""})}>+ Add a note to this image…</div>}
+                {/* Note editor */}
+                {isEditingThis&&<div style={{padding:10,borderTop:"1px solid #e5e7eb",background:"#fff",display:"flex",flexDirection:"column",gap:8}}>
+                  <textarea placeholder="Add a note to this image…" value={editingNote.text} onChange={e=>setEditingNote(n=>({...n,text:e.target.value}))}
+                    style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1.5px solid #e5e7eb",fontSize:13,outline:"none",background:"#fafafa",boxSizing:"border-box",minHeight:70,resize:"none"}} autoFocus/>
+                  <div style={{display:"flex",gap:8}}>
+                    <button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:9,padding:"8px 16px",fontSize:13,fontWeight:700,flex:1}}
+                      onClick={()=>{
+                        const updated=(task.attachments||[]).map(a=>a.id===at.id?{...a,note:editingNote.text.trim()}:a);
+                        onAttach(updated);setEditingNote(null);
+                      }}>Save Note</button>
+                    <button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:9,padding:"8px 14px",fontSize:13,fontWeight:600}}
+                      onClick={()=>setEditingNote(null)}>Cancel</button>
+                  </div>
+                </div>}
               </div>;})}
           </div>}
           <button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:10,padding:"9px 16px",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",gap:6}} onClick={()=>fileRef.current?.click()} disabled={uploading}>
@@ -325,8 +359,9 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
         </FS>
 
         {lightbox&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:200,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setLightbox(null)}>
-          <img src={lightbox.dataUrl} alt={lightbox.name} style={{maxWidth:"100%",maxHeight:"80vh",borderRadius:12,objectFit:"contain"}}/>
-          <div style={{color:"#9ca3af",fontSize:12,marginTop:12}}>{lightbox.name} · Tap anywhere to close</div>
+          <img src={lightbox.dataUrl} alt={lightbox.name} style={{maxWidth:"100%",maxHeight:"75vh",borderRadius:12,objectFit:"contain"}}/>
+          {lightbox.note&&<div style={{color:"#f0e6d3",fontSize:14,marginTop:12,textAlign:"center",maxWidth:340,lineHeight:1.5,background:"rgba(255,255,255,0.1)",padding:"8px 16px",borderRadius:10}}>{lightbox.note}</div>}
+          <div style={{color:"#9ca3af",fontSize:11,marginTop:8}}>Tap anywhere to close</div>
         </div>}
 
         <FS label={`Resources & Links (${task.links?.length||0})`}>
