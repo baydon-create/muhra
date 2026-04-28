@@ -212,22 +212,21 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
   const inp={width:"100%",padding:"10px 13px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:14,color:"#111",outline:"none",background:"#fafafa",boxSizing:"border-box"};
 
   async function handleAttach(e){
-    const files=Array.from(e.target.files);
+    const files=Array.from(e.target.files).filter(f=>f.type.startsWith("image/"));
     if(!files.length)return;
+    const oversized=files.filter(f=>f.size>5*1024*1024);
+    if(oversized.length){alert(`${oversized.length} image(s) exceed 5MB and will be skipped`)}
+    const validFiles=files.filter(f=>f.size<=5*1024*1024);
+    if(!validFiles.length)return;
     setUploading(true);
-    for(const file of files){
-      if(!file.type.startsWith("image/")){alert("Images only please");continue;}
-      if(file.size>5*1024*1024){alert("Max image size is 5MB");continue;}
-      await new Promise(res=>{
-        const reader=new FileReader();
-        reader.onload=async()=>{
-          const existing=task.attachments||[];
-          await onAttach([...existing,{id:Date.now().toString(36)+Math.random().toString(36).slice(2),dataUrl:reader.result,name:file.name,uploadedBy:userId,uploadedAt:new Date().toISOString()}]);
-          res();
-        };
-        reader.readAsDataURL(file);
-      });
-    }
+    // Read ALL files first, then save once with complete array
+    const newItems=await Promise.all(validFiles.map(file=>new Promise(res=>{
+      const reader=new FileReader();
+      reader.onload=()=>res({id:Date.now().toString(36)+Math.random().toString(36).slice(2),dataUrl:reader.result,name:file.name,uploadedBy:userId,uploadedAt:new Date().toISOString()});
+      reader.readAsDataURL(file);
+    })));
+    const existing=task.attachments||[];
+    await onAttach([...existing,...newItems]);
     setUploading(false);
     e.target.value="";
   }
