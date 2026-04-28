@@ -158,7 +158,7 @@ function Login({onLogin}){
 
 // ── TASK CARD ──
 function TaskCard({task,profiles,onClick}){
-  const a=TEAM.find(m=>m.id===task.assigned_to);
+  const assignees=(Array.isArray(task.assigned_to)?task.assigned_to:[task.assigned_to]).filter(Boolean).map(id=>TEAM.find(m=>m.id===id)).filter(Boolean);
   const pm=PM[task.priority]||PM.Medium;
   const sm=SM[task.status]||SM["To Do"];
   const od=isOD(task.deadline,task.status);
@@ -174,7 +174,7 @@ function TaskCard({task,profiles,onClick}){
       </span>
     </div>
     <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
-      {a&&<div style={{display:"flex",alignItems:"center",gap:5}}><Av member={a} photo={profiles[a.id]} size={22}/><span style={{fontSize:12,color:"#6b7280"}}>{a.name.split(" ")[0]}</span></div>}
+      {assignees.length>0&&<div style={{display:"flex",alignItems:"center",gap:3}}>{assignees.map(a=><Av key={a.id} member={a} photo={profiles[a.id]} size={22} title={a.name}/>)}<span style={{fontSize:12,color:"#6b7280",marginLeft:4}}>{assignees.length===1?assignees[0].name.split(" ")[0]:`${assignees.length} members`}</span></div>}
       <span style={{display:"inline-flex",alignItems:"center",fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:20,background:sm.bg,color:sm.text,border:`1px solid ${sm.border}`}}>{task.status}</span>
       {task.deadline&&<span style={{fontSize:11,color:od?"#dc2626":"#9ca3af",fontWeight:od?700:400}}>{od?"⚠ ":"📅 "}{fD(task.deadline)}</span>}
       {task.comments?.length>0&&<span style={{fontSize:11,color:"#9ca3af"}}>💬 {task.comments.length}</span>}
@@ -203,13 +203,14 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
   const botRef=useRef(null);
   useEffect(()=>{setTimeout(()=>botRef.current?.scrollIntoView({behavior:"smooth"}),80)},[task.comments?.length]);
 
-  const a=TEAM.find(m=>m.id===task.assigned_to);
+  const assignees=(Array.isArray(task.assigned_to)?task.assigned_to:[task.assigned_to]).filter(Boolean).map(id=>TEAM.find(m=>m.id===id)).filter(Boolean);
   const cr=TEAM.find(m=>m.id===task.created_by);
   const pm=PM[task.priority]||PM.Medium;
   const od=isOD(task.deadline,task.status);
   const sig=task.signed_by?.includes(userId);
-  const canSign=task.assigned_to===userId&&!sig&&task.status==="Done";
-  const canStatus=isAdmin||task.assigned_to===userId;
+  const assignedIds=(Array.isArray(task.assigned_to)?task.assigned_to:[task.assigned_to]).filter(Boolean);
+  const canSign=assignedIds.includes(userId)&&!sig&&task.status==="Done";
+  const canStatus=isAdmin||assignedIds.includes(userId);
   const inp={width:"100%",padding:"10px 13px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:14,color:"#111",outline:"none",background:"#fafafa",boxSizing:"border-box"};
 
   async function handleAttach(e){
@@ -254,7 +255,7 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
       <div style={{padding:"14px 20px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,background:"#fff",zIndex:1,borderBottom:"1px solid #f3f4f6"}}>
         <button style={{background:"none",border:"none",fontSize:15,fontWeight:700,color:"#1a1a2e",padding:"5px 0"}} onClick={onClose}>← Back</button>
         <div style={{display:"flex",gap:8}}>
-          {isAdmin&&!editMode&&<button style={{background:"#f3f4f6",border:"none",width:36,height:36,borderRadius:10,fontSize:16}} onClick={()=>{setEf({title:task.title,description:task.description||"",deadline:task.deadline||"",priority:task.priority,assigned_to:task.assigned_to});setEditMode(true)}}>✏️</button>}
+          {isAdmin&&!editMode&&<button style={{background:"#f3f4f6",border:"none",width:36,height:36,borderRadius:10,fontSize:16}} onClick={()=>{setEf({title:task.title,description:task.description||"",deadline:task.deadline||"",priority:task.priority,assigned_to:Array.isArray(task.assigned_to)?task.assigned_to:[task.assigned_to].filter(Boolean)});setEditMode(true)}}>✏️</button>}
           {isAdmin&&<button style={{background:"#fef2f2",border:"none",width:36,height:36,borderRadius:10,fontSize:16,color:"#dc2626"}} onClick={()=>window.confirm("Delete this task?")&&onDelete()}>🗑</button>}
         </div>
       </div>
@@ -267,8 +268,18 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
             <div><FL>Priority</FL><select style={inp} value={ef.priority} onChange={e=>setEf(f=>({...f,priority:e.target.value}))}>{PRIO.map(p=><option key={p}>{p}</option>)}</select></div>
             <div><FL>Deadline</FL><input type="date" style={inp} value={ef.deadline} onChange={e=>setEf(f=>({...f,deadline:e.target.value}))}/></div>
           </div>
-          <FL>Assign To</FL>
-          <select style={inp} value={ef.assigned_to} onChange={e=>setEf(f=>({...f,assigned_to:e.target.value}))}>{TEAM.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select>
+          <FL>Assign To (select one or more)</FL>
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {TEAM.map(m=>{const sel=(Array.isArray(ef.assigned_to)?ef.assigned_to:[ef.assigned_to]).filter(Boolean).includes(m.id);
+              const toggleEf=()=>setEf(f=>{const cur=(Array.isArray(f.assigned_to)?f.assigned_to:[f.assigned_to]).filter(Boolean);return {...f,assigned_to:cur.includes(m.id)?cur.filter(x=>x!==m.id):[...cur,m.id]};});
+              return <div key={m.id} onClick={toggleEf} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",borderRadius:10,border:`1.5px solid ${sel?"#1a1a2e":"#e5e7eb"}`,background:sel?"#f0f0f8":"#fafafa",cursor:"pointer"}}>
+                <Av member={m} photo={profiles[m.id]} size={26}/>
+                <div style={{flex:1,fontSize:13,fontWeight:600,color:"#111"}}>{m.name}</div>
+                <div style={{width:18,height:18,borderRadius:5,border:`2px solid ${sel?"#1a1a2e":"#d1d5db"}`,background:sel?"#1a1a2e":"#fff",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  {sel&&<span style={{color:"#c9a96e",fontSize:12,fontWeight:900}}>✓</span>}
+                </div>
+              </div>;})}
+          </div>
           <div style={{display:"flex",gap:8}}>
             <button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:12,padding:"12px 20px",fontSize:14,fontWeight:700}} onClick={async()=>{await onEdit(ef);setEditMode(false)}}>Save</button>
             <button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:12,padding:"10px 16px",fontSize:14,fontWeight:600}} onClick={()=>setEditMode(false)}>Cancel</button>
@@ -287,7 +298,7 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
           {task.description&&<FS label="Description"><p style={{fontSize:14,color:"#374151",lineHeight:1.65,margin:0,wordBreak:"break-word",overflowWrap:"anywhere"}}><Linkify text={task.description}/></p></FS>}
 
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            <FS label="Assigned To">{a&&<div style={{display:"flex",alignItems:"center",gap:8}}><Av member={a} photo={profiles[a.id]} size={30}/><div><div style={{fontSize:13,fontWeight:600}}>{a.name}</div><div style={{fontSize:11,color:"#9ca3af"}}>{a.title}</div></div></div>}</FS>
+            <FS label={`Assigned To (${assignees.length})`}><div style={{display:"flex",flexDirection:"column",gap:6}}>{assignees.map(a=><div key={a.id} style={{display:"flex",alignItems:"center",gap:8}}><Av member={a} photo={profiles[a.id]} size={28}/><div><div style={{fontSize:13,fontWeight:600}}>{a.name}</div><div style={{fontSize:11,color:"#9ca3af"}}>{a.title}</div></div></div>)}</div></FS>
             <FS label="Deadline"><div style={{fontSize:15,fontWeight:700,color:od?"#dc2626":"#111"}}>{od?"⚠ ":""}{fD(task.deadline)}</div></FS>
           </div>
 
@@ -431,8 +442,9 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
 
 // ── NEW TASK ──
 function NewTaskModal({onClose,onSave}){
-  const [f,setF]=useState({title:"",description:"",priority:"Medium",assignedTo:TEAM.find(m=>m.role==="member")?.id||"",deadline:""});
+  const [f,setF]=useState({title:"",description:"",priority:"Medium",assignedTo:[],deadline:""});
   const set=(k,v)=>setF(p=>({...p,[k]:v}));
+  const toggleMember=(id)=>setF(p=>({...p,assignedTo:p.assignedTo.includes(id)?p.assignedTo.filter(x=>x!==id):[...p.assignedTo,id]}));
   const inp={width:"100%",padding:"10px 13px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:14,color:"#111",outline:"none",background:"#fafafa",boxSizing:"border-box"};
   return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",backdropFilter:"blur(5px)",zIndex:100,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
     <div style={{background:"#fff",borderRadius:"22px 22px 0 0",width:"100%",maxWidth:480,maxHeight:"94vh",overflowY:"auto",animation:"slideUp 0.28s ease"}}>
@@ -448,10 +460,19 @@ function NewTaskModal({onClose,onSave}){
           <div><FL>Priority</FL><select style={inp} value={f.priority} onChange={e=>set("priority",e.target.value)}>{PRIO.map(p=><option key={p}>{p}</option>)}</select></div>
           <div><FL>Deadline</FL><input type="date" style={inp} value={f.deadline} onChange={e=>set("deadline",e.target.value)}/></div>
         </div>
-        <FL>Assign To</FL>
-        <select style={inp} value={f.assignedTo} onChange={e=>set("assignedTo",e.target.value)}>{TEAM.map(m=><option key={m.id} value={m.id}>{m.name} — {m.title}</option>)}</select>
+        <FL>Assign To (select one or more)</FL>
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          {TEAM.map(m=>{const sel=f.assignedTo.includes(m.id);return <div key={m.id} onClick={()=>toggleMember(m.id)}
+            style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:10,border:`1.5px solid ${sel?"#1a1a2e":"#e5e7eb"}`,background:sel?"#f0f0f8":"#fafafa",cursor:"pointer",transition:"all 0.15s"}}>
+            <Av member={m} photo={{}} size={30}/>
+            <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,color:"#111"}}>{m.name}</div><div style={{fontSize:11,color:"#9ca3af"}}>{m.title}</div></div>
+            <div style={{width:20,height:20,borderRadius:6,border:`2px solid ${sel?"#1a1a2e":"#d1d5db"}`,background:sel?"#1a1a2e":"#fff",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              {sel&&<span style={{color:"#c9a96e",fontSize:13,fontWeight:900}}>✓</span>}
+            </div>
+          </div>;})}
+        </div>
         <button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:12,padding:"14px",fontSize:15,fontWeight:700,marginTop:4}}
-          onClick={async()=>{if(!f.title.trim())return alert("Title required");await onSave(f);onClose()}}>Create Task</button>
+          onClick={async()=>{if(!f.title.trim())return alert("Title required");if(!f.assignedTo.length)return alert("Please select at least one team member");await onSave(f);onClose()}}>Create Task</button>
       </div>
     </div>
   </div>;
@@ -566,7 +587,7 @@ function App(){
   async function updateProfile(mid,dataUrl){await sb.from("profiles").upsert({user_id:mid,photo_url:dataUrl,updated_at:new Date().toISOString()});setProfiles(p=>({...p,[mid]:dataUrl}))}
   function logout(){lsS("muhra_uid_v3",null);setUserId(null);setTasks([]);setChat([]);setSelected(null)}
 
-  const filtered=tasks.filter(t=>(filterSt==="All"||t.status===filterSt)&&(filterAs==="All"||t.assigned_to===filterAs));
+  const filtered=tasks.filter(t=>(filterSt==="All"||t.status===filterSt)&&(filterAs==="All"||(Array.isArray(t.assigned_to)?t.assigned_to.includes(filterAs):t.assigned_to===filterAs)));
 
   if(!user)return <Login onLogin={id=>{lsS("muhra_uid_v3",id);setUserId(id)}}/>;
 
@@ -601,7 +622,7 @@ function App(){
 
     {/* STATS */}
     <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,padding:"0 20px 14px"}}>
-      {[["Mine",tasks.filter(t=>t.assigned_to===userId).length,"#1a1a2e"],["Urgent",tasks.filter(t=>t.priority==="Urgent"&&t.status!=="Done").length,"#dc2626"],["Done",tasks.filter(t=>t.status==="Done").length,"#15803d"],["Overdue",tasks.filter(t=>isOD(t.deadline,t.status)).length,"#ea580c"]].map(([label,val,color])=>
+      {[["Mine",tasks.filter(t=>Array.isArray(t.assigned_to)?t.assigned_to.includes(userId):t.assigned_to===userId).length,"#1a1a2e"],["Urgent",tasks.filter(t=>t.priority==="Urgent"&&t.status!=="Done").length,"#dc2626"],["Done",tasks.filter(t=>t.status==="Done").length,"#15803d"],["Overdue",tasks.filter(t=>isOD(t.deadline,t.status)).length,"#ea580c"]].map(([label,val,color])=>
         <div key={label} style={{background:"#fff",borderRadius:14,padding:"12px 8px",textAlign:"center",boxShadow:"0 1px 4px rgba(0,0,0,0.06)"}}>
           <div style={{fontSize:26,fontWeight:900,color,lineHeight:1}}>{val}</div>
           <div style={{fontSize:9,color:"#9ca3af",marginTop:3,fontWeight:700,letterSpacing:"0.7px"}}>{label.toUpperCase()}</div>
