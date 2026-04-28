@@ -181,12 +181,13 @@ function TaskCard({task,profiles,onClick}){
       {task.signed_by?.length>0&&<span style={{fontSize:11,color:"#15803d"}}>✅ {task.signed_by.length}</span>}
       {task.edit_requests?.length>0&&<span style={{fontSize:11,color:"#b45309"}}>📝 {task.edit_requests.length}</span>}
       {task.attachments?.length>0&&<span style={{fontSize:11,color:"#6366f1"}}>📎 {task.attachments.length}</span>}
+      {task.links?.length>0&&<span style={{fontSize:11,color:"#2563eb"}}>🔗 {task.links.length}</span>}
     </div>
   </div>;
 }
 
 // ── TASK DETAIL ──
-function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelete,onComment,onEditReq,onSign,onEdit,onAttach}){
+function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelete,onComment,onEditReq,onSign,onEdit,onAttach,onLinks}){
   const [cmt,setCmt]=useState("");
   const [note,setNote]=useState("");
   const [showReq,setShowReq]=useState(false);
@@ -194,6 +195,9 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
   const [ef,setEf]=useState({});
   const [uploading,setUploading]=useState(false);
   const [lightbox,setLightbox]=useState(null);
+  const [newLinkName,setNewLinkName]=useState("");
+  const [newLinkUrl,setNewLinkUrl]=useState("");
+  const [showAddLink,setShowAddLink]=useState(false);
   const fileRef=useRef(null);
   const botRef=useRef(null);
   useEffect(()=>{setTimeout(()=>botRef.current?.scrollIntoView({behavior:"smooth"}),80)},[task.comments?.length]);
@@ -325,6 +329,36 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
           <img src={lightbox.dataUrl} alt={lightbox.name} style={{maxWidth:"100%",maxHeight:"80vh",borderRadius:12,objectFit:"contain"}}/>
           <div style={{color:"#9ca3af",fontSize:12,marginTop:12}}>{lightbox.name} · Tap anywhere to close</div>
         </div>}
+
+        <FS label={`Resources & Links (${task.links?.length||0})`}>
+          {task.links?.length>0&&<div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {task.links.map((lk,i)=><div key={lk.id} style={{display:"flex",alignItems:"center",gap:10,background:"#f8f7f4",border:"1.5px solid #e5e7eb",borderRadius:10,padding:"10px 12px"}}>
+              <span style={{fontSize:16,flexShrink:0}}>🔗</span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:700,color:"#1a1a2e",marginBottom:2}}>{lk.name}</div>
+                <a href={lk.url} target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:"#2563eb",textDecoration:"underline",wordBreak:"break-all",overflowWrap:"anywhere"}}>{lk.url}</a>
+              </div>
+              {(isAdmin||lk.addedBy===userId)&&<button onClick={()=>{if(window.confirm("Remove this link?"))onLinks((task.links||[]).filter(l=>l.id!==lk.id))}} style={{background:"none",border:"none",color:"#9ca3af",fontSize:16,flexShrink:0,padding:4,cursor:"pointer"}}>✕</button>}
+            </div>)}
+          </div>}
+          {showAddLink?<div style={{display:"flex",flexDirection:"column",gap:8,background:"#f0fdf4",border:"1.5px solid #bbf7d0",borderRadius:12,padding:12}}>
+            <input placeholder="Link name (e.g. Product Sheet, Google Doc…)" value={newLinkName} onChange={e=>setNewLinkName(e.target.value)}
+              style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1.5px solid #e5e7eb",fontSize:13,outline:"none",background:"#fff",boxSizing:"border-box"}}/>
+            <input placeholder="URL (https://…)" value={newLinkUrl} onChange={e=>setNewLinkUrl(e.target.value)}
+              style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1.5px solid #e5e7eb",fontSize:13,outline:"none",background:"#fff",boxSizing:"border-box"}}/>
+            <div style={{display:"flex",gap:8}}>
+              <button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:10,padding:"9px 16px",fontSize:13,fontWeight:700,flex:1}}
+                onClick={()=>{
+                  if(!newLinkName.trim())return alert("Please enter a link name");
+                  if(!newLinkUrl.trim()||!newLinkUrl.startsWith("http"))return alert("Please enter a valid URL starting with http");
+                  const updated=[...(task.links||[]),{id:Date.now().toString(36)+Math.random().toString(36).slice(2),name:newLinkName.trim(),url:newLinkUrl.trim(),addedBy:userId,addedAt:new Date().toISOString()}];
+                  onLinks(updated);setNewLinkName("");setNewLinkUrl("");setShowAddLink(false);
+                }}>Add Link</button>
+              <button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:10,padding:"9px 14px",fontSize:13,fontWeight:600}}
+                onClick={()=>{setShowAddLink(false);setNewLinkName("");setNewLinkUrl("");}}>Cancel</button>
+            </div>
+          </div>:<button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:10,padding:"9px 16px",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",gap:6}} onClick={()=>setShowAddLink(true)}>🔗 Add Resource Link</button>}
+        </FS>
 
         <FS label={`Comments (${task.comments?.length||0})`}>
           <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:10}}>
@@ -477,8 +511,8 @@ function App(){
   },[userId]);
 
   async function refreshTasks(){const{data}=await sb.from("tasks").select("*, comments(*), edit_requests(*)").order("created_at",{ascending:false});if(data){setTasks(data);setSelected(s=>s?data.find(t=>t.id===s.id)||s:null)}}
-  async function addTask(form){await sb.from("tasks").insert([{title:form.title,description:form.description,priority:form.priority,assigned_to:form.assignedTo,created_by:userId,deadline:form.deadline||null,status:"To Do",signed_by:[],attachments:[]}]);refreshTasks()}
-  async function updateTask(id,upd){const row={};if("status"in upd)row.status=upd.status;if("signed_by"in upd)row.signed_by=upd.signed_by;if("title"in upd)row.title=upd.title;if("description"in upd)row.description=upd.description;if("priority"in upd)row.priority=upd.priority;if("assigned_to"in upd)row.assigned_to=upd.assigned_to;if("deadline"in upd)row.deadline=upd.deadline||null;if("attachments"in upd)row.attachments=upd.attachments;await sb.from("tasks").update(row).eq("id",id);refreshTasks()}
+  async function addTask(form){await sb.from("tasks").insert([{title:form.title,description:form.description,priority:form.priority,assigned_to:form.assignedTo,created_by:userId,deadline:form.deadline||null,status:"To Do",signed_by:[],attachments:[],links:[]}]);refreshTasks()}
+  async function updateTask(id,upd){const row={};if("status"in upd)row.status=upd.status;if("signed_by"in upd)row.signed_by=upd.signed_by;if("title"in upd)row.title=upd.title;if("description"in upd)row.description=upd.description;if("priority"in upd)row.priority=upd.priority;if("assigned_to"in upd)row.assigned_to=upd.assigned_to;if("deadline"in upd)row.deadline=upd.deadline||null;if("attachments"in upd)row.attachments=upd.attachments;if("links"in upd)row.links=upd.links;await sb.from("tasks").update(row).eq("id",id);refreshTasks()}
   async function deleteTask(id){await sb.from("tasks").delete().eq("id",id);setSelected(null);refreshTasks()}
   async function addComment(tid,text){await sb.from("comments").insert([{task_id:tid,author:userId,text}]);refreshTasks()}
   async function addEditReq(tid,note){await sb.from("edit_requests").insert([{task_id:tid,author:userId,note}]);refreshTasks()}
@@ -562,7 +596,7 @@ function App(){
       {isAdmin&&<ProfileManager profiles={profiles} onUpdate={updateProfile}/>}
       {isAdmin&&<button className="mbtn" style={{position:"fixed",bottom:26,right:"max(22px,calc(50vw - 218px))",width:58,height:58,borderRadius:"50%",background:"#1a1a2e",color:"#c9a96e",border:"none",boxShadow:"0 4px 22px rgba(26,26,46,0.45)",fontSize:28,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setShowNew(true)}>＋</button>}
       {showNew&&<NewTaskModal onClose={()=>setShowNew(false)} onSave={addTask}/>}
-      {selected&&<TaskDetail task={tasks.find(t=>t.id===selected.id)||selected} profiles={profiles} userId={userId} isAdmin={isAdmin} onClose={()=>setSelected(null)} onStatusChange={st=>updateTask(selected.id,{status:st})} onDelete={()=>deleteTask(selected.id)} onComment={text=>addComment(selected.id,text)} onEditReq={note=>addEditReq(selected.id,note)} onSign={()=>signTask(selected.id)} onEdit={upd=>updateTask(selected.id,upd)} onAttach={imgs=>updateTask(selected.id,{attachments:imgs})}/>}
+      {selected&&<TaskDetail task={tasks.find(t=>t.id===selected.id)||selected} profiles={profiles} userId={userId} isAdmin={isAdmin} onClose={()=>setSelected(null)} onStatusChange={st=>updateTask(selected.id,{status:st})} onDelete={()=>deleteTask(selected.id)} onComment={text=>addComment(selected.id,text)} onEditReq={note=>addEditReq(selected.id,note)} onSign={()=>signTask(selected.id)} onEdit={upd=>updateTask(selected.id,upd)} onAttach={imgs=>updateTask(selected.id,{attachments:imgs})} onLinks={links=>updateTask(selected.id,{links:links})}/>}
     </div>:<Chat messages={chat} onSend={sendChat} userId={userId} profiles={profiles}/>}
   </div>;
 }
