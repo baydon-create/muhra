@@ -74,6 +74,25 @@ function SmartText({text,style={}}){
 function Linkify({text}){return <SmartText text={text}/>;}
 
 
+function CommentText({text,profiles}){
+  if(!text)return null;
+  const urlRegex=/(https?:\/\/[^\s]+)/g;
+  const mentionRegex=/(@\w+)/g;
+  const combined=/(https?:\/\/[^\s]+|@\w+)/g;
+  const parts=text.split(combined);
+  return <span style={{wordBreak:"break-word",overflowWrap:"anywhere",whiteSpace:"pre-wrap"}}>
+    {parts.map((part,i)=>{
+      if(urlRegex.test(part))return <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{color:"#60a5fa",textDecoration:"underline",wordBreak:"break-all"}}>{part}</a>;
+      if(mentionRegex.test(part)){
+        const name=part.slice(1);
+        const member=TEAM.find(m=>m.name.split(" ")[0].toLowerCase()===name.toLowerCase());
+        return <span key={i} style={{background:member?"rgba(201,169,110,0.25)":"rgba(150,150,150,0.15)",color:member?"#c9a96e":"#6b7280",fontWeight:700,borderRadius:4,padding:"1px 4px"}}>{part}</span>;
+      }
+      return <span key={i}>{part}</span>;
+    })}
+  </span>;
+}
+
 function Shoe({size=28,color="#c9a96e"}){
   return <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
     <path d="M50 8 C23 8 8 27 8 48 C8 71 27 88 43 88 L43 73 C31 73 20 62 20 48 C20 33 33 20 50 20 C67 20 80 33 80 48 C80 62 69 73 57 73 L57 88 C73 88 92 71 92 48 C92 27 77 8 50 8Z" fill={color}/>
@@ -238,6 +257,29 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
     }
     setUploading(false);
     e.target.value="";
+  }
+
+  function insertMention(name){
+    const tag="@"+name.split(" ")[0]+" ";
+    setCmt(prev=>prev+tag);
+    setShowMentions(false);
+    setTimeout(()=>cmtRef.current?.focus(),50);
+  }
+
+  async function handleEditComment(commentId, newText){
+    if(!newText.trim())return;
+    await sb.from("comments").update({text:newText.trim(),edited:true}).eq("id",commentId);
+    setEditingComment(null);
+    refreshTasks();
+  }
+
+  async function toggleLike(commentId){
+    const comment=task.comments?.find(c=>c.id===commentId);
+    if(!comment)return;
+    const likes=comment.likes||[];
+    const updated=likes.includes(userId)?likes.filter(id=>id!==userId):[...likes,userId];
+    await sb.from("comments").update({likes:updated}).eq("id",commentId);
+    refreshTasks();
   }
 
   async function removeAttach(id){
@@ -426,22 +468,79 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
         </FS>
 
         <FS label={`Comments (${task.comments?.length||0})`}>
-          <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:10}}>
-            {task.comments?.map(c=>{const au=TEAM.find(m=>m.id===c.author);const me=c.author===userId;
-              return <div key={c.id} style={{display:"flex",flexDirection:me?"row-reverse":"row",alignItems:"flex-end",gap:7,minWidth:0,overflow:"hidden"}}>
+          <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:10}}>
+            {task.comments?.map(c=>{
+              const au=TEAM.find(m=>m.id===c.author);
+              const me=c.author===userId;
+              const likes=c.likes||[];
+              const iLiked=likes.includes(userId);
+              const isEditingThis=editingComment?.id===c.id;
+              return <div key={c.id} style={{display:"flex",flexDirection:me?"row-reverse":"row",alignItems:"flex-end",gap:7,minWidth:0}}>
                 <Av member={au} photo={profiles[au?.id]} size={26}/>
-                <div style={{maxWidth:"73%",minWidth:0,background:me?"#1a1a2e":"#f3f4f6",color:me?"#f0e6d3":"#111",borderRadius:me?"16px 16px 4px 16px":"16px 16px 16px 4px",padding:"9px 13px",fontSize:14,lineHeight:1.45,wordBreak:"break-word",overflowWrap:"anywhere"}}>
-                  <div style={{fontSize:10,opacity:0.6,marginBottom:2}}>{au?.name?.split(" ")[0]} · {fT(c.created_at)}</div>
-                  <Linkify text={c.text}/>
+                <div style={{maxWidth:"78%",minWidth:0,display:"flex",flexDirection:"column",gap:3}}>
+                  {/* Bubble */}
+                  {isEditingThis?
+                    <div style={{background:me?"#1a1a2e":"#f3f4f6",borderRadius:"14px",padding:"8px 10px",display:"flex",flexDirection:"column",gap:6}}>
+                      <textarea value={editingComment.text} onChange={e=>setEditingComment(ec=>({...ec,text:e.target.value}))} autoFocus
+                        style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1.5px solid #c9a96e",fontSize:13,outline:"none",background:"rgba(255,255,255,0.15)",color:me?"#fff":"#111",boxSizing:"border-box",minHeight:60,resize:"none"}}/>
+                      <div style={{display:"flex",gap:6}}>
+                        <button className="mbtn" style={{background:"#c9a96e",color:"#1a1a2e",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,flex:1}}
+                          onClick={()=>handleEditComment(c.id,editingComment.text)}>Save</button>
+                        <button className="mbtn" style={{background:"rgba(255,255,255,0.2)",color:me?"#fff":"#374151",border:"none",borderRadius:8,padding:"5px 10px",fontSize:12}}
+                          onClick={()=>setEditingComment(null)}>Cancel</button>
+                      </div>
+                    </div>
+                  :
+                    <div style={{background:me?"#1a1a2e":"#f3f4f6",color:me?"#f0e6d3":"#111",borderRadius:me?"16px 16px 4px 16px":"16px 16px 16px 4px",padding:"9px 13px",fontSize:14,lineHeight:1.45,wordBreak:"break-word",overflowWrap:"anywhere"}}>
+                      <div style={{fontSize:10,opacity:0.6,marginBottom:3,display:"flex",alignItems:"center",gap:6}}>
+                        <span>{au?.name?.split(" ")[0]} · {fT(c.created_at)}</span>
+                        {c.edited&&<span style={{fontStyle:"italic"}}>(edited)</span>}
+                      </div>
+                      <CommentText text={c.text} profiles={profiles}/>
+                    </div>
+                  }
+                  {/* Actions row */}
+                  {!isEditingThis&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"0 4px",flexDirection:me?"row-reverse":"row"}}>
+                    {/* Like button */}
+                    <button className="mbtn" onClick={()=>toggleLike(c.id)}
+                      style={{background:"none",border:"none",fontSize:12,cursor:"pointer",color:iLiked?"#e53e3e":"#9ca3af",display:"flex",alignItems:"center",gap:3,padding:"2px 0"}}>
+                      {iLiked?"❤️":"🤍"}{likes.length>0&&<span style={{fontSize:11,color:iLiked?"#e53e3e":"#9ca3af"}}>{likes.length}</span>}
+                    </button>
+                    {/* Who liked */}
+                    {likes.length>0&&<div style={{display:"flex",gap:2}}>
+                      {likes.slice(0,3).map(uid=>{const m=TEAM.find(t=>t.id===uid);return m?<Av key={uid} member={m} photo={profiles[uid]} size={14} title={m.name}/>:null})}
+                    </div>}
+                    {/* Edit button - only own comments */}
+                    {me&&!isEditingThis&&<button className="mbtn" onClick={()=>setEditingComment({id:c.id,text:c.text})}
+                      style={{background:"none",border:"none",fontSize:11,cursor:"pointer",color:"#9ca3af",padding:"2px 0"}}>✏️ Edit</button>}
+                  </div>}
                 </div>
               </div>;})}
             <div ref={botRef}/>
           </div>
+
+          {/* Mention picker */}
+          {showMentions&&<div style={{background:"#fff",border:"1.5px solid #e5e7eb",borderRadius:12,padding:8,marginBottom:8,boxShadow:"0 4px 12px rgba(0,0,0,0.1)"}}>
+            <div style={{fontSize:11,color:"#9ca3af",fontWeight:700,letterSpacing:"0.5px",marginBottom:6,paddingLeft:4}}>MENTION A TEAM MEMBER</div>
+            {TEAM.filter(m=>m.id!==userId).map(m=><button key={m.id} className="mbtn" onClick={()=>insertMention(m.name)}
+              style={{display:"flex",alignItems:"center",gap:10,width:"100%",background:"none",border:"none",padding:"7px 8px",borderRadius:8,cursor:"pointer",textAlign:"left"}}>
+              <Av member={m} photo={profiles[m.id]} size={28}/>
+              <div><div style={{fontSize:13,fontWeight:600,color:"#111"}}>{m.name}</div><div style={{fontSize:11,color:"#9ca3af"}}>{m.title}</div></div>
+            </button>)}
+          </div>}
+
+          {/* Input row */}
           <div style={{display:"flex",gap:8,alignItems:"flex-end"}}>
-            <textarea value={cmt} onChange={e=>setCmt(e.target.value)} placeholder="Comment…"
-              onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();if(cmt.trim()){onComment(cmt.trim());setCmt("")}}}}
-              style={{...inp,flex:1,minHeight:44}}/>
-            <button className="mbtn" style={{width:46,height:46,borderRadius:"50%",flexShrink:0,background:"#1a1a2e",color:"#c9a96e",border:"none",fontSize:20}} onClick={()=>{if(cmt.trim()){onComment(cmt.trim());setCmt("")}}}>→</button>
+            <div style={{flex:1,position:"relative"}}>
+              <textarea ref={cmtRef} value={cmt} onChange={e=>{setCmt(e.target.value);if(e.target.value.endsWith("@"))setShowMentions(true);else if(!e.target.value.includes("@"))setShowMentions(false);}}
+                placeholder="Comment… (type @ to mention)"
+                onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();if(cmt.trim()){onComment(cmt.trim());setCmt("");setShowMentions(false)}}}}
+                style={{...inp,width:"100%",minHeight:44,paddingRight:40,resize:"none"}}/>
+              <button className="mbtn" title="Mention someone" onClick={()=>{setShowMentions(!showMentions);if(!showMentions)setCmt(c=>c+"@");}}
+                style={{position:"absolute",right:8,bottom:10,background:"none",border:"none",fontSize:16,cursor:"pointer",color:showMentions?"#1a1a2e":"#9ca3af"}}>@</button>
+            </div>
+            <button className="mbtn" style={{width:46,height:46,borderRadius:"50%",flexShrink:0,background:"#1a1a2e",color:"#c9a96e",border:"none",fontSize:20}}
+              onClick={()=>{if(cmt.trim()){onComment(cmt.trim());setCmt("");setShowMentions(false)}}}>→</button>
           </div>
         </FS>
       </div>
@@ -589,7 +688,7 @@ function App(){
   async function addTask(form){await sb.from("tasks").insert([{title:form.title,description:form.description,priority:form.priority,assigned_to:form.assignedTo,created_by:userId,deadline:form.deadline||null,status:"To Do",signed_by:[],attachments:[],links:[]}]);refreshTasks()}
   async function updateTask(id,upd){const row={};if("status"in upd)row.status=upd.status;if("signed_by"in upd)row.signed_by=upd.signed_by;if("title"in upd)row.title=upd.title;if("description"in upd)row.description=upd.description;if("priority"in upd)row.priority=upd.priority;if("assigned_to"in upd)row.assigned_to=upd.assigned_to;if("deadline"in upd)row.deadline=upd.deadline||null;if("attachments"in upd)row.attachments=upd.attachments;if("links"in upd)row.links=upd.links;await sb.from("tasks").update(row).eq("id",id);refreshTasks()}
   async function deleteTask(id){await sb.from("tasks").delete().eq("id",id);setSelected(null);refreshTasks()}
-  async function addComment(tid,text){await sb.from("comments").insert([{task_id:tid,author:userId,text}]);refreshTasks()}
+  async function addComment(tid,text){await sb.from("comments").insert([{task_id:tid,author:userId,text,likes:[],edited:false}]);refreshTasks()}
   async function addEditReq(tid,note){await sb.from("edit_requests").insert([{task_id:tid,author:userId,note}]);refreshTasks()}
   async function signTask(tid){const task=tasks.find(t=>t.id===tid);if(!task||task.signed_by?.includes(userId))return;await updateTask(tid,{signed_by:[...(task.signed_by||[]),userId]})}
   async function sendChat(text){await sb.from("chat").insert([{author:userId,text}])}
