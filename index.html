@@ -60,12 +60,11 @@ const arabicStyle={fontFamily:"'Alexandria',sans-serif",direction:"rtl",textAlig
 
 function SmartText({text,style={}}){
   if(!text)return null;
-  const urlRegex=/(https?:\/\/[^\s]+)/g;
-  const parts=text.split(urlRegex);
+  const parts=text.split(/(https?:\/\/[^\s]+)/);
   const hasArabic=isArabic(text);
   return <span style={{wordBreak:"break-word",overflowWrap:"anywhere",whiteSpace:"pre-wrap",...style,...(hasArabic?arabicStyle:{})}}>
     {parts.map((part,i)=>
-      urlRegex.test(part)
+      /^https?:\/\//.test(part)
         ?<a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{color:"#2563eb",textDecoration:"underline",wordBreak:"break-all"}}>{part}</a>
         :<span key={i}>{part}</span>
     )}
@@ -76,14 +75,14 @@ function Linkify({text}){return <SmartText text={text}/>;}
 
 function CommentText({text,profiles}){
   if(!text)return null;
-  const urlRegex=/(https?:\/\/[^\s]+)/g;
-  const mentionRegex=/(@\w+)/g;
-  const combined=/(https?:\/\/[^\s]+|@\w+)/g;
+  const isUrl=s=>/^https?:\/\//.test(s);
+  const isMention=s=>/^@\w+/.test(s);
+  const combined=/(https?:\/\/[^\s]+|@\w+)/;
   const parts=text.split(combined);
   return <span style={{wordBreak:"break-word",overflowWrap:"anywhere",whiteSpace:"pre-wrap"}}>
     {parts.map((part,i)=>{
-      if(urlRegex.test(part))return <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{color:"#60a5fa",textDecoration:"underline",wordBreak:"break-all"}}>{part}</a>;
-      if(mentionRegex.test(part)){
+      if(isUrl(part))return <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{color:"#60a5fa",textDecoration:"underline",wordBreak:"break-all"}}>{part}</a>;
+      if(isMention(part)){
         const name=part.slice(1);
         const member=TEAM.find(m=>m.name.split(" ")[0].toLowerCase()===name.toLowerCase());
         return <span key={i} style={{background:member?"rgba(201,169,110,0.25)":"rgba(150,150,150,0.15)",color:member?"#c9a96e":"#6b7280",fontWeight:700,borderRadius:4,padding:"1px 4px"}}>{part}</span>;
