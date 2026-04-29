@@ -4,6 +4,40 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
 <title>Muhra Tasks</title>
+<meta name="description" content="Muhra Team Task Management"/>
+<meta name="theme-color" content="#1a1a2e"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Muhra Tasks"/>
+<link rel="manifest" href="manifest.json"/>
+<link rel="apple-touch-icon" href="https://cdn.shopify.com/s/files/1/0679/6984/3251/files/logo_muhra.png?v=1777114424"/>
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+<script>
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  OneSignalDeferred.push(async function(OneSignal) {
+    await OneSignal.init({
+      appId: "397aeb96-2c45-4cd8-9a5e-da6c2625281b",
+      serviceWorkerParam: { scope: "/" },
+      serviceWorkerPath: "OneSignalSDKWorker.js",
+      notifyButton: { enable: false },
+      allowLocalhostAsSecureOrigin: true,
+    });
+    // Store OneSignal player ID mapped to user
+    OneSignal.User.PushSubscription.addEventListener("change", async function(event) {
+      if(event.current.token) {
+        const userId = localStorage.getItem("muhra_uid_v3");
+        if(userId) {
+          const { createClient } = supabase;
+          const sb2 = createClient(
+            "https://ltwzmjqrlvqbndmipufm.supabase.co",
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0d3ptanFybHZxYm5kbWlwdWZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMDA3NTEsImV4cCI6MjA5MjY3Njc1MX0.pvp5NFr2tOTw_MJHIxHO9kK7cQ75QjL5N8AcewXIVOM"
+          );
+          await sb2.from("push_tokens").upsert({user_id: userId, token: event.current.token, updated_at: new Date().toISOString()});
+        }
+      }
+    });
+  });
+</script>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -61,6 +95,37 @@ const fT=iso=>{if(!iso)return"";return new Date(iso).toLocaleTimeString("en-GB",
 const isOD=(dl,st)=>dl&&new Date(dl)<new Date()&&st!=="Done";
 const lsG=(k,fb)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):fb}catch{return fb}};
 const lsS=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
+
+// ── PUSH NOTIFICATION HELPER ──
+async function sendPush(toUserIds, title, body, taskId){
+  try{
+    // Get tokens for target users
+    const {data:tokens}=await sb.from("push_tokens").select("*").in("user_id",toUserIds);
+    if(!tokens||tokens.length===0)return;
+    const playerIds=tokens.map(t=>t.token).filter(Boolean);
+    if(playerIds.length===0)return;
+    const payload={
+      app_id:"397aeb96-2c45-4cd8-9a5e-da6c2625281b",
+      include_subscription_ids:playerIds,
+      headings:{en:title},
+      contents:{en:body},
+      url:window.location.href,
+      data:{taskId},
+      chrome_web_icon:"https://cdn.shopify.com/s/files/1/0679/6984/3251/files/logo_muhra.png?v=1777114424",
+      chrome_web_badge:"https://cdn.shopify.com/s/files/1/0679/6984/3251/files/logo_muhra.png?v=1777114424",
+    };
+    await fetch("https://onesignal.com/api/v1/notifications",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","Authorization":"os_v2_app_hf5oxfrmivgnrgs63jwcmjjidpbqfll36zcep7u7o7gj7jwlfm2zdxocaobdsyl4u67uvt5cobewmzyyqyznqrlzebgjz3kxgdyopsi"},
+      body:JSON.stringify(payload)
+    });
+  }catch(e){console.log("Push failed:",e);}
+}
+
+function othersExcept(userId){ return ["mohamed","maha","bassant","asmaa","moussa"].filter(id=>id!==userId); }
+function getAssignees(task){ return (Array.isArray(task.assigned_to)?task.assigned_to:[task.assigned_to]).filter(Boolean); }
+
+
 
 const isArabic=str=>/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(str);
 const arabicStyle={fontFamily:"'Alexandria',sans-serif",direction:"rtl",textAlign:"right",unicodeBidi:"embed"};
@@ -784,6 +849,56 @@ function ProfileManager({profiles,onUpdate}){
   </div>;
 }
 
+
+// ── ANNOUNCEMENT BAR (Admin only) ──
+function AnnouncementBar({userId,profiles}){
+  const [show,setShow]=useState(false);
+  const [msg,setMsg]=useState("");
+  const [targets,setTargets]=useState(["all"]);
+  const [sending,setSending]=useState(false);
+
+  async function sendAnnouncement(){
+    if(!msg.trim())return;
+    setSending(true);
+    const allIds=["mohamed","maha","bassant","asmaa","moussa"];
+    const toIds=targets.includes("all")?allIds.filter(id=>id!==userId):targets.filter(id=>id!==userId);
+    await sendPush(toIds,"📣 Announcement",msg.trim(),null);
+    setMsg("");setShow(false);setSending(false);
+    alert("Announcement sent!");
+  }
+
+  const user=TEAM.find(m=>m.id===userId);
+  return <div style={{margin:"0 20px 12px"}}>
+    {!show?<button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:12,padding:"10px 16px",fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:8,width:"100%",justifyContent:"center"}}
+      onClick={()=>setShow(true)}>📣 Send Team Announcement</button>
+    :<div style={{background:"#1a1a2e",borderRadius:16,padding:16,display:"flex",flexDirection:"column",gap:10}}>
+      <div style={{color:"#c9a96e",fontSize:13,fontWeight:700}}>📣 Send Announcement</div>
+      <textarea placeholder="Type your announcement…" value={msg} onChange={ev=>setMsg(ev.target.value)}
+        style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"none",fontSize:14,outline:"none",background:"rgba(255,255,255,0.1)",color:"#fff",boxSizing:"border-box",minHeight:70,resize:"none",fontFamily:"inherit"}}/>
+      <div style={{display:"flex",flexDirection:"column",gap:6}}>
+        <div style={{color:"#9ca3af",fontSize:11,fontWeight:700}}>SEND TO:</div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+          <button className="mbtn" onClick={()=>setTargets(["all"])}
+            style={{padding:"5px 12px",borderRadius:20,border:`1.5px solid ${targets.includes("all")?"#c9a96e":"rgba(255,255,255,0.2)"}`,background:targets.includes("all")?"#c9a96e":"transparent",color:targets.includes("all")?"#1a1a2e":"#fff",fontSize:12,fontWeight:600,cursor:"pointer"}}>Everyone</button>
+          {TEAM.filter(m=>m.id!==userId).map(m=>{
+            const sel=targets.includes(m.id)&&!targets.includes("all");
+            return <button key={m.id} className="mbtn"
+              onClick={()=>setTargets(prev=>{if(prev.includes("all"))return[m.id];return prev.includes(m.id)?prev.filter(x=>x!==m.id):[...prev,m.id];})}
+              style={{padding:"5px 12px",borderRadius:20,border:`1.5px solid ${sel?"#c9a96e":"rgba(255,255,255,0.2)"}`,background:sel?"#c9a96e":"transparent",color:sel?"#1a1a2e":"#fff",fontSize:12,fontWeight:600,cursor:"pointer"}}>
+              {m.name.split(" ")[0]}
+            </button>;})}
+        </div>
+      </div>
+      <div style={{display:"flex",gap:8}}>
+        <button className="mbtn" style={{background:"#c9a96e",color:"#1a1a2e",border:"none",borderRadius:10,padding:"10px 16px",fontSize:13,fontWeight:700,flex:1,opacity:sending?0.7:1}}
+          onClick={sendAnnouncement} disabled={sending}>{sending?"Sending…":"Send 🚀"}</button>
+        <button className="mbtn" style={{background:"rgba(255,255,255,0.1)",color:"#fff",border:"none",borderRadius:10,padding:"10px 14px",fontSize:13,fontWeight:600}}
+          onClick={()=>{setShow(false);setMsg("");}}>Cancel</button>
+      </div>
+    </div>}
+  </div>;
+}
+
 // ── MAIN APP ──
 function App(){
   const [userId,setUserId]=useState(()=>lsG("muhra_uid_v3",null));
@@ -828,12 +943,86 @@ function App(){
   },[userId]);
 
   async function refreshTasks(){const{data}=await sb.from("tasks").select("*, comments(*), edit_requests(*)").order("created_at",{ascending:false});if(data){setTasks(data);setSelected(s=>s?data.find(t=>t.id===s.id)||s:null)}}
-  async function addTask(form){await sb.from("tasks").insert([{title:form.title,description:form.description,priority:form.priority,assigned_to:form.assignedTo,created_by:userId,deadline:form.deadline||null,status:"To Do",signed_by:[],attachments:[],links:[],instructions:{text:"",voices:[]}}]);refreshTasks()}
-  async function updateTask(id,upd){const row={};if("status"in upd)row.status=upd.status;if("signed_by"in upd)row.signed_by=upd.signed_by;if("title"in upd)row.title=upd.title;if("description"in upd)row.description=upd.description;if("priority"in upd)row.priority=upd.priority;if("assigned_to"in upd)row.assigned_to=upd.assigned_to;if("deadline"in upd)row.deadline=upd.deadline||null;if("attachments"in upd)row.attachments=upd.attachments;if("links"in upd)row.links=upd.links;if("instructions"in upd)row.instructions=upd.instructions;await sb.from("tasks").update(row).eq("id",id);refreshTasks()}
+  async function addTask(form){
+    const {data}=await sb.from("tasks").insert([{title:form.title,description:form.description,priority:form.priority,assigned_to:form.assignedTo,created_by:userId,deadline:form.deadline||null,status:"To Do",signed_by:[],attachments:[],links:[],instructions:{text:"",voices:[]}}]).select().single();
+    refreshTasks();
+    // Notify assignees
+    const assignees=(Array.isArray(form.assignedTo)?form.assignedTo:[form.assignedTo]).filter(id=>id!==userId);
+    if(assignees.length>0)sendPush(assignees,"📋 New Task Assigned",`${TEAM.find(m=>m.id===userId)?.name} assigned you: "${form.title}"`,data?.id);
+    // Notify everyone else about new task
+    const others=othersExcept(userId).filter(id=>!assignees.includes(id));
+    if(others.length>0)sendPush(others,"🆕 New Task Created",`${TEAM.find(m=>m.id===userId)?.name} created: "${form.title}"`,data?.id);
+  }
+  async function updateTask(id,upd){
+    const row={};
+    if("status"in upd)row.status=upd.status;
+    if("signed_by"in upd)row.signed_by=upd.signed_by;
+    if("title"in upd)row.title=upd.title;
+    if("description"in upd)row.description=upd.description;
+    if("priority"in upd)row.priority=upd.priority;
+    if("assigned_to"in upd)row.assigned_to=upd.assigned_to;
+    if("deadline"in upd)row.deadline=upd.deadline||null;
+    if("attachments"in upd)row.attachments=upd.attachments;
+    if("links"in upd)row.links=upd.links;
+    if("instructions"in upd)row.instructions=upd.instructions;
+    await sb.from("tasks").update(row).eq("id",id);
+    refreshTasks();
+    const task=tasks.find(t=>t.id===id);
+    if(!task)return;
+    const assignees=getAssignees(task);
+    const others=othersExcept(userId);
+    const sender=TEAM.find(m=>m.id===userId)?.name;
+    // Status change notification
+    if("status"in upd){
+      const targets=[...new Set([...assignees,...others])].filter(id=>id!==userId);
+      sendPush(targets,"🔄 Task Status Updated",`${sender} changed "${task.title}" to ${upd.status}`,id);
+    }
+    // Signed notification
+    if("signed_by"in upd){
+      const admins=["mohamed","maha","bassant"].filter(id=>id!==userId);
+      sendPush(admins,"✅ Task Signed",`${sender} signed off on "${task.title}"`,id);
+    }
+  }
   async function deleteTask(id){await sb.from("tasks").delete().eq("id",id);setSelected(null);refreshTasks()}
-  async function addComment(tid,text){await sb.from("comments").insert([{task_id:tid,author:userId,text,likes:[],edited:false}]);refreshTasks()}
-  async function addEditReq(tid,note){await sb.from("edit_requests").insert([{task_id:tid,author:userId,note}]);refreshTasks()}
-  async function signTask(tid){const task=tasks.find(t=>t.id===tid);if(!task||task.signed_by?.includes(userId))return;await updateTask(tid,{signed_by:[...(task.signed_by||[]),userId]})}
+  async function addComment(tid,text){
+    await sb.from("comments").insert([{task_id:tid,author:userId,text,likes:[],edited:false}]);
+    refreshTasks();
+    const task=tasks.find(t=>t.id===tid);
+    if(!task)return;
+    const sender=TEAM.find(m=>m.id===userId)?.name;
+    // Check for @mentions
+    const mentionRegex=/@(\w+)/g;
+    let match;
+    const mentionedIds=[];
+    while((match=mentionRegex.exec(text))!==null){
+      const firstName=match[1].toLowerCase();
+      const member=TEAM.find(m=>m.name.split(" ")[0].toLowerCase()===firstName);
+      if(member&&member.id!==userId)mentionedIds.push(member.id);
+    }
+    // Send mention notifications
+    if(mentionedIds.length>0)sendPush(mentionedIds,"@ You were mentioned",`${sender} mentioned you in "${task.title}"`,tid);
+    // Send comment notification to assignees + admins (not mentioned ones, not self)
+    const assignees=getAssignees(task);
+    const admins=["mohamed","maha","bassant"];
+    const targets=[...new Set([...assignees,...admins])].filter(id=>id!==userId&&!mentionedIds.includes(id));
+    if(targets.length>0)sendPush(targets,"💬 New Comment",`${sender}: "${text.slice(0,60)}${text.length>60?"…":""}"`,tid);
+  }
+  async function addEditReq(tid,note){
+    await sb.from("edit_requests").insert([{task_id:tid,author:userId,note}]);
+    refreshTasks();
+    const task=tasks.find(t=>t.id===tid);
+    const sender=TEAM.find(m=>m.id===userId)?.name;
+    const admins=["mohamed","maha","bassant"].filter(id=>id!==userId);
+    sendPush(admins,"📝 Edit Request",`${sender} requested an edit on "${task?.title}"`,tid);
+  }
+  async function signTask(tid){
+    const task=tasks.find(t=>t.id===tid);
+    if(!task||task.signed_by?.includes(userId))return;
+    await updateTask(tid,{signed_by:[...(task.signed_by||[]),userId]});
+    const sender=TEAM.find(m=>m.id===userId)?.name;
+    const admins=["mohamed","maha","bassant"].filter(id=>id!==userId);
+    sendPush(admins,"✅ Task Approved",`${sender} signed off on "${task.title}"`,tid);
+  }
   async function sendChat(text){await sb.from("chat").insert([{author:userId,text}])}
   async function updateProfile(mid,dataUrl){await sb.from("profiles").upsert({user_id:mid,photo_url:dataUrl,updated_at:new Date().toISOString()});setProfiles(p=>({...p,[mid]:dataUrl}))}
   function logout(){lsS("muhra_uid_v3",null);setUserId(null);setTasks([]);setChat([]);setSelected(null)}
@@ -890,6 +1079,7 @@ function App(){
       </div>
     </div>
 
+    {isAdmin&&<AnnouncementBar userId={userId} profiles={profiles}/>}
     {tab==="tasks"?<div>
       {/* Filters */}
       <div style={{padding:"0 20px 12px",display:"flex",flexDirection:"column",gap:8}}>
