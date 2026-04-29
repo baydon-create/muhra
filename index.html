@@ -216,9 +216,13 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
   const [newLinkName,setNewLinkName]=useState("");
   const [newLinkUrl,setNewLinkUrl]=useState("");
   const [showAddLink,setShowAddLink]=useState(false);
-  const [editingNote,setEditingNote]=useState(null); // {id, text}
+  const [editingNote,setEditingNote]=useState(null);
+  const [editingCmt,setEditingCmt]=useState(null);
+  const [showMentions,setShowMentions]=useState(false);
   const fileRef=useRef(null);
+  const cmtInputRef=useRef(null);
   const botRef=useRef(null);
+
   useEffect(()=>{setTimeout(()=>botRef.current?.scrollIntoView({behavior:"smooth"}),80)},[task.comments?.length]);
 
   const assignees=(Array.isArray(task.assigned_to)?task.assigned_to:[task.assigned_to]).filter(Boolean).map(id=>TEAM.find(m=>m.id===id)).filter(Boolean);
@@ -234,46 +238,60 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
   async function handleAttach(e){
     const files=Array.from(e.target.files).filter(f=>f.type.startsWith("image/"));
     if(!files.length)return;
-    const oversized=files.filter(f=>f.size>10*1024*1024);
-    if(oversized.length){alert(`${oversized.length} image(s) exceed 10MB and will be skipped`);}
-    const validFiles=files.filter(f=>f.size<=10*1024*1024);
-    if(!validFiles.length)return;
+    const valid=files.filter(f=>f.size<=10*1024*1024);
+    if(files.length>valid.length)alert(`${files.length-valid.length} file(s) over 10MB skipped`);
+    if(!valid.length)return;
     setUploading(true);
     const newItems=[];
-    for(const file of validFiles){
+    for(const file of valid){
       try{
         const ext=file.name.split(".").pop();
         const path=`${task.id}/${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}.${ext}`;
-        const {data,error}=await sb.storage.from("task-attachments").upload(path,file,{cacheControl:"3600",upsert:false});
-        if(error){console.error(error);alert(`Failed to upload ${file.name}: ${error.message}`);continue;}
+        const {error}=await sb.storage.from("task-attachments").upload(path,file,{cacheControl:"3600",upsert:false});
+        if(error){alert("Upload failed: "+error.message);continue;}
         const {data:{publicUrl}}=sb.storage.from("task-attachments").getPublicUrl(path);
         newItems.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2),url:publicUrl,path,name:file.name,uploadedBy:userId,uploadedAt:new Date().toISOString(),note:""});
-      }catch(err){console.error(err);alert(`Error uploading ${file.name}`);}
+      }catch(err){alert("Error: "+err.message);}
     }
-    if(newItems.length>0){
-      const existing=task.attachments||[];
-      await onAttach([...existing,...newItems]);
-    }
+    if(newItems.length){const existing=task.attachments||[];await onAttach([...existing,...newItems]);}
     setUploading(false);
     e.target.value="";
   }
 
-  function insertMention(name){
-    const tag="@"+name.split(" ")[0]+" ";
-    setCmt(prev=>prev+tag);
-    setShowMentions(false);
-    setTimeout(()=>cmtRef.current?.focus(),50);
+  async function removeAttach(id){
+    if(!window.confirm("Remove this image?"))return;
+    const at=(task.attachments||[]).find(a=>a.id===id);
+    if(at?.path)await sb.storage.from("task-attachments").remove([at.path]);
+    await onAttach((task.attachments||[]).filter(a=>a.id!==id));
   }
 
-  async function handleEditComment(commentId, newText){
+  async function saveNote(atId,noteText){
+    try{
+      const {data:row}=await sb.from("tasks").select("attachments").eq("id",task.id).single();
+      const base=Array.isArray(row?.attachments)?row.attachments:(task.attachments||[]);
+      const updated=base.map(a=>a.id===atId?{...a,note:noteText}:a);
+      const {error}=await sb.from("tasks").update({attachments:updated}).eq("id",task.id);
+      if(error){alert("Failed: "+error.message);return;}
+      setEditingNote(null);
+    }catch(err){alert("Error: "+err.message);}
+  }
+
+  function insertMention(memberName){
+    const tag="@"+memberName.split(" ")[0]+" ";
+    setCmt(prev=>prev+tag);
+    setShowMentions(false);
+    setTimeout(()=>cmtInputRef.current?.focus(),50);
+  }
+
+  async function handleEditComment(commentId,newText){
     if(!newText.trim())return;
     await sb.from("comments").update({text:newText.trim(),edited:true}).eq("id",commentId);
-    setEditingComment(null);
+    setEditingCmt(null);
     refreshTasks();
   }
 
   async function toggleLike(commentId){
-    const comment=task.comments?.find(c=>c.id===commentId);
+    const comment=task.comments?.find(x=>x.id===commentId);
     if(!comment)return;
     const likes=comment.likes||[];
     const updated=likes.includes(userId)?likes.filter(id=>id!==userId):[...likes,userId];
@@ -281,39 +299,41 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
     refreshTasks();
   }
 
-  async function removeAttach(id){
-    if(!window.confirm("Remove this image?"))return;
-    const at=(task.attachments||[]).find(a=>a.id===id);
-    if(at?.path){
-      await sb.storage.from("task-attachments").remove([at.path]);
-    }
-    await onAttach((task.attachments||[]).filter(a=>a.id!==id));
+  function sendComment(){
+    if(!cmt.trim())return;
+    onComment(cmt.trim());
+    setCmt("");
+    setShowMentions(false);
   }
 
-  return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",backdropFilter:"blur(5px)",zIndex:100,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
+  return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",backdropFilter:"blur(5px)",zIndex:100,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={ev=>ev.target===ev.currentTarget&&onClose()}>
     <div style={{background:"#fff",borderRadius:"22px 22px 0 0",width:"100%",maxWidth:480,maxHeight:"94vh",overflowY:"auto",animation:"slideUp 0.28s ease"}}>
       <div style={{width:40,height:4,background:"#e5e7eb",borderRadius:4,margin:"12px auto 0"}}/>
       <div style={{padding:"14px 20px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,background:"#fff",zIndex:1,borderBottom:"1px solid #f3f4f6"}}>
         <button style={{background:"none",border:"none",fontSize:15,fontWeight:700,color:"#1a1a2e",padding:"5px 0"}} onClick={onClose}>← Back</button>
         <div style={{display:"flex",gap:8}}>
-          {isAdmin&&!editMode&&<button style={{background:"#f3f4f6",border:"none",width:36,height:36,borderRadius:10,fontSize:16}} onClick={()=>{setEf({title:task.title,description:task.description||"",deadline:task.deadline||"",priority:task.priority,assigned_to:Array.isArray(task.assigned_to)?task.assigned_to:[task.assigned_to].filter(Boolean)});setEditMode(true)}}>✏️</button>}
+          {isAdmin&&!editMode&&<button style={{background:"#f3f4f6",border:"none",width:36,height:36,borderRadius:10,fontSize:16}} onClick={()=>{setEf({title:task.title,description:task.description||"",deadline:task.deadline||"",priority:task.priority,assigned_to:Array.isArray(task.assigned_to)?task.assigned_to:[task.assigned_to].filter(Boolean)});setEditMode(true);}}>✏️</button>}
           {isAdmin&&<button style={{background:"#fef2f2",border:"none",width:36,height:36,borderRadius:10,fontSize:16,color:"#dc2626"}} onClick={()=>window.confirm("Delete this task?")&&onDelete()}>🗑</button>}
         </div>
       </div>
 
       <div style={{padding:"16px 20px 44px",display:"flex",flexDirection:"column",gap:16}}>
+
+        {/* ── EDIT MODE ── */}
         {editMode&&isAdmin?<div style={{display:"flex",flexDirection:"column",gap:12}}>
-          <FL>Title</FL><input style={inp} value={ef.title} onChange={e=>setEf(f=>({...f,title:e.target.value}))}/>
-          <FL>Description</FL><textarea style={{...inp,minHeight:80}} value={ef.description} onChange={e=>setEf(f=>({...f,description:e.target.value}))}/>
+          <FL>Title</FL><input style={inp} value={ef.title} onChange={ev=>setEf(f=>({...f,title:ev.target.value}))}/>
+          <FL>Description</FL><textarea style={{...inp,minHeight:80}} value={ef.description} onChange={ev=>setEf(f=>({...f,description:ev.target.value}))}/>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-            <div><FL>Priority</FL><select style={inp} value={ef.priority} onChange={e=>setEf(f=>({...f,priority:e.target.value}))}>{PRIO.map(p=><option key={p}>{p}</option>)}</select></div>
-            <div><FL>Deadline</FL><input type="date" style={inp} value={ef.deadline} onChange={e=>setEf(f=>({...f,deadline:e.target.value}))}/></div>
+            <div><FL>Priority</FL><select style={inp} value={ef.priority} onChange={ev=>setEf(f=>({...f,priority:ev.target.value}))}>{PRIO.map(p=><option key={p}>{p}</option>)}</select></div>
+            <div><FL>Deadline</FL><input type="date" style={inp} value={ef.deadline} onChange={ev=>setEf(f=>({...f,deadline:ev.target.value}))}/></div>
           </div>
-          <FL>Assign To (select one or more)</FL>
+          <FL>Assign To</FL>
           <div style={{display:"flex",flexDirection:"column",gap:6}}>
-            {TEAM.map(m=>{const sel=(Array.isArray(ef.assigned_to)?ef.assigned_to:[ef.assigned_to]).filter(Boolean).includes(m.id);
-              const toggleEf=()=>setEf(f=>{const cur=(Array.isArray(f.assigned_to)?f.assigned_to:[f.assigned_to]).filter(Boolean);return {...f,assigned_to:cur.includes(m.id)?cur.filter(x=>x!==m.id):[...cur,m.id]};});
-              return <div key={m.id} onClick={toggleEf} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",borderRadius:10,border:`1.5px solid ${sel?"#1a1a2e":"#e5e7eb"}`,background:sel?"#f0f0f8":"#fafafa",cursor:"pointer"}}>
+            {TEAM.map(m=>{
+              const cur=Array.isArray(ef.assigned_to)?ef.assigned_to:[ef.assigned_to].filter(Boolean);
+              const sel=cur.includes(m.id);
+              return <div key={m.id} onClick={()=>setEf(f=>{const c2=Array.isArray(f.assigned_to)?f.assigned_to:[f.assigned_to].filter(Boolean);return {...f,assigned_to:c2.includes(m.id)?c2.filter(x=>x!==m.id):[...c2,m.id]};})}
+                style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",borderRadius:10,border:`1.5px solid ${sel?"#1a1a2e":"#e5e7eb"}`,background:sel?"#f0f0f8":"#fafafa",cursor:"pointer"}}>
                 <Av member={m} photo={profiles[m.id]} size={26}/>
                 <div style={{flex:1,fontSize:13,fontWeight:600,color:"#111"}}>{m.name}</div>
                 <div style={{width:18,height:18,borderRadius:5,border:`2px solid ${sel?"#1a1a2e":"#d1d5db"}`,background:sel?"#1a1a2e":"#fff",display:"flex",alignItems:"center",justifyContent:"center"}}>
@@ -322,10 +342,13 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
               </div>;})}
           </div>
           <div style={{display:"flex",gap:8}}>
-            <button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:12,padding:"12px 20px",fontSize:14,fontWeight:700}} onClick={async()=>{await onEdit(ef);setEditMode(false)}}>Save</button>
+            <button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:12,padding:"12px 20px",fontSize:14,fontWeight:700}} onClick={async()=>{await onEdit(ef);setEditMode(false);}}>Save</button>
             <button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:12,padding:"10px 16px",fontSize:14,fontWeight:600}} onClick={()=>setEditMode(false)}>Cancel</button>
           </div>
-        </div>:<>
+        </div>:
+
+        /* ── VIEW MODE ── */
+        <div style={{display:"flex",flexDirection:"column",gap:16}}>
           <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
             <div style={{flex:1}}>
               <h2 style={{fontSize:21,fontWeight:900,color:"#111",margin:0,lineHeight:1.25}}><SmartText text={task.title}/></h2>
@@ -336,10 +359,17 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
             </span>
           </div>
 
-          {task.description&&<FS label="Description"><p style={{fontSize:14,color:"#374151",lineHeight:1.65,margin:0,wordBreak:"break-word",overflowWrap:"anywhere"}}><Linkify text={task.description}/></p></FS>}
+          {task.description&&<FS label="Description"><p style={{fontSize:14,color:"#374151",lineHeight:1.65,margin:0,wordBreak:"break-word"}}><SmartText text={task.description}/></p></FS>}
 
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            <FS label={`Assigned To (${assignees.length})`}><div style={{display:"flex",flexDirection:"column",gap:6}}>{assignees.map(a=><div key={a.id} style={{display:"flex",alignItems:"center",gap:8}}><Av member={a} photo={profiles[a.id]} size={28}/><div><div style={{fontSize:13,fontWeight:600}}>{a.name}</div><div style={{fontSize:11,color:"#9ca3af"}}>{a.title}</div></div></div>)}</div></FS>
+            <FS label={`Assigned (${assignees.length})`}>
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                {assignees.map(a=><div key={a.id} style={{display:"flex",alignItems:"center",gap:8}}>
+                  <Av member={a} photo={profiles[a.id]} size={28}/>
+                  <div><div style={{fontSize:13,fontWeight:600}}>{a.name}</div><div style={{fontSize:11,color:"#9ca3af"}}>{a.title}</div></div>
+                </div>)}
+              </div>
+            </FS>
             <FS label="Deadline"><div style={{fontSize:15,fontWeight:700,color:od?"#dc2626":"#111"}}>{od?"⚠ ":""}{fD(task.deadline)}</div></FS>
           </div>
 
@@ -352,15 +382,19 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
             </div>
           </FS>
 
-          {task.signed_by?.length>0&&<FS label="Signed By"><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{task.signed_by.map(uid=>{const m=TEAM.find(t=>t.id===uid);return m?<Av key={uid} member={m} photo={profiles[uid]} size={30} title={m.name}/>:null})}</div></FS>}
+          {task.signed_by?.length>0&&<FS label="Signed By">
+            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+              {task.signed_by.map(uid=>{const m=TEAM.find(t=>t.id===uid);return m?<Av key={uid} member={m} photo={profiles[uid]} size={30} title={m.name}/>:null})}
+            </div>
+          </FS>}
           {canSign&&<button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:12,padding:"12px 20px",fontSize:14,fontWeight:700}} onClick={onSign}>✅ Sign & Approve Task</button>}
           {sig&&<div style={{fontSize:13,color:"#15803d",fontWeight:700}}>✅ You signed this task</div>}
 
           {!isAdmin&&<div>
             <button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:12,padding:"10px 16px",fontSize:14,fontWeight:600}} onClick={()=>setShowReq(!showReq)}>📝 Request Edit</button>
             {showReq&&<div style={{display:"flex",flexDirection:"column",gap:8,marginTop:8}}>
-              <textarea placeholder="Describe what needs to change…" value={note} onChange={e=>setNote(e.target.value)} style={{...inp,minHeight:70}}/>
-              <button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:12,padding:"12px 20px",fontSize:14,fontWeight:700}} onClick={async()=>{await onEditReq(note);setNote("");setShowReq(false)}}>Send Request</button>
+              <textarea placeholder="Describe what needs to change…" value={note} onChange={ev=>setNote(ev.target.value)} style={{...inp,minHeight:70}}/>
+              <button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:12,padding:"12px 20px",fontSize:14,fontWeight:700}} onClick={async()=>{await onEditReq(note);setNote("");setShowReq(false);}}>Send Request</button>
             </div>}
           </div>}
 
@@ -371,181 +405,164 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
                 <div style={{fontSize:13}}>{r.note}</div>
               </div>;})}
           </FS>}
-        </>}
 
-        <FS label={`Attachments (${task.attachments?.length||0})`}>
-          <input type="file" accept="image/*" multiple ref={fileRef} style={{display:"none"}} onChange={handleAttach}/>
-          {task.attachments?.length>0&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
-            {task.attachments.map(at=>{
-              const uploader=TEAM.find(m=>m.id===at.uploadedBy);
-              const canEdit=isAdmin||at.uploadedBy===userId;
-              const isEditingThis=editingNote?.id===at.id;
-              return <div key={at.id} style={{background:"#f8f7f4",border:"1.5px solid #e5e7eb",borderRadius:12,overflow:"hidden"}}>
-                {/* Image row */}
-                <div style={{position:"relative",cursor:"pointer"}} onClick={()=>!isEditingThis&&setLightbox(at)}>
-                  <img src={at.url||at.dataUrl} alt={at.name} style={{width:"100%",maxHeight:200,objectFit:"cover",display:"block"}}/>
-                  <div style={{position:"absolute",top:6,right:6,display:"flex",gap:4}}>
-                    {canEdit&&<button className="mbtn" onClick={e=>{e.stopPropagation();setEditingNote(isEditingThis?null:{id:at.id,text:at.note||""})}}
-                      style={{background:"rgba(26,26,46,0.85)",color:"#c9a96e",border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer",backdropFilter:"blur(4px)"}}>
-                      {isEditingThis?"✕ Close":"📝 Note"}
-                    </button>}
-                    {canEdit&&<button onClick={e=>{e.stopPropagation();removeAttach(at.id)}}
-                      style={{background:"rgba(220,38,38,0.8)",color:"#fff",border:"none",borderRadius:8,padding:"4px 8px",fontSize:11,fontWeight:600,cursor:"pointer"}}>🗑</button>}
-                  </div>
-                  {uploader&&<div style={{position:"absolute",bottom:6,left:8,background:"rgba(0,0,0,0.55)",color:"#fff",fontSize:10,padding:"2px 7px",borderRadius:20,fontWeight:600}}>{uploader.name.split(" ")[0]}</div>}
-                </div>
-                {/* Note display */}
-                {!isEditingThis&&at.note&&<div style={{padding:"8px 12px",fontSize:13,color:"#374151",lineHeight:1.5,borderTop:"1px solid #e5e7eb",background:"#fff"}}>
-                  <span style={{fontSize:10,color:"#9ca3af",fontWeight:700,marginRight:6}}>NOTE</span>
-                  <SmartText text={at.note}/>
-                </div>}
-                {!isEditingThis&&!at.note&&canEdit&&<button className="mbtn" onClick={()=>setEditingNote({id:at.id,text:""})} style={{width:"100%",padding:"8px 12px",fontSize:12,color:"#9ca3af",borderTop:"1px solid #f3f4f6",background:"#fff",border:"none",textAlign:"left",cursor:"pointer",display:"block"}}>+ Add a note to this image…</button>}
-                {/* Note editor */}
-                {isEditingThis&&<div style={{padding:10,borderTop:"1px solid #e5e7eb",background:"#fff",display:"flex",flexDirection:"column",gap:8}}>
-                  <textarea placeholder="Add a note to this image…" value={editingNote.text} onChange={e=>setEditingNote(n=>({...n,text:e.target.value}))}
-                    style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1.5px solid #1a1a2e",fontSize:13,outline:"none",background:"#fff",boxSizing:"border-box",minHeight:80,resize:"none"}} autoFocus/>
-                  <div style={{display:"flex",gap:8}}>
-                    <button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:9,padding:"8px 16px",fontSize:13,fontWeight:700,flex:1}}
-                      onClick={async()=>{
-                        const noteText=editingNote.text.trim();
-                        const targetId=at.id;
-                        try{
-                          // Fetch absolute latest from DB, apply note, write back directly
-                          const {data:row}=await sb.from("tasks").select("attachments").eq("id",task.id).single();
-                          const baseList=Array.isArray(row?.attachments)?row.attachments:(task.attachments||[]);
-                          const updated=baseList.map(a=>a.id===targetId?{...a,note:noteText}:a);
-                          const {error}=await sb.from("tasks").update({attachments:updated}).eq("id",task.id);
-                          if(error){alert("Failed to save note: "+error.message);return;}
-                          setEditingNote(null);
-                        }catch(err){alert("Error saving note: "+err.message);}
-                      }}>Save Note</button>
-                    <button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:9,padding:"8px 14px",fontSize:13,fontWeight:600}}
-                      onClick={()=>setEditingNote(null)}>Cancel</button>
-                  </div>
-                </div>}
-              </div>;})}
-          </div>}
-          <button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:10,padding:"9px 16px",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",gap:6}} onClick={()=>fileRef.current?.click()} disabled={uploading}>
-            {uploading?"⏳ Uploading…":"📎 Add Images"}
-          </button>
-        </FS>
-
-        {lightbox&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:200,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setLightbox(null)}>
-          <img src={lightbox.url||lightbox.dataUrl} alt={lightbox.name} style={{maxWidth:"100%",maxHeight:"75vh",borderRadius:12,objectFit:"contain"}}/>
-          {lightbox.note&&<div style={{color:"#f0e6d3",fontSize:14,marginTop:12,textAlign:"center",maxWidth:340,lineHeight:1.5,background:"rgba(255,255,255,0.1)",padding:"8px 16px",borderRadius:10}}>{lightbox.note}</div>}
-          <div style={{color:"#9ca3af",fontSize:11,marginTop:8}}>Tap anywhere to close</div>
-        </div>}
-
-        <FS label={`Resources & Links (${task.links?.length||0})`}>
-          {task.links?.length>0&&<div style={{display:"flex",flexDirection:"column",gap:6}}>
-            {task.links.map((lk,i)=><div key={lk.id} style={{display:"flex",alignItems:"center",gap:10,background:"#f8f7f4",border:"1.5px solid #e5e7eb",borderRadius:10,padding:"10px 12px"}}>
-              <span style={{fontSize:16,flexShrink:0}}>🔗</span>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:13,fontWeight:700,color:"#1a1a2e",marginBottom:2}}>{lk.name}</div>
-                <a href={lk.url} target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:"#2563eb",textDecoration:"underline",wordBreak:"break-all",overflowWrap:"anywhere"}}>{lk.url}</a>
-              </div>
-              {(isAdmin||lk.addedBy===userId)&&<button onClick={()=>{if(window.confirm("Remove this link?"))onLinks((task.links||[]).filter(l=>l.id!==lk.id))}} style={{background:"none",border:"none",color:"#9ca3af",fontSize:16,flexShrink:0,padding:4,cursor:"pointer"}}>✕</button>}
-            </div>)}
-          </div>}
-          {showAddLink?<div style={{display:"flex",flexDirection:"column",gap:8,background:"#f0fdf4",border:"1.5px solid #bbf7d0",borderRadius:12,padding:12}}>
-            <input placeholder="Link name (e.g. Product Sheet, Google Doc…)" value={newLinkName} onChange={e=>setNewLinkName(e.target.value)}
-              style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1.5px solid #e5e7eb",fontSize:13,outline:"none",background:"#fff",boxSizing:"border-box"}}/>
-            <input placeholder="URL (https://…)" value={newLinkUrl} onChange={e=>setNewLinkUrl(e.target.value)}
-              style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1.5px solid #e5e7eb",fontSize:13,outline:"none",background:"#fff",boxSizing:"border-box"}}/>
-            <div style={{display:"flex",gap:8}}>
-              <button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:10,padding:"9px 16px",fontSize:13,fontWeight:700,flex:1}}
-                onClick={()=>{
-                  if(!newLinkName.trim())return alert("Please enter a link name");
-                  if(!newLinkUrl.trim()||!newLinkUrl.startsWith("http"))return alert("Please enter a valid URL starting with http");
-                  const updated=[...(task.links||[]),{id:Date.now().toString(36)+Math.random().toString(36).slice(2),name:newLinkName.trim(),url:newLinkUrl.trim(),addedBy:userId,addedAt:new Date().toISOString()}];
-                  onLinks(updated);setNewLinkName("");setNewLinkUrl("");setShowAddLink(false);
-                }}>Add Link</button>
-              <button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:10,padding:"9px 14px",fontSize:13,fontWeight:600}}
-                onClick={()=>{setShowAddLink(false);setNewLinkName("");setNewLinkUrl("");}}>Cancel</button>
-            </div>
-          </div>:<button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:10,padding:"9px 16px",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",gap:6}} onClick={()=>setShowAddLink(true)}>🔗 Add Resource Link</button>}
-        </FS>
-
-        <FS label={`Comments (${task.comments?.length||0})`}>
-          <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:10}}>
-            {task.comments?.map(c=>{
-              const au=TEAM.find(m=>m.id===c.author);
-              const me=c.author===userId;
-              const likes=c.likes||[];
-              const iLiked=likes.includes(userId);
-              const isEditingThis=editingComment?.id===c.id;
-              return <div key={c.id} style={{display:"flex",flexDirection:me?"row-reverse":"row",alignItems:"flex-end",gap:7,minWidth:0}}>
-                <Av member={au} photo={profiles[au?.id]} size={26}/>
-                <div style={{maxWidth:"78%",minWidth:0,display:"flex",flexDirection:"column",gap:3}}>
-                  {/* Bubble */}
-                  {isEditingThis?
-                    <div style={{background:me?"#1a1a2e":"#f3f4f6",borderRadius:"14px",padding:"8px 10px",display:"flex",flexDirection:"column",gap:6}}>
-                      <textarea value={editingComment.text} onChange={e=>setEditingComment(ec=>({...ec,text:e.target.value}))} autoFocus
-                        style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1.5px solid #c9a96e",fontSize:13,outline:"none",background:"rgba(255,255,255,0.15)",color:me?"#fff":"#111",boxSizing:"border-box",minHeight:60,resize:"none"}}/>
-                      <div style={{display:"flex",gap:6}}>
-                        <button className="mbtn" style={{background:"#c9a96e",color:"#1a1a2e",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,flex:1}}
-                          onClick={()=>handleEditComment(c.id,editingComment.text)}>Save</button>
-                        <button className="mbtn" style={{background:"rgba(255,255,255,0.2)",color:me?"#fff":"#374151",border:"none",borderRadius:8,padding:"5px 10px",fontSize:12}}
-                          onClick={()=>setEditingComment(null)}>Cancel</button>
-                      </div>
+          {/* ── ATTACHMENTS ── */}
+          <FS label={`Attachments (${task.attachments?.length||0})`}>
+            {task.attachments?.length>0&&<div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {task.attachments.map(at=>{
+                const uploader=TEAM.find(m=>m.id===at.uploadedBy);
+                const canEdit=isAdmin||at.uploadedBy===userId;
+                const isEditingThis=editingNote?.id===at.id;
+                return <div key={at.id} style={{background:"#f8f7f4",border:"1.5px solid #e5e7eb",borderRadius:12,overflow:"hidden"}}>
+                  <div style={{position:"relative",cursor:"pointer"}} onClick={()=>!isEditingThis&&setLightbox(at)}>
+                    <img src={at.url||at.dataUrl} alt={at.name} style={{width:"100%",maxHeight:200,objectFit:"cover",display:"block"}}/>
+                    <div style={{position:"absolute",top:6,right:6,display:"flex",gap:4}}>
+                      {canEdit&&<button onClick={ev=>{ev.stopPropagation();setEditingNote(isEditingThis?null:{id:at.id,text:at.note||""});}}
+                        style={{background:"rgba(0,0,0,0.6)",color:"#fff",border:"none",borderRadius:8,padding:"4px 8px",fontSize:11,fontWeight:600,cursor:"pointer"}}>
+                        {isEditingThis?"✕":"📝 Note"}
+                      </button>}
+                      {canEdit&&<button onClick={ev=>{ev.stopPropagation();removeAttach(at.id);}}
+                        style={{background:"rgba(220,38,38,0.8)",color:"#fff",border:"none",borderRadius:8,padding:"4px 8px",fontSize:11,fontWeight:600,cursor:"pointer"}}>🗑</button>}
                     </div>
-                  :
-                    <div style={{background:me?"#1a1a2e":"#f3f4f6",color:me?"#f0e6d3":"#111",borderRadius:me?"16px 16px 4px 16px":"16px 16px 16px 4px",padding:"9px 13px",fontSize:14,lineHeight:1.45,wordBreak:"break-word",overflowWrap:"anywhere"}}>
-                      <div style={{fontSize:10,opacity:0.6,marginBottom:3,display:"flex",alignItems:"center",gap:6}}>
-                        <span>{au?.name?.split(" ")[0]} · {fT(c.created_at)}</span>
-                        {c.edited&&<span style={{fontStyle:"italic"}}>(edited)</span>}
-                      </div>
-                      <CommentText text={c.text} profiles={profiles}/>
-                    </div>
-                  }
-                  {/* Actions row */}
-                  {!isEditingThis&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"0 4px",flexDirection:me?"row-reverse":"row"}}>
-                    {/* Like button */}
-                    <button className="mbtn" onClick={()=>toggleLike(c.id)}
-                      style={{background:"none",border:"none",fontSize:12,cursor:"pointer",color:iLiked?"#e53e3e":"#9ca3af",display:"flex",alignItems:"center",gap:3,padding:"2px 0"}}>
-                      {iLiked?"❤️":"🤍"}{likes.length>0&&<span style={{fontSize:11,color:iLiked?"#e53e3e":"#9ca3af"}}>{likes.length}</span>}
-                    </button>
-                    {/* Who liked */}
-                    {likes.length>0&&<div style={{display:"flex",gap:2}}>
-                      {likes.slice(0,3).map(uid=>{const m=TEAM.find(t=>t.id===uid);return m?<Av key={uid} member={m} photo={profiles[uid]} size={14} title={m.name}/>:null})}
-                    </div>}
-                    {/* Edit button - only own comments */}
-                    {me&&!isEditingThis&&<button className="mbtn" onClick={()=>setEditingComment({id:c.id,text:c.text})}
-                      style={{background:"none",border:"none",fontSize:11,cursor:"pointer",color:"#9ca3af",padding:"2px 0"}}>✏️ Edit</button>}
+                    {uploader&&<div style={{position:"absolute",bottom:6,left:8,background:"rgba(0,0,0,0.55)",color:"#fff",fontSize:10,padding:"2px 7px",borderRadius:20,fontWeight:600}}>{uploader.name.split(" ")[0]}</div>}
+                  </div>
+                  {!isEditingThis&&at.note&&<div style={{padding:"8px 12px",fontSize:13,color:"#374151",lineHeight:1.5,borderTop:"1px solid #e5e7eb",background:"#fff"}}>
+                    <span style={{fontSize:10,color:"#9ca3af",fontWeight:700,marginRight:6}}>NOTE</span><SmartText text={at.note}/>
                   </div>}
-                </div>
-              </div>;})}
-            <div ref={botRef}/>
-          </div>
+                  {!isEditingThis&&!at.note&&canEdit&&<div style={{padding:"6px 12px",fontSize:12,color:"#9ca3af",borderTop:"1px solid #f3f4f6",background:"#fff",cursor:"pointer"}} onClick={()=>setEditingNote({id:at.id,text:""})}>+ Add a note…</div>}
+                  {isEditingThis&&<div style={{padding:10,borderTop:"1px solid #e5e7eb",background:"#fff",display:"flex",flexDirection:"column",gap:8}}>
+                    <textarea placeholder="Add a note to this image…" value={editingNote.text} onChange={ev=>setEditingNote(n=>({...n,text:ev.target.value}))}
+                      style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1.5px solid #e5e7eb",fontSize:13,outline:"none",background:"#fafafa",boxSizing:"border-box",minHeight:70,resize:"none"}} autoFocus/>
+                    <div style={{display:"flex",gap:8}}>
+                      <button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:9,padding:"8px 16px",fontSize:13,fontWeight:700,flex:1}}
+                        onClick={()=>saveNote(at.id,editingNote.text.trim())}>Save Note</button>
+                      <button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:9,padding:"8px 14px",fontSize:13,fontWeight:600}}
+                        onClick={()=>setEditingNote(null)}>Cancel</button>
+                    </div>
+                  </div>}
+                </div>;})}
+            </div>}
+            <input type="file" accept="image/*" multiple ref={fileRef} style={{display:"none"}} onChange={handleAttach}/>
+            <button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:10,padding:"9px 16px",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",gap:6}} onClick={()=>fileRef.current?.click()} disabled={uploading}>
+              {uploading?"⏳ Uploading…":"📎 Add Images"}
+            </button>
+          </FS>
 
-          {/* Mention picker */}
-          {showMentions&&<div style={{background:"#fff",border:"1.5px solid #e5e7eb",borderRadius:12,padding:8,marginBottom:8,boxShadow:"0 4px 12px rgba(0,0,0,0.1)"}}>
-            <div style={{fontSize:11,color:"#9ca3af",fontWeight:700,letterSpacing:"0.5px",marginBottom:6,paddingLeft:4}}>MENTION A TEAM MEMBER</div>
-            {TEAM.filter(m=>m.id!==userId).map(m=><button key={m.id} className="mbtn" onClick={()=>insertMention(m.name)}
-              style={{display:"flex",alignItems:"center",gap:10,width:"100%",background:"none",border:"none",padding:"7px 8px",borderRadius:8,cursor:"pointer",textAlign:"left"}}>
-              <Av member={m} photo={profiles[m.id]} size={28}/>
-              <div><div style={{fontSize:13,fontWeight:600,color:"#111"}}>{m.name}</div><div style={{fontSize:11,color:"#9ca3af"}}>{m.title}</div></div>
-            </button>)}
+          {lightbox&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:200,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setLightbox(null)}>
+            <img src={lightbox.url||lightbox.dataUrl} alt={lightbox.name} style={{maxWidth:"100%",maxHeight:"75vh",borderRadius:12,objectFit:"contain"}}/>
+            {lightbox.note&&<div style={{color:"#f0e6d3",fontSize:14,marginTop:12,textAlign:"center",maxWidth:340,lineHeight:1.5,background:"rgba(255,255,255,0.1)",padding:"8px 16px",borderRadius:10}}>{lightbox.note}</div>}
+            <div style={{color:"#9ca3af",fontSize:11,marginTop:8}}>Tap anywhere to close</div>
           </div>}
 
-          {/* Input row */}
-          <div style={{display:"flex",gap:8,alignItems:"flex-end"}}>
-            <div style={{flex:1,position:"relative"}}>
-              <textarea ref={cmtRef} value={cmt} onChange={e=>{setCmt(e.target.value);if(e.target.value.endsWith("@"))setShowMentions(true);else if(!e.target.value.includes("@"))setShowMentions(false);}}
-                placeholder="Comment… (type @ to mention)"
-                onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();if(cmt.trim()){onComment(cmt.trim());setCmt("");setShowMentions(false)}}}}
-                style={{...inp,width:"100%",minHeight:44,paddingRight:40,resize:"none"}}/>
-              <button className="mbtn" title="Mention someone" onClick={()=>{setShowMentions(!showMentions);if(!showMentions)setCmt(prev=>prev+"@");}}
-                style={{position:"absolute",right:8,bottom:10,background:"none",border:"none",fontSize:16,cursor:"pointer",color:showMentions?"#1a1a2e":"#9ca3af"}}>@</button>
+          {/* ── LINKS ── */}
+          <FS label={`Resources & Links (${task.links?.length||0})`}>
+            {task.links?.length>0&&<div style={{display:"flex",flexDirection:"column",gap:6}}>
+              {task.links.map(lk=><div key={lk.id} style={{display:"flex",alignItems:"center",gap:10,background:"#f8f7f4",border:"1.5px solid #e5e7eb",borderRadius:10,padding:"10px 12px"}}>
+                <span style={{fontSize:16,flexShrink:0}}>🔗</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:13,fontWeight:700,color:"#1a1a2e",marginBottom:2}}>{lk.name}</div>
+                  <a href={lk.url} target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:"#2563eb",textDecoration:"underline",wordBreak:"break-all"}}>{lk.url}</a>
+                </div>
+                {(isAdmin||lk.addedBy===userId)&&<button onClick={()=>{if(window.confirm("Remove?"))onLinks((task.links||[]).filter(l=>l.id!==lk.id));}} style={{background:"none",border:"none",color:"#9ca3af",fontSize:16,cursor:"pointer",padding:4}}>✕</button>}
+              </div>)}
+            </div>}
+            {showAddLink?<div style={{display:"flex",flexDirection:"column",gap:8,background:"#f0fdf4",border:"1.5px solid #bbf7d0",borderRadius:12,padding:12}}>
+              <input placeholder="Link name (e.g. Product Sheet…)" value={newLinkName} onChange={ev=>setNewLinkName(ev.target.value)}
+                style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1.5px solid #e5e7eb",fontSize:13,outline:"none",background:"#fff",boxSizing:"border-box"}}/>
+              <input placeholder="URL (https://…)" value={newLinkUrl} onChange={ev=>setNewLinkUrl(ev.target.value)}
+                style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1.5px solid #e5e7eb",fontSize:13,outline:"none",background:"#fff",boxSizing:"border-box"}}/>
+              <div style={{display:"flex",gap:8}}>
+                <button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:10,padding:"9px 16px",fontSize:13,fontWeight:700,flex:1}}
+                  onClick={()=>{
+                    if(!newLinkName.trim())return alert("Enter a link name");
+                    if(!newLinkUrl.trim()||!newLinkUrl.startsWith("http"))return alert("Enter a valid URL starting with http");
+                    const updated=[...(task.links||[]),{id:Date.now().toString(36)+Math.random().toString(36).slice(2),name:newLinkName.trim(),url:newLinkUrl.trim(),addedBy:userId,addedAt:new Date().toISOString()}];
+                    onLinks(updated);setNewLinkName("");setNewLinkUrl("");setShowAddLink(false);
+                  }}>Add Link</button>
+                <button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:10,padding:"9px 14px",fontSize:13,fontWeight:600}}
+                  onClick={()=>{setShowAddLink(false);setNewLinkName("");setNewLinkUrl("");}}>Cancel</button>
+              </div>
+            </div>:<button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:10,padding:"9px 16px",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",gap:6}} onClick={()=>setShowAddLink(true)}>🔗 Add Resource Link</button>}
+          </FS>
+
+          {/* ── COMMENTS ── */}
+          <FS label={`Comments (${task.comments?.length||0})`}>
+            <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:10}}>
+              {task.comments?.map(comment=>{
+                const au=TEAM.find(m=>m.id===comment.author);
+                const me=comment.author===userId;
+                const likes=comment.likes||[];
+                const iLiked=likes.includes(userId);
+                const isEditingThis=editingCmt?.id===comment.id;
+                return <div key={comment.id} style={{display:"flex",flexDirection:me?"row-reverse":"row",alignItems:"flex-end",gap:7,minWidth:0}}>
+                  <Av member={au} photo={profiles[au?.id]} size={26}/>
+                  <div style={{maxWidth:"78%",minWidth:0,display:"flex",flexDirection:"column",gap:3}}>
+                    {isEditingThis?
+                      <div style={{background:me?"#1a1a2e":"#f3f4f6",borderRadius:14,padding:"8px 10px",display:"flex",flexDirection:"column",gap:6}}>
+                        <textarea value={editingCmt.text} onChange={ev=>setEditingCmt(ec=>({...ec,text:ev.target.value}))} autoFocus
+                          style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1.5px solid #c9a96e",fontSize:13,outline:"none",background:"rgba(255,255,255,0.15)",color:me?"#fff":"#111",boxSizing:"border-box",minHeight:60,resize:"none"}}/>
+                        <div style={{display:"flex",gap:6}}>
+                          <button className="mbtn" style={{background:"#c9a96e",color:"#1a1a2e",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,flex:1}}
+                            onClick={()=>handleEditComment(comment.id,editingCmt.text)}>Save</button>
+                          <button className="mbtn" style={{background:"rgba(200,200,200,0.3)",color:me?"#fff":"#374151",border:"none",borderRadius:8,padding:"5px 10px",fontSize:12}}
+                            onClick={()=>setEditingCmt(null)}>Cancel</button>
+                        </div>
+                      </div>
+                    :
+                      <div style={{background:me?"#1a1a2e":"#f3f4f6",color:me?"#f0e6d3":"#111",borderRadius:me?"16px 16px 4px 16px":"16px 16px 16px 4px",padding:"9px 13px",fontSize:14,lineHeight:1.45,wordBreak:"break-word",overflowWrap:"anywhere"}}>
+                        <div style={{fontSize:10,opacity:0.6,marginBottom:3,display:"flex",alignItems:"center",gap:6}}>
+                          <span>{au?.name?.split(" ")[0]} · {fT(comment.created_at)}</span>
+                          {comment.edited&&<span style={{fontStyle:"italic"}}>(edited)</span>}
+                        </div>
+                        <CommentText text={comment.text} profiles={profiles}/>
+                      </div>
+                    }
+                    {!isEditingThis&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"0 4px",flexDirection:me?"row-reverse":"row"}}>
+                      <button className="mbtn" onClick={()=>toggleLike(comment.id)}
+                        style={{background:"none",border:"none",fontSize:13,cursor:"pointer",color:iLiked?"#e53e3e":"#9ca3af",display:"flex",alignItems:"center",gap:3,padding:"2px 0"}}>
+                        {iLiked?"❤️":"🤍"}{likes.length>0&&<span style={{fontSize:11}}>{likes.length}</span>}
+                      </button>
+                      {likes.length>0&&<div style={{display:"flex",gap:2}}>
+                        {likes.slice(0,3).map(uid=>{const m=TEAM.find(t=>t.id===uid);return m?<Av key={uid} member={m} photo={profiles[uid]} size={14} title={m.name}/>:null})}
+                      </div>}
+                      {me&&<button className="mbtn" onClick={()=>setEditingCmt({id:comment.id,text:comment.text})}
+                        style={{background:"none",border:"none",fontSize:11,cursor:"pointer",color:"#9ca3af",padding:"2px 0"}}>✏️ Edit</button>}
+                    </div>}
+                  </div>
+                </div>;})}
+              <div ref={botRef}/>
             </div>
-            <button className="mbtn" style={{width:46,height:46,borderRadius:"50%",flexShrink:0,background:"#1a1a2e",color:"#c9a96e",border:"none",fontSize:20}}
-              onClick={()=>{if(cmt.trim()){onComment(cmt.trim());setCmt("");setShowMentions(false)}}}>→</button>
-          </div>
-        </FS>
+
+            {showMentions&&<div style={{background:"#fff",border:"1.5px solid #e5e7eb",borderRadius:12,padding:8,marginBottom:8,boxShadow:"0 4px 12px rgba(0,0,0,0.1)"}}>
+              <div style={{fontSize:11,color:"#9ca3af",fontWeight:700,letterSpacing:"0.5px",marginBottom:6,paddingLeft:4}}>MENTION SOMEONE</div>
+              {TEAM.filter(m=>m.id!==userId).map(m=><button key={m.id} className="mbtn" onClick={()=>insertMention(m.name)}
+                style={{display:"flex",alignItems:"center",gap:10,width:"100%",background:"none",border:"none",padding:"7px 8px",borderRadius:8,cursor:"pointer",textAlign:"left"}}>
+                <Av member={m} photo={profiles[m.id]} size={28}/>
+                <div><div style={{fontSize:13,fontWeight:600,color:"#111"}}>{m.name}</div><div style={{fontSize:11,color:"#9ca3af"}}>{m.title}</div></div>
+              </button>)}
+            </div>}
+
+            <div style={{display:"flex",gap:8,alignItems:"flex-end"}}>
+              <div style={{flex:1,position:"relative"}}>
+                <textarea ref={cmtInputRef} value={cmt}
+                  onChange={ev=>{setCmt(ev.target.value);if(ev.target.value.endsWith("@"))setShowMentions(true);else if(!ev.target.value.includes("@"))setShowMentions(false);}}
+                  placeholder="Comment… (type @ to mention)"
+                  onKeyDown={ev=>{if(ev.key==="Enter"&&!ev.shiftKey){ev.preventDefault();sendComment();}}}
+                  style={{...inp,width:"100%",minHeight:44,paddingRight:40,resize:"none"}}/>
+                <button className="mbtn" onClick={()=>{setShowMentions(!showMentions);if(!showMentions)setCmt(prev=>prev+"@");}}
+                  style={{position:"absolute",right:8,bottom:10,background:"none",border:"none",fontSize:16,cursor:"pointer",color:showMentions?"#1a1a2e":"#9ca3af"}}>@</button>
+              </div>
+              <button className="mbtn" style={{width:46,height:46,borderRadius:"50%",flexShrink:0,background:"#1a1a2e",color:"#c9a96e",border:"none",fontSize:20}}
+                onClick={sendComment}>→</button>
+            </div>
+          </FS>
+
+        </div>}
       </div>
     </div>
   </div>;
 }
+
 
 // ── NEW TASK ──
 function NewTaskModal({onClose,onSave}){
