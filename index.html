@@ -17,25 +17,58 @@
   OneSignalDeferred.push(async function(OneSignal) {
     await OneSignal.init({
       appId: "397aeb96-2c45-4cd8-9a5e-da6c2625281b",
-      serviceWorkerParam: { scope: "/" },
-      serviceWorkerPath: "OneSignalSDKWorker.js",
+      serviceWorkerPath: "/muhra/OneSignalSDKWorker.js",
+      serviceWorkerParam: { scope: "/muhra/" },
       notifyButton: { enable: false },
       allowLocalhostAsSecureOrigin: true,
-    });
-    // Store OneSignal player ID mapped to user
-    OneSignal.User.PushSubscription.addEventListener("change", async function(event) {
-      if(event.current.token) {
-        const userId = localStorage.getItem("muhra_uid_v3");
-        if(userId) {
-          const { createClient } = supabase;
-          const sb2 = createClient(
-            "https://ltwzmjqrlvqbndmipufm.supabase.co",
-            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0d3ptanFybHZxYm5kbWlwdWZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMDA3NTEsImV4cCI6MjA5MjY3Njc1MX0.pvp5NFr2tOTw_MJHIxHO9kK7cQ75QjL5N8AcewXIVOM"
-          );
-          await sb2.from("push_tokens").upsert({user_id: userId, token: event.current.token, updated_at: new Date().toISOString()});
+      promptOptions: {
+        slidedown: {
+          prompts: [{
+            type: "push",
+            autoPrompt: false,
+            text: {
+              actionMessage: "Muhra Tasks needs your permission to send you notifications for new tasks, comments and mentions.",
+              acceptButton: "Allow",
+              cancelButton: "Later"
+            }
+          }]
         }
       }
     });
+
+    // Save token to Supabase whenever subscription changes
+    async function saveToken(token) {
+      const userId = localStorage.getItem("muhra_uid_v3");
+      if(!userId || !token) return;
+      try {
+        await fetch("https://ltwzmjqrlvqbndmipufm.supabase.co/rest/v1/push_tokens", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0d3ptanFybHZxYm5kbWlwdWZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMDA3NTEsImV4cCI6MjA5MjY3Njc1MX0.pvp5NFr2tOTw_MJHIxHO9kK7cQ75QjL5N8AcewXIVOM",
+            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0d3ptanFybHZxYm5kbWlwdWZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMDA3NTEsImV4cCI6MjA5MjY3Njc1MX0.pvp5NFr2tOTw_MJHIxHO9kK7cQ75QjL5N8AcewXIVOM",
+            "Prefer": "resolution=merge-duplicates"
+          },
+          body: JSON.stringify({user_id: userId, token: token, updated_at: new Date().toISOString()})
+        });
+      } catch(e) { console.log("Token save failed:", e); }
+    }
+
+    OneSignal.User.PushSubscription.addEventListener("change", async function(event) {
+      if(event.current?.token) saveToken(event.current.token);
+    });
+
+    // Expose prompt function globally so React can call it after login
+    window.requestNotificationPermission = async function() {
+      try {
+        const permission = await Notification.requestPermission();
+        if(permission === "granted") {
+          await OneSignal.User.PushSubscription.optIn();
+          const token = OneSignal.User.PushSubscription.token;
+          if(token) saveToken(token);
+        }
+      } catch(e) { console.log("Permission request failed:", e); }
+    };
   });
 </script>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -1029,7 +1062,16 @@ function App(){
 
   const filtered=tasks.filter(t=>(filterSt==="All"||t.status===filterSt)&&(filterAs==="All"||(Array.isArray(t.assigned_to)?t.assigned_to.includes(filterAs):t.assigned_to===filterAs)));
 
-  if(!user)return <Login onLogin={id=>{lsS("muhra_uid_v3",id);setUserId(id)}}/>;
+  if(!user)return <Login onLogin={id=>{
+    lsS("muhra_uid_v3",id);
+    setUserId(id);
+    // Request notification permission after login with small delay
+    setTimeout(()=>{
+      if(typeof window.requestNotificationPermission==="function"){
+        window.requestNotificationPermission();
+      }
+    }, 2000);
+  }}/>;
 
   if(loading)return <div style={{minHeight:"100vh",background:"#1a1a2e",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:20}}>
     <Shoe size={52} color="#c9a96e"/>
@@ -1049,6 +1091,12 @@ function App(){
     <header style={{background:"#f5efe6",padding:"10px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:50,boxShadow:"0 1px 12px rgba(0,0,0,0.08)",borderBottom:"1px solid #e8ddd0"}}>
       <img src="https://cdn.shopify.com/s/files/1/0679/6984/3251/files/logo_muhra.png?v=1777114424" alt="Muhra" style={{height:38,objectFit:"contain"}}/>
       <div style={{display:"flex",alignItems:"center",gap:10}}>
+        {"Notification" in window && Notification.permission==="default"&&(
+          <button className="mbtn" title="Enable notifications" onClick={()=>window.requestNotificationPermission?.()}
+            style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:20,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
+            🔔 Enable
+          </button>
+        )}
         <div style={{textAlign:"right"}}><div style={{color:"#3d2b1f",fontSize:12,fontWeight:600}}>{user.name.split(" ")[0]}</div><div style={{color:"#9c7c5a",fontSize:10}}>{isAdmin?"Admin":"Member"}</div></div>
         <Av member={user} photo={profiles[user.id]} size={36} onClick={logout} title="Tap to logout"/>
       </div>
