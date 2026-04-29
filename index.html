@@ -535,7 +535,7 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
                 placeholder="Comment… (type @ to mention)"
                 onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();if(cmt.trim()){onComment(cmt.trim());setCmt("");setShowMentions(false)}}}}
                 style={{...inp,width:"100%",minHeight:44,paddingRight:40,resize:"none"}}/>
-              <button className="mbtn" title="Mention someone" onClick={()=>{setShowMentions(!showMentions);if(!showMentions)setCmt(c=>c+"@");}}
+              <button className="mbtn" title="Mention someone" onClick={()=>{setShowMentions(!showMentions);if(!showMentions)setCmt(prev=>prev+"@");}}
                 style={{position:"absolute",right:8,bottom:10,background:"none",border:"none",fontSize:16,cursor:"pointer",color:showMentions?"#1a1a2e":"#9ca3af"}}>@</button>
             </div>
             <button className="mbtn" style={{width:46,height:46,borderRadius:"50%",flexShrink:0,background:"#1a1a2e",color:"#c9a96e",border:"none",fontSize:20}}
