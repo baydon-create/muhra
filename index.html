@@ -226,11 +226,20 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
   const [editingNote,setEditingNote]=useState(null);
   const [editingCmt,setEditingCmt]=useState(null);
   const [showMentions,setShowMentions]=useState(false);
+  const [instrText,setInstrText]=useState(task.instructions?.text||"");
+  const [recording,setRecording]=useState(false);
+  const [recSeconds,setRecSeconds]=useState(0);
+  const [uploadingVoice,setUploadingVoice]=useState(false);
+  const [instrSaving,setInstrSaving]=useState(false);
+  const mediaRecRef=useRef(null);
+  const recTimerRef=useRef(null);
+  const chunksRef=useRef([]);
   const fileRef=useRef(null);
   const cmtInputRef=useRef(null);
   const botRef=useRef(null);
 
   useEffect(()=>{setTimeout(()=>botRef.current?.scrollIntoView({behavior:"smooth"}),80)},[task.comments?.length]);
+  useEffect(()=>{setInstrText(task.instructions?.text||"");},[task.id]);
 
   const assignees=(Array.isArray(task.assigned_to)?task.assigned_to:[task.assigned_to]).filter(Boolean).map(id=>TEAM.find(m=>m.id===id)).filter(Boolean);
   const cr=TEAM.find(m=>m.id===task.created_by);
@@ -241,6 +250,63 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
   const canSign=assignedIds.includes(userId)&&!sig&&task.status==="Done";
   const canStatus=isAdmin||assignedIds.includes(userId);
   const inp={width:"100%",padding:"10px 13px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:14,color:"#111",outline:"none",background:"#fafafa",boxSizing:"border-box"};
+
+  async function startRecording(){
+    try{
+      const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+      chunksRef.current=[];
+      const mr=new MediaRecorder(stream,{mimeType:MediaRecorder.isTypeSupported("audio/webm")?"audio/webm":"audio/mp4"});
+      mr.ondataavailable=ev=>{if(ev.data.size>0)chunksRef.current.push(ev.data);};
+      mr.onstop=async()=>{
+        stream.getTracks().forEach(t=>t.stop());
+        const blob=new Blob(chunksRef.current,{type:mr.mimeType});
+        await uploadVoice(blob,mr.mimeType);
+      };
+      mr.start();
+      mediaRecRef.current=mr;
+      setRecording(true);
+      setRecSeconds(0);
+      recTimerRef.current=setInterval(()=>setRecSeconds(s=>s+1),1000);
+    }catch(err){alert("Microphone access denied. Please allow microphone access and try again.");}
+  }
+
+  function stopRecording(){
+    if(mediaRecRef.current&&recording){
+      mediaRecRef.current.stop();
+      clearInterval(recTimerRef.current);
+      setRecording(false);
+      setUploadingVoice(true);
+    }
+  }
+
+  async function uploadVoice(blob,mimeType){
+    try{
+      const ext=mimeType.includes("webm")?"webm":"mp4";
+      const path=`${task.id}/voice_${Date.now().toString(36)}.${ext}`;
+      const {error}=await sb.storage.from("task-attachments").upload(path,blob,{contentType:mimeType,upsert:false});
+      if(error){alert("Failed to upload voice note: "+error.message);setUploadingVoice(false);return;}
+      const {data:{publicUrl}}=sb.storage.from("task-attachments").getPublicUrl(path);
+      const voices=[...(task.instructions?.voices||[]),{id:Date.now().toString(36)+Math.random().toString(36).slice(2),url:publicUrl,path,uploadedBy:userId,uploadedAt:new Date().toISOString(),duration:recSeconds}];
+      await sb.from("tasks").update({instructions:{text:task.instructions?.text||"",voices}}).eq("id",task.id);
+      setUploadingVoice(false);
+    }catch(err){alert("Error: "+err.message);setUploadingVoice(false);}
+  }
+
+  async function deleteVoice(id){
+    if(!window.confirm("Delete this voice note?"))return;
+    const v=(task.instructions?.voices||[]).find(x=>x.id===id);
+    if(v?.path)await sb.storage.from("task-attachments").remove([v.path]);
+    const voices=(task.instructions?.voices||[]).filter(x=>x.id!==id);
+    await sb.from("tasks").update({instructions:{text:task.instructions?.text||"",voices}}).eq("id",task.id);
+  }
+
+  async function saveInstructions(){
+    setInstrSaving(true);
+    await sb.from("tasks").update({instructions:{text:instrText,voices:task.instructions?.voices||[]}}).eq("id",task.id);
+    setInstrSaving(false);
+  }
+
+  function fmtSec(s){const m=Math.floor(s/60);const sec=s%60;return `${m}:${sec.toString().padStart(2,"0")}`;}
 
   async function handleAttach(e){
     const files=Array.from(e.target.files).filter(f=>f.type.startsWith("image/"));
@@ -412,6 +478,60 @@ function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelet
                 <div style={{fontSize:13}}>{r.note}</div>
               </div>;})}
           </FS>}
+
+          {/* ── INSTRUCTIONS ── */}
+          <FS label="Instructions">
+            {/* Text instructions */}
+            <textarea
+              placeholder="Add text instructions for this task…"
+              value={instrText}
+              onChange={ev=>setInstrText(ev.target.value)}
+              style={{width:"100%",padding:"10px 13px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:14,color:"#111",outline:"none",background:"#fafafa",boxSizing:"border-box",minHeight:80,resize:"none",fontFamily:"inherit"}}
+            />
+            {instrText!==( task.instructions?.text||"")&&<button className="mbtn"
+              style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:10,padding:"8px 16px",fontSize:13,fontWeight:700,alignSelf:"flex-start"}}
+              onClick={saveInstructions}>{instrSaving?"Saving…":"Save Instructions"}</button>}
+
+            {/* Voice notes */}
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {(task.instructions?.voices||[]).map(v=>{
+                const uploader=TEAM.find(m=>m.id===v.uploadedBy);
+                return <div key={v.id} style={{background:"#f8f7f4",border:"1.5px solid #e5e7eb",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6}}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <div style={{width:34,height:34,borderRadius:"50%",background:"#1a1a2e",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                        <span style={{color:"#c9a96e",fontSize:16}}>🎙️</span>
+                      </div>
+                      <div>
+                        <div style={{fontSize:12,fontWeight:700,color:"#111"}}>Voice Note</div>
+                        <div style={{fontSize:10,color:"#9ca3af"}}>{uploader?.name?.split(" ")[0]} · {fD(v.uploadedAt)}{v.duration?` · ${fmtSec(v.duration)}`:""}</div>
+                      </div>
+                    </div>
+                    {(isAdmin||v.uploadedBy===userId)&&<button className="mbtn" onClick={()=>deleteVoice(v.id)}
+                      style={{background:"none",border:"none",color:"#9ca3af",fontSize:16,cursor:"pointer",padding:4}}>🗑</button>}
+                  </div>
+                  <audio controls src={v.url} style={{width:"100%",height:36,borderRadius:8,accentColor:"#1a1a2e"}}/>
+                </div>;})}
+            </div>
+
+            {/* Record button */}
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              {!recording?
+                <button className="mbtn"
+                  style={{background:uploadingVoice?"#f3f4f6":"#1a1a2e",color:uploadingVoice?"#9ca3af":"#c9a96e",border:"none",borderRadius:12,padding:"10px 18px",fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:8,cursor:uploadingVoice?"default":"pointer"}}
+                  onClick={startRecording} disabled={uploadingVoice}>
+                  {uploadingVoice?<><span style={{animation:"pulse 1s infinite"}}>⏳</span> Saving voice note…</>:<><span>🎙️</span> Record Voice Note</>}
+                </button>
+              :
+                <button className="mbtn"
+                  style={{background:"#dc2626",color:"#fff",border:"none",borderRadius:12,padding:"10px 18px",fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:8,cursor:"pointer",animation:"pulse 1s ease infinite"}}
+                  onClick={stopRecording}>
+                  <span style={{width:10,height:10,background:"#fff",borderRadius:2,display:"inline-block"}}/>
+                  Stop · {fmtSec(recSeconds)}
+                </button>
+              }
+            </div>
+          </FS>
 
           {/* ── ATTACHMENTS ── */}
           <FS label={`Attachments (${task.attachments?.length||0})`}>
@@ -708,8 +828,8 @@ function App(){
   },[userId]);
 
   async function refreshTasks(){const{data}=await sb.from("tasks").select("*, comments(*), edit_requests(*)").order("created_at",{ascending:false});if(data){setTasks(data);setSelected(s=>s?data.find(t=>t.id===s.id)||s:null)}}
-  async function addTask(form){await sb.from("tasks").insert([{title:form.title,description:form.description,priority:form.priority,assigned_to:form.assignedTo,created_by:userId,deadline:form.deadline||null,status:"To Do",signed_by:[],attachments:[],links:[]}]);refreshTasks()}
-  async function updateTask(id,upd){const row={};if("status"in upd)row.status=upd.status;if("signed_by"in upd)row.signed_by=upd.signed_by;if("title"in upd)row.title=upd.title;if("description"in upd)row.description=upd.description;if("priority"in upd)row.priority=upd.priority;if("assigned_to"in upd)row.assigned_to=upd.assigned_to;if("deadline"in upd)row.deadline=upd.deadline||null;if("attachments"in upd)row.attachments=upd.attachments;if("links"in upd)row.links=upd.links;await sb.from("tasks").update(row).eq("id",id);refreshTasks()}
+  async function addTask(form){await sb.from("tasks").insert([{title:form.title,description:form.description,priority:form.priority,assigned_to:form.assignedTo,created_by:userId,deadline:form.deadline||null,status:"To Do",signed_by:[],attachments:[],links:[],instructions:{text:"",voices:[]}}]);refreshTasks()}
+  async function updateTask(id,upd){const row={};if("status"in upd)row.status=upd.status;if("signed_by"in upd)row.signed_by=upd.signed_by;if("title"in upd)row.title=upd.title;if("description"in upd)row.description=upd.description;if("priority"in upd)row.priority=upd.priority;if("assigned_to"in upd)row.assigned_to=upd.assigned_to;if("deadline"in upd)row.deadline=upd.deadline||null;if("attachments"in upd)row.attachments=upd.attachments;if("links"in upd)row.links=upd.links;if("instructions"in upd)row.instructions=upd.instructions;await sb.from("tasks").update(row).eq("id",id);refreshTasks()}
   async function deleteTask(id){await sb.from("tasks").delete().eq("id",id);setSelected(null);refreshTasks()}
   async function addComment(tid,text){await sb.from("comments").insert([{task_id:tid,author:userId,text,likes:[],edited:false}]);refreshTasks()}
   async function addEditReq(tid,note){await sb.from("edit_requests").insert([{task_id:tid,author:userId,note}]);refreshTasks()}
