@@ -12,6 +12,13 @@
 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Alexandria:wght@400;500;600;700;800;900&display=swap');
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
 body{font-family:'Century Gothic','Nunito',Futura,'Trebuchet MS',sans-serif;background:#f5f4f0;min-height:100vh}
+
+/* Global Arabic font override using CSS unicode-range trick */
+@font-face {
+  font-family: 'ArabicOverride';
+  src: local('Alexandria');
+  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF;
+}
 @keyframes slideUp{from{transform:translateY(28px);opacity:0}to{transform:translateY(0);opacity:1}}
 @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
 @keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
@@ -792,6 +799,34 @@ function App(){
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+
+// Global Arabic font enforcer - runs after every React render
+function applyArabicFont(root){
+  const arabicRx=/[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]/;
+  function walk(node){
+    if(node.nodeType===3){// text node
+      const txt=node.textContent||"";
+      if(arabicRx.test(txt)&&node.parentElement){
+        const el=node.parentElement;
+        if(!el.style.fontFamily.includes("Alexandria")){
+          el.style.fontFamily="'Alexandria',sans-serif";
+          el.style.direction="rtl";
+          el.style.unicodeBidi="embed";
+          el.style.textAlign="right";
+        }
+      }
+    }else{
+      node.childNodes.forEach(walk);
+    }
+  }
+  walk(root||document.getElementById("root"));
+}
+
+// Run on every DOM mutation (catches all React updates)
+const arabicObserver=new MutationObserver(()=>applyArabicFont());
+arabicObserver.observe(document.getElementById("root"),{childList:true,subtree:true,characterData:true});
+// Run once on load
+setTimeout(applyArabicFont,500);
 </script>
 </body>
 </html>
