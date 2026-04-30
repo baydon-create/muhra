@@ -18,10 +18,21 @@
   const SUPA_URL = "https://ltwzmjqrlvqbndmipufm.supabase.co";
   const SUPA_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0d3ptanFybHZxYm5kbWlwdWZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMDA3NTEsImV4cCI6MjA5MjY3Njc1MX0.pvp5NFr2tOTw_MJHIxHO9kK7cQ75QjL5N8AcewXIVOM";
 
-  async function saveTokenToSupabase(token) {
-    const userId = localStorage.getItem("muhra_uid_v3");
-    if (!userId || !token) { console.log("saveToken: missing userId or token"); return; }
-    console.log("Saving token for user:", userId, "token:", token.slice(0,20)+"...");
+  // Store token in memory always
+  window._muhraToken = null;
+
+  async function saveTokenToSupabase(token, userId) {
+    if (!token) { console.log("saveToken: no token"); return; }
+    // Always store token in memory
+    window._muhraToken = token;
+    localStorage.setItem("muhra_push_token", token);
+    // Get userId from parameter or localStorage
+    const uid = userId || localStorage.getItem("muhra_uid_v3");
+    if (!uid) { 
+      console.log("saveToken: no userId yet - token stored, will save after login"); 
+      return; 
+    }
+    console.log("Saving token for user:", uid, "token:", token.slice(0,20)+"...");
     try {
       const res = await fetch(SUPA_URL + "/rest/v1/push_tokens", {
         method: "POST",
@@ -31,12 +42,29 @@
           "Authorization": "Bearer " + SUPA_ANON,
           "Prefer": "resolution=merge-duplicates"
         },
-        body: JSON.stringify({ user_id: userId, token: token, updated_at: new Date().toISOString() })
+        body: JSON.stringify({ user_id: uid, token: token, updated_at: new Date().toISOString() })
       });
       const txt = await res.text();
       console.log("Token save response:", res.status, txt);
     } catch(e) { console.log("Token save error:", e); }
   }
+
+  // Called after user logs in - links stored token to user
+  window.linkTokenToUser = async function(userId) {
+    const token = window._muhraToken || localStorage.getItem("muhra_push_token");
+    if (token) {
+      console.log("Linking stored token to user:", userId);
+      await saveTokenToSupabase(token, userId);
+    } else {
+      // Try to get fresh token from OneSignal
+      try {
+        if (typeof OneSignal !== "undefined") {
+          const freshToken = OneSignal.User?.PushSubscription?.token;
+          if (freshToken) await saveTokenToSupabase(freshToken, userId);
+        }
+      } catch(e) {}
+    }
+  };
 
   async function checkAndSaveToken() {
     try {
@@ -44,7 +72,8 @@
       const token = OneSignal.User?.PushSubscription?.token;
       const isSubscribed = OneSignal.User?.PushSubscription?.optedIn;
       console.log("checkAndSaveToken - token:", token ? token.slice(0,20)+"..." : "none", "subscribed:", isSubscribed);
-      if (token && isSubscribed) await saveTokenToSupabase(token);
+      // Save token regardless of login state - userId optional
+      if (token) await saveTokenToSupabase(token);
     } catch(e) { console.log("checkAndSaveToken error:", e); }
   }
 
@@ -56,7 +85,8 @@
       console.log("Permission result:", permission);
       if (permission === "granted") {
         await OneSignal.User.PushSubscription.optIn();
-        // Wait for token to be assigned
+        const userId = localStorage.getItem("muhra_uid_v3");
+        // Wait for token with retry
         let attempts = 0;
         const waitForToken = setInterval(async () => {
           attempts++;
@@ -64,9 +94,9 @@
           console.log("Waiting for token, attempt", attempts, "token:", token ? token.slice(0,20)+"..." : "none");
           if (token) {
             clearInterval(waitForToken);
-            await saveTokenToSupabase(token);
+            await saveTokenToSupabase(token, userId);
           }
-          if (attempts > 20) clearInterval(waitForToken);
+          if (attempts > 30) clearInterval(waitForToken);
         }, 1000);
       }
     } catch(e) { console.log("Permission error:", e); }
@@ -1083,10 +1113,15 @@ function App(){
   if(!user)return <Login onLogin={id=>{
     lsS("muhra_uid_v3",id);
     setUserId(id);
-    // Request notification permission after login with small delay
+    // Link any existing token to this user immediately
+    setTimeout(()=>{
+      if(typeof window.linkTokenToUser==="function") window.linkTokenToUser(id);
+    }, 500);
+    // Also request permission if not yet granted
     setTimeout(()=>{
       if(typeof window.requestNotificationPermission==="function"){
-        window.requestNotificationPermission();
+        if(Notification.permission !== "granted") window.requestNotificationPermission();
+        else if(typeof window.linkTokenToUser==="function") window.linkTokenToUser(id);
       }
     }, 2000);
   }}/>;
