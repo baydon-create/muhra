@@ -132,25 +132,20 @@ const lsS=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
 // ── PUSH NOTIFICATION HELPER ──
 async function sendPush(toUserIds, title, body, taskId){
   try{
-    // Get tokens for target users
-    const {data:tokens}=await sb.from("push_tokens").select("*").in("user_id",toUserIds);
-    if(!tokens||tokens.length===0)return;
-    const playerIds=tokens.map(t=>t.token).filter(Boolean);
-    if(playerIds.length===0)return;
-    const payload={
-      app_id:"397aeb96-2c45-4cd8-9a5e-da6c2625281b",
-      include_subscription_ids:playerIds,
-      headings:{en:title},
-      contents:{en:body},
-      url:window.location.href,
-      data:{taskId},
-      chrome_web_icon:"https://cdn.shopify.com/s/files/1/0679/6984/3251/files/logo_muhra.png?v=1777114424",
-      chrome_web_badge:"https://cdn.shopify.com/s/files/1/0679/6984/3251/files/logo_muhra.png?v=1777114424",
-    };
-    await fetch("https://onesignal.com/api/v1/notifications",{
+    if(!toUserIds||toUserIds.length===0)return;
+    // Get tokens for target users from Supabase
+    const {data:tokenRows}=await sb.from("push_tokens").select("token").in("user_id",toUserIds);
+    if(!tokenRows||tokenRows.length===0)return;
+    const tokens=tokenRows.map(t=>t.token).filter(Boolean);
+    if(tokens.length===0)return;
+    // Call Supabase Edge Function (avoids CORS issue with direct OneSignal call)
+    await fetch("https://ltwzmjqrlvqbndmipufm.supabase.co/functions/v1/send-push",{
       method:"POST",
-      headers:{"Content-Type":"application/json","Authorization":"os_v2_app_hf5oxfrmivgnrgs63jwcmjjidpbqfll36zcep7u7o7gj7jwlfm2zdxocaobdsyl4u67uvt5cobewmzyyqyznqrlzebgjz3kxgdyopsi"},
-      body:JSON.stringify(payload)
+      headers:{
+        "Content-Type":"application/json",
+        "Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0d3ptanFybHZxYm5kbWlwdWZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMDA3NTEsImV4cCI6MjA5MjY3Njc1MX0.pvp5NFr2tOTw_MJHIxHO9kK7cQ75QjL5N8AcewXIVOM"
+      },
+      body:JSON.stringify({tokens,title,body,taskId})
     });
   }catch(e){console.log("Push failed:",e);}
 }
