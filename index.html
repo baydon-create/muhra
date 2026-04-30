@@ -14,6 +14,64 @@
 <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 <script>
   window.OneSignalDeferred = window.OneSignalDeferred || [];
+  
+  const SUPA_URL = "https://ltwzmjqrlvqbndmipufm.supabase.co";
+  const SUPA_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0d3ptanFybHZxYm5kbWlwdWZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMDA3NTEsImV4cCI6MjA5MjY3Njc1MX0.pvp5NFr2tOTw_MJHIxHO9kK7cQ75QjL5N8AcewXIVOM";
+
+  async function saveTokenToSupabase(token) {
+    const userId = localStorage.getItem("muhra_uid_v3");
+    if (!userId || !token) { console.log("saveToken: missing userId or token"); return; }
+    console.log("Saving token for user:", userId, "token:", token.slice(0,20)+"...");
+    try {
+      const res = await fetch(SUPA_URL + "/rest/v1/push_tokens", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": SUPA_ANON,
+          "Authorization": "Bearer " + SUPA_ANON,
+          "Prefer": "resolution=merge-duplicates"
+        },
+        body: JSON.stringify({ user_id: userId, token: token, updated_at: new Date().toISOString() })
+      });
+      const txt = await res.text();
+      console.log("Token save response:", res.status, txt);
+    } catch(e) { console.log("Token save error:", e); }
+  }
+
+  async function checkAndSaveToken() {
+    try {
+      if (typeof OneSignal === "undefined") { console.log("OneSignal not ready"); return; }
+      const token = OneSignal.User?.PushSubscription?.token;
+      const isSubscribed = OneSignal.User?.PushSubscription?.optedIn;
+      console.log("checkAndSaveToken - token:", token ? token.slice(0,20)+"..." : "none", "subscribed:", isSubscribed);
+      if (token && isSubscribed) await saveTokenToSupabase(token);
+    } catch(e) { console.log("checkAndSaveToken error:", e); }
+  }
+
+  window.requestNotificationPermission = async function() {
+    try {
+      console.log("Requesting notification permission...");
+      if (typeof OneSignal === "undefined") { console.log("OneSignal not loaded yet"); return; }
+      const permission = await Notification.requestPermission();
+      console.log("Permission result:", permission);
+      if (permission === "granted") {
+        await OneSignal.User.PushSubscription.optIn();
+        // Wait for token to be assigned
+        let attempts = 0;
+        const waitForToken = setInterval(async () => {
+          attempts++;
+          const token = OneSignal.User?.PushSubscription?.token;
+          console.log("Waiting for token, attempt", attempts, "token:", token ? token.slice(0,20)+"..." : "none");
+          if (token) {
+            clearInterval(waitForToken);
+            await saveTokenToSupabase(token);
+          }
+          if (attempts > 20) clearInterval(waitForToken);
+        }, 1000);
+      }
+    } catch(e) { console.log("Permission error:", e); }
+  };
+
   OneSignalDeferred.push(async function(OneSignal) {
     await OneSignal.init({
       appId: "397aeb96-2c45-4cd8-9a5e-da6c2625281b",
@@ -21,54 +79,20 @@
       serviceWorkerParam: { scope: "/muhra/" },
       notifyButton: { enable: false },
       allowLocalhostAsSecureOrigin: true,
-      promptOptions: {
-        slidedown: {
-          prompts: [{
-            type: "push",
-            autoPrompt: false,
-            text: {
-              actionMessage: "Muhra Tasks needs your permission to send you notifications for new tasks, comments and mentions.",
-              acceptButton: "Allow",
-              cancelButton: "Later"
-            }
-          }]
-        }
-      }
     });
 
-    // Save token to Supabase whenever subscription changes
-    async function saveToken(token) {
-      const userId = localStorage.getItem("muhra_uid_v3");
-      if(!userId || !token) return;
-      try {
-        await fetch("https://ltwzmjqrlvqbndmipufm.supabase.co/rest/v1/push_tokens", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0d3ptanFybHZxYm5kbWlwdWZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMDA3NTEsImV4cCI6MjA5MjY3Njc1MX0.pvp5NFr2tOTw_MJHIxHO9kK7cQ75QjL5N8AcewXIVOM",
-            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0d3ptanFybHZxYm5kbWlwdWZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMDA3NTEsImV4cCI6MjA5MjY3Njc1MX0.pvp5NFr2tOTw_MJHIxHO9kK7cQ75QjL5N8AcewXIVOM",
-            "Prefer": "resolution=merge-duplicates"
-          },
-          body: JSON.stringify({user_id: userId, token: token, updated_at: new Date().toISOString()})
-        });
-      } catch(e) { console.log("Token save failed:", e); }
-    }
+    console.log("OneSignal initialized");
 
+    // Listen for subscription changes
     OneSignal.User.PushSubscription.addEventListener("change", async function(event) {
-      if(event.current?.token) saveToken(event.current.token);
+      console.log("Subscription changed:", event.current);
+      if (event.current?.token) await saveTokenToSupabase(event.current.token);
     });
 
-    // Expose prompt function globally so React can call it after login
-    window.requestNotificationPermission = async function() {
-      try {
-        const permission = await Notification.requestPermission();
-        if(permission === "granted") {
-          await OneSignal.User.PushSubscription.optIn();
-          const token = OneSignal.User.PushSubscription.token;
-          if(token) saveToken(token);
-        }
-      } catch(e) { console.log("Permission request failed:", e); }
-    };
+    // Check if already subscribed (returning user)
+    setTimeout(checkAndSaveToken, 2000);
+    setTimeout(checkAndSaveToken, 5000);
+    setTimeout(checkAndSaveToken, 10000);
   });
 </script>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
