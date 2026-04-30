@@ -232,9 +232,8 @@ function Login({onLogin}){
 
   return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(155deg,#0f0f1e 0%,#1a1a2e 55%,#2a1a14 100%)",padding:20}}>
     <div style={{background:"#fff",borderRadius:22,padding:"30px 24px",width:"100%",maxWidth:360,boxShadow:"0 16px 56px rgba(0,0,0,0.45)"}}>
-      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:22}}>
-        <Shoe size={34} color="#1a1a2e"/>
-        <span style={{fontSize:22,fontWeight:900,color:"#1a1a2e",letterSpacing:3}}>MUHRA</span>
+      <div style={{marginBottom:22,textAlign:"center"}}>
+        <img src="https://cdn.shopify.com/s/files/1/0679/6984/3251/files/logo_muhra.png?v=1777114424" alt="Muhra" style={{height:50,objectFit:"contain"}}/>
       </div>
       <div style={{fontSize:21,fontWeight:900,color:"#111",marginBottom:4}}>Team Workspace</div>
 
@@ -1069,7 +1068,7 @@ function App(){
   }}/>;
 
   if(loading)return <div style={{minHeight:"100vh",background:"#1a1a2e",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:20}}>
-    <Shoe size={52} color="#c9a96e"/>
+    <img src="https://cdn.shopify.com/s/files/1/0679/6984/3251/files/MUHRA_APP_LOGO_1.png?v=1777552159" alt="Muhra" style={{width:120,height:120,objectFit:"contain",borderRadius:24}}/>
     <div style={{color:"#c9a96e",fontSize:13,letterSpacing:3,animation:"pulse 1.4s ease infinite"}}>LOADING</div>
   </div>;
 
