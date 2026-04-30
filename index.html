@@ -37,7 +37,9 @@
       }
       console.log("Registering user with OneSignal:", userId);
       // Set external user ID - OneSignal maps this to subscription
-      await OneSignal.login(userId);
+      const cleanId = userId.replace(/[^a-zA-Z0-9_-]/g, "");
+    console.log("OneSignal.login with cleanId:", cleanId);
+    await OneSignal.login(cleanId);
       console.log("OneSignal login complete for:", userId);
       // Request permission
       if (Notification.permission === "default") {
@@ -49,7 +51,7 @@
         console.log("Opted in to push");
       }
       // Now save the subscription ID to Supabase
-      await saveSubscriptionToSupabase(userId);
+      await saveSubscriptionToSupabase(cleanId);
     } catch(e) {
       console.log("registerUserWithOneSignal error:", e);
     }
@@ -180,13 +182,15 @@ async function sendPush(toUserIds, title, body, taskId){
     if(!toUserIds||toUserIds.length===0)return;
     // Use external_ids targeting - sends directly to OneSignal users by their ID
     // No token lookup needed - OneSignal maps external IDs to subscriptions
+    const cleanIds=toUserIds.map(id=>id.replace(/[^a-zA-Z0-9_-]/g,"")).filter(Boolean);
+    if(!cleanIds.length)return;
     await fetch("https://ltwzmjqrlvqbndmipufm.supabase.co/functions/v1/send-push",{
       method:"POST",
       headers:{
         "Content-Type":"application/json",
         "Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0d3ptanFybHZxYm5kbWlwdWZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMDA3NTEsImV4cCI6MjA5MjY3Njc1MX0.pvp5NFr2tOTw_MJHIxHO9kK7cQ75QjL5N8AcewXIVOM"
       },
-      body:JSON.stringify({external_ids:toUserIds,title,body,taskId})
+      body:JSON.stringify({external_ids:cleanIds,title,body,taskId})
     });
     console.log("Push sent to:",toUserIds,"title:",title);
   }catch(e){console.log("Push failed:",e);}
