@@ -14,93 +14,6 @@
 <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 <script>
   window.OneSignalDeferred = window.OneSignalDeferred || [];
-  
-  const SUPA_URL = "https://ltwzmjqrlvqbndmipufm.supabase.co";
-  const SUPA_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0d3ptanFybHZxYm5kbWlwdWZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMDA3NTEsImV4cCI6MjA5MjY3Njc1MX0.pvp5NFr2tOTw_MJHIxHO9kK7cQ75QjL5N8AcewXIVOM";
-
-  // Store token in memory always
-  window._muhraToken = null;
-
-  async function saveTokenToSupabase(token, userId) {
-    if (!token) { console.log("saveToken: no token"); return; }
-    // Always store token in memory
-    window._muhraToken = token;
-    localStorage.setItem("muhra_push_token", token);
-    // Get userId from parameter or localStorage
-    const uid = userId || localStorage.getItem("muhra_uid_v3");
-    if (!uid) { 
-      console.log("saveToken: no userId yet - token stored, will save after login"); 
-      return; 
-    }
-    console.log("Saving token for user:", uid, "token:", token.slice(0,20)+"...");
-    try {
-      const res = await fetch(SUPA_URL + "/rest/v1/push_tokens", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": SUPA_ANON,
-          "Authorization": "Bearer " + SUPA_ANON,
-          "Prefer": "resolution=merge-duplicates"
-        },
-        body: JSON.stringify({ user_id: uid, token: token, updated_at: new Date().toISOString() })
-      });
-      const txt = await res.text();
-      console.log("Token save response:", res.status, txt);
-    } catch(e) { console.log("Token save error:", e); }
-  }
-
-  // Called after user logs in - links stored token to user
-  window.linkTokenToUser = async function(userId) {
-    const token = window._muhraToken || localStorage.getItem("muhra_push_token");
-    if (token) {
-      console.log("Linking stored token to user:", userId);
-      await saveTokenToSupabase(token, userId);
-    } else {
-      // Try to get fresh token from OneSignal
-      try {
-        if (typeof OneSignal !== "undefined") {
-          const freshToken = OneSignal.User?.PushSubscription?.token;
-          if (freshToken) await saveTokenToSupabase(freshToken, userId);
-        }
-      } catch(e) {}
-    }
-  };
-
-  async function checkAndSaveToken() {
-    try {
-      if (typeof OneSignal === "undefined") { console.log("OneSignal not ready"); return; }
-      const token = OneSignal.User?.PushSubscription?.token;
-      const isSubscribed = OneSignal.User?.PushSubscription?.optedIn;
-      console.log("checkAndSaveToken - token:", token ? token.slice(0,20)+"..." : "none", "subscribed:", isSubscribed);
-      // Save token regardless of login state - userId optional
-      if (token) await saveTokenToSupabase(token);
-    } catch(e) { console.log("checkAndSaveToken error:", e); }
-  }
-
-  window.requestNotificationPermission = async function() {
-    try {
-      console.log("Requesting notification permission...");
-      if (typeof OneSignal === "undefined") { console.log("OneSignal not loaded yet"); return; }
-      const permission = await Notification.requestPermission();
-      console.log("Permission result:", permission);
-      if (permission === "granted") {
-        await OneSignal.User.PushSubscription.optIn();
-        const userId = localStorage.getItem("muhra_uid_v3");
-        // Wait for token with retry
-        let attempts = 0;
-        const waitForToken = setInterval(async () => {
-          attempts++;
-          const token = OneSignal.User?.PushSubscription?.token;
-          console.log("Waiting for token, attempt", attempts, "token:", token ? token.slice(0,20)+"..." : "none");
-          if (token) {
-            clearInterval(waitForToken);
-            await saveTokenToSupabase(token, userId);
-          }
-          if (attempts > 30) clearInterval(waitForToken);
-        }, 1000);
-      }
-    } catch(e) { console.log("Permission error:", e); }
-  };
 
   OneSignalDeferred.push(async function(OneSignal) {
     await OneSignal.init({
@@ -110,20 +23,98 @@
       notifyButton: { enable: false },
       allowLocalhostAsSecureOrigin: true,
     });
-
-    console.log("OneSignal initialized");
-
-    // Listen for subscription changes
-    OneSignal.User.PushSubscription.addEventListener("change", async function(event) {
-      console.log("Subscription changed:", event.current);
-      if (event.current?.token) await saveTokenToSupabase(event.current.token);
-    });
-
-    // Check if already subscribed (returning user)
-    setTimeout(checkAndSaveToken, 2000);
-    setTimeout(checkAndSaveToken, 5000);
-    setTimeout(checkAndSaveToken, 10000);
+    console.log("OneSignal initialized successfully");
   });
+
+  // Called after login - sets external user ID in OneSignal
+  // This links the device to the user without needing token management
+  window.registerUserWithOneSignal = async function(userId) {
+    try {
+      if (typeof OneSignal === "undefined") {
+        console.log("OneSignal not ready, retrying...");
+        setTimeout(() => window.registerUserWithOneSignal(userId), 2000);
+        return;
+      }
+      console.log("Registering user with OneSignal:", userId);
+      // Set external user ID - OneSignal maps this to subscription
+      await OneSignal.login(userId);
+      console.log("OneSignal login complete for:", userId);
+      // Request permission
+      if (Notification.permission === "default") {
+        const perm = await Notification.requestPermission();
+        console.log("Notification permission:", perm);
+      }
+      if (Notification.permission === "granted") {
+        await OneSignal.User.PushSubscription.optIn();
+        console.log("Opted in to push");
+      }
+      // Now save the subscription ID to Supabase
+      await saveSubscriptionToSupabase(userId);
+    } catch(e) {
+      console.log("registerUserWithOneSignal error:", e);
+    }
+  };
+
+  window.saveSubscriptionToSupabase = async function(userId) {
+    try {
+      const SUPA_URL = "https://ltwzmjqrlvqbndmipufm.supabase.co";
+      const SUPA_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0d3ptanFybHZxYm5kbWlwdWZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMDA3NTEsImV4cCI6MjA5MjY3Njc1MX0.pvp5NFr2tOTw_MJHIxHO9kK7cQ75QjL5N8AcewXIVOM";
+      
+      // Get the OneSignal subscription ID (more reliable than token)
+      let subId = null;
+      let attempts = 0;
+      
+      while (!subId && attempts < 15) {
+        attempts++;
+        subId = OneSignal.User?.PushSubscription?.id;
+        const token = OneSignal.User?.PushSubscription?.token;
+        console.log(`Attempt ${attempts}: subId=${subId}, token=${token ? token.slice(0,15)+"..." : "none"}`);
+        if (!subId && !token) {
+          await new Promise(r => setTimeout(r, 2000));
+        } else {
+          subId = subId || token;
+          break;
+        }
+      }
+
+      if (!subId) {
+        console.log("Could not get subscription ID after", attempts, "attempts");
+        return;
+      }
+
+      console.log("Saving to Supabase - userId:", userId, "subId:", subId.slice(0,20)+"...");
+      
+      const res = await fetch(SUPA_URL + "/rest/v1/push_tokens", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": SUPA_ANON,
+          "Authorization": "Bearer " + SUPA_ANON,
+          "Prefer": "resolution=merge-duplicates"
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          token: subId,
+          updated_at: new Date().toISOString()
+        })
+      });
+      
+      const responseText = await res.text();
+      console.log("Supabase save result:", res.status, responseText);
+      
+      if (res.ok || res.status === 201 || res.status === 200) {
+        console.log("✅ Token saved successfully for", userId);
+      }
+    } catch(e) {
+      console.log("saveSubscriptionToSupabase error:", e);
+    }
+  };
+
+  // Manual enable button handler
+  window.requestNotificationPermission = async function() {
+    const userId = localStorage.getItem("muhra_uid_v3");
+    if (userId) await window.registerUserWithOneSignal(userId);
+  };
 </script>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -187,20 +178,17 @@ const lsS=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
 async function sendPush(toUserIds, title, body, taskId){
   try{
     if(!toUserIds||toUserIds.length===0)return;
-    // Get tokens for target users from Supabase
-    const {data:tokenRows}=await sb.from("push_tokens").select("token").in("user_id",toUserIds);
-    if(!tokenRows||tokenRows.length===0)return;
-    const tokens=tokenRows.map(t=>t.token).filter(Boolean);
-    if(tokens.length===0)return;
-    // Call Supabase Edge Function (avoids CORS issue with direct OneSignal call)
+    // Use external_ids targeting - sends directly to OneSignal users by their ID
+    // No token lookup needed - OneSignal maps external IDs to subscriptions
     await fetch("https://ltwzmjqrlvqbndmipufm.supabase.co/functions/v1/send-push",{
       method:"POST",
       headers:{
         "Content-Type":"application/json",
         "Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0d3ptanFybHZxYm5kbWlwdWZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMDA3NTEsImV4cCI6MjA5MjY3Njc1MX0.pvp5NFr2tOTw_MJHIxHO9kK7cQ75QjL5N8AcewXIVOM"
       },
-      body:JSON.stringify({tokens,title,body,taskId})
+      body:JSON.stringify({external_ids:toUserIds,title,body,taskId})
     });
+    console.log("Push sent to:",toUserIds,"title:",title);
   }catch(e){console.log("Push failed:",e);}
 }
 
@@ -1113,17 +1101,12 @@ function App(){
   if(!user)return <Login onLogin={id=>{
     lsS("muhra_uid_v3",id);
     setUserId(id);
-    // Link any existing token to this user immediately
+    // Register this user with OneSignal after login
     setTimeout(()=>{
-      if(typeof window.linkTokenToUser==="function") window.linkTokenToUser(id);
-    }, 500);
-    // Also request permission if not yet granted
-    setTimeout(()=>{
-      if(typeof window.requestNotificationPermission==="function"){
-        if(Notification.permission !== "granted") window.requestNotificationPermission();
-        else if(typeof window.linkTokenToUser==="function") window.linkTokenToUser(id);
+      if(typeof window.registerUserWithOneSignal==="function"){
+        window.registerUserWithOneSignal(id);
       }
-    }, 2000);
+    }, 1500);
   }}/>;
 
   if(loading)return <div style={{minHeight:"100vh",background:"#1a1a2e",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:20}}>
