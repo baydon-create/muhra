@@ -990,6 +990,9 @@ function MahaBrief({userId,profiles}){
   const [recording,setRecording]=useState(false);
   const [recSecs,setRecSecs]=useState(0);
   const [uploadingVoice,setUploadingVoice]=useState(false);
+  const [cmts,setCmts]=useState({}); // {briefId: [comments]}
+  const [cmtText,setCmtText]=useState({}); // {briefId: text}
+  const [showCmts,setShowCmts]=useState({}); // {briefId: bool}
   const mediaRef=useRef(null);
   const timerRef=useRef(null);
   const chunksRef=useRef([]);
@@ -1005,6 +1008,24 @@ function MahaBrief({userId,profiles}){
     const{data}=await sb.from("maha_briefs").select("*").order("created_at",{ascending:false});
     setBriefs(data||[]);
     setLoading(false);
+  }
+
+  async function loadComments(briefId){
+    const{data}=await sb.from("brief_comments").select("*").eq("brief_id",briefId).order("created_at");
+    setCmts(prev=>({...prev,[briefId]:data||[]}));
+  }
+
+  async function sendComment(briefId){
+    const text=(cmtText[briefId]||"").trim();
+    if(!text)return;
+    await sb.from("brief_comments").insert([{brief_id:briefId,author:userId,text,created_at:new Date().toISOString()}]);
+    setCmtText(prev=>({...prev,[briefId]:""}));
+    loadComments(briefId);
+  }
+
+  function toggleComments(briefId){
+    setShowCmts(prev=>({...prev,[briefId]:!prev[briefId]}));
+    if(!cmts[briefId])loadComments(briefId);
   }
 
   function toggleAssignee(id){
