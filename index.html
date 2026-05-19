@@ -986,7 +986,7 @@ function MahaBrief({userId,profiles}){
   const [briefs,setBriefs]=useState([]);
   const [loading,setLoading]=useState(true);
   const [showForm,setShowForm]=useState(false);
-  const [form,setForm]=useState({text:"",urgency:"Normal",deadline:""});
+  const [form,setForm]=useState({text:"",urgency:"Normal",deadline:"",assignees:[]});
   const [recording,setRecording]=useState(false);
   const [recSecs,setRecSecs]=useState(0);
   const [uploadingVoice,setUploadingVoice]=useState(false);
@@ -1005,6 +1005,10 @@ function MahaBrief({userId,profiles}){
     const{data}=await sb.from("maha_briefs").select("*").order("created_at",{ascending:false});
     setBriefs(data||[]);
     setLoading(false);
+  }
+
+  function toggleAssignee(id){
+    setForm(f=>({...f,assignees:f.assignees.includes(id)?f.assignees.filter(x=>x!==id):[...f.assignees,id]}));
   }
 
   async function startRec(){
@@ -1048,9 +1052,10 @@ function MahaBrief({userId,profiles}){
     await sb.from("maha_briefs").insert([{
       text:form.text,urgency:form.urgency,deadline:form.deadline||null,
       voice_url:form.voiceUrl||null,voice_duration:form.voiceDuration||null,
+      assignees:form.assignees.length>0?form.assignees:null,
       created_by:"maha",created_at:new Date().toISOString()
     }]);
-    setForm({text:"",urgency:"Normal",deadline:""});
+    setForm({text:"",urgency:"Normal",deadline:"",assignees:[]});
     setShowForm(false);
     loadBriefs();
   }
@@ -1098,6 +1103,19 @@ function MahaBrief({userId,profiles}){
           <input type="date" value={form.deadline||""} onChange={e=>setForm(f=>({...f,deadline:e.target.value}))}
             style={{width:"100%",padding:"9px 12px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:13,outline:"none",background:"#fafafa",marginTop:4,boxSizing:"border-box"}}/>
         </div>
+      </div>
+
+      {/* Assign To */}
+      <FL>Assign To (optional — leave empty for everyone)</FL>
+      <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:6,marginBottom:12}}>
+        {TEAM.map(m=>{
+          const sel=form.assignees.includes(m.id);
+          return <button key={m.id} className="mbtn" onClick={()=>toggleAssignee(m.id)}
+            style={{display:"flex",alignItems:"center",gap:7,padding:"6px 12px",borderRadius:20,border:`1.5px solid ${sel?"#1a1a2e":"#e5e7eb"}`,background:sel?"#1a1a2e":"#fafafa",cursor:"pointer",transition:"all 0.15s"}}>
+            <Av member={m} photo={profiles[m.id]} size={20}/>
+            <span style={{fontSize:12,fontWeight:sel?700:500,color:sel?"#c9a96e":"#374151"}}>{m.name.split(" ")[0]}</span>
+          </button>;
+        })}
       </div>
 
       {/* Voice note */}
@@ -1148,6 +1166,16 @@ function MahaBrief({userId,profiles}){
             {isMaha&&<button className="mbtn" onClick={()=>deleteBrief(b.id)} style={{background:"none",border:"none",color:"#9ca3af",fontSize:15,cursor:"pointer",padding:2}}>🗑</button>}
           </div>
         </div>
+
+        {/* Assigned members */}
+        {b.assignees&&b.assignees.length>0&&<div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,flexWrap:"wrap"}}>
+          <span style={{fontSize:11,color:"#9ca3af",fontWeight:600}}>FOR:</span>
+          {b.assignees.map(uid=>{const m=TEAM.find(t=>t.id===uid);return m?<div key={uid} style={{display:"flex",alignItems:"center",gap:4,background:"#f3f4f6",borderRadius:20,padding:"3px 8px"}}>
+            <Av member={m} photo={profiles[uid]} size={16}/>
+            <span style={{fontSize:11,fontWeight:600,color:"#374151"}}>{m.name.split(" ")[0]}</span>
+          </div>:null;})}
+        </div>}
+        {(!b.assignees||b.assignees.length===0)&&<div style={{fontSize:11,color:"#9ca3af",marginBottom:8}}>👥 For everyone</div>}
 
         {b.text&&<div style={{fontSize:14,color:"#374151",lineHeight:1.65,marginBottom:10}}><SmartText text={b.text}/></div>}
 
