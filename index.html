@@ -1595,75 +1595,174 @@ function App(){
     <button onClick={logout} style={{background:"transparent",color:"#9ca3af",border:"none",fontSize:13,marginTop:4}}>Back to Login</button>
   </div>;
 
-  return <div style={{fontFamily:"'Century Gothic','Nunito',Futura,'Trebuchet MS',sans-serif",background:"#f5f4f0",minHeight:"100vh",maxWidth:960,margin:"0 auto",paddingBottom:110}}>
-    {/* HEADER */}
-    <header style={{background:"#f5efe6",padding:"10px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:50,boxShadow:"0 1px 12px rgba(0,0,0,0.08)",borderBottom:"1px solid #e8ddd0"}}>
-      <img src="https://cdn.shopify.com/s/files/1/0679/6984/3251/files/logo_muhra.png?v=1777114424" alt="Muhra" style={{height:38,objectFit:"contain"}}/>
-      <div style={{display:"flex",alignItems:"center",gap:10}}>
-        {"Notification" in window && Notification.permission==="default"&&(
-          <button className="mbtn" title="Enable notifications" onClick={()=>window.requestNotificationPermission?.()}
-            style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:20,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>
-            🔔 Enable
-          </button>
+  const mineCount=tasks.filter(t=>Array.isArray(t.assigned_to)?t.assigned_to.includes(userId):t.assigned_to===userId).length;
+  const urgentCount=tasks.filter(t=>t.priority==="Urgent"&&t.status!=="Done").length;
+  const doneCount=tasks.filter(t=>t.status==="Done").length;
+  const overdueCount=tasks.filter(t=>isOD(t.deadline,t.status)).length;
+  const unreadChat=chat.filter(m=>m.author!==userId).length>0;
+
+  const SIDEBAR_ITEMS=[
+    {id:"tasks", icon:"📋", label:"All Tasks",    badge:urgentCount>0?urgentCount:null, badgeColor:"#dc2626"},
+    {id:"maha",  icon:"👑", label:"Maha's Brief", badge:null},
+    {id:"chat",  icon:"💬", label:"Team Chat",     badge:unreadChat?null:null},
+  ];
+
+  return <div style={{fontFamily:"'Century Gothic','Nunito',Futura,'Trebuchet MS',sans-serif",display:"flex",flexDirection:"column",height:"100vh",overflow:"hidden",background:"#f5f4f0"}}>
+    <style>{`
+      .slack-sidebar-item:hover{background:rgba(26,26,46,0.08)!important;}
+      .slack-sidebar-item.active{background:#1a1a2e!important;color:#fff!important;}
+      .slack-sidebar-item.active span{color:#c9a96e!important;}
+      @media(max-width:768px){
+        .slack-sidebar{position:fixed!important;left:${sidebarOpen?0:-260}px!important;z-index:200!important;height:100%!important;transition:left 0.25s ease!important;}
+        .slack-overlay{display:${sidebarOpen?"flex":"none"}!important;}
+      }
+    `}</style>
+
+    {/* ── TOP BAR ── */}
+    <div style={{background:"#f5efe6",borderBottom:"1px solid #e8ddd0",padding:"0 16px",height:52,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,zIndex:100,boxShadow:"0 1px 8px rgba(0,0,0,0.07)"}}>
+      {/* Left: hamburger (mobile) + logo */}
+      <div style={{display:"flex",alignItems:"center",gap:12}}>
+        <button className="mbtn" onClick={()=>setSidebarOpen(!sidebarOpen)}
+          style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#5c3d2e",padding:4,display:"flex",flexDirection:"column",gap:4,lineHeight:1}}>
+          <span style={{display:"block",width:20,height:2,background:"#5c3d2e",borderRadius:2}}/>
+          <span style={{display:"block",width:20,height:2,background:"#5c3d2e",borderRadius:2}}/>
+          <span style={{display:"block",width:20,height:2,background:"#5c3d2e",borderRadius:2}}/>
+        </button>
+        <img src="https://cdn.shopify.com/s/files/1/0679/6984/3251/files/logo_muhra.png?v=1777114424" alt="Muhra" style={{height:34,objectFit:"contain"}}/>
+      </div>
+      {/* Center: page title */}
+      <div style={{fontWeight:700,fontSize:15,color:"#3d2b1f"}}>
+        {tab==="tasks"?"📋 Tasks":tab==="maha"?"👑 Maha's Brief":"💬 Team Chat"}
+      </div>
+      {/* Right: notification + avatar */}
+      <div style={{display:"flex",alignItems:"center",gap:8}}>
+        {"Notification"in window&&Notification.permission==="default"&&(
+          <button className="mbtn" onClick={()=>window.requestNotificationPermission?.()}
+            style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:16,padding:"4px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>🔔</button>
         )}
-        <div style={{textAlign:"right"}}><div style={{color:"#3d2b1f",fontSize:12,fontWeight:600}}>{user.name.split(" ")[0]}</div><div style={{color:"#9c7c5a",fontSize:10}}>{isAdmin?"Admin":"Member"}</div></div>
-        <Av member={user} photo={profiles[user.id]} size={36} onClick={logout} title="Tap to logout"/>
+        <Av member={user} photo={profiles[user.id]} size={32} onClick={logout} title="Tap to logout"/>
       </div>
-    </header>
-
-    {/* GREETING */}
-    <div style={{padding:"16px 20px 10px"}}>
-      <div style={{fontSize:19,fontWeight:800,color:"#111"}}>Hello, {user.name.split(" ")[0]} 👋</div>
-      <div style={{fontSize:12,color:"#9ca3af",marginTop:2}}>{user.title}</div>
     </div>
 
-    {/* STATS */}
-    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,padding:"0 20px 14px"}}>
-      {[["Mine",tasks.filter(t=>Array.isArray(t.assigned_to)?t.assigned_to.includes(userId):t.assigned_to===userId).length,"#1a1a2e"],["Urgent",tasks.filter(t=>t.priority==="Urgent"&&t.status!=="Done").length,"#dc2626"],["Done",tasks.filter(t=>t.status==="Done").length,"#15803d"],["Overdue",tasks.filter(t=>isOD(t.deadline,t.status)).length,"#ea580c"]].map(([label,val,color])=>
-        <div key={label} style={{background:"#fff",borderRadius:14,padding:"12px 8px",textAlign:"center",boxShadow:"0 1px 4px rgba(0,0,0,0.06)"}}>
-          <div style={{fontSize:26,fontWeight:900,color,lineHeight:1}}>{val}</div>
-          <div style={{fontSize:9,color:"#9ca3af",marginTop:3,fontWeight:700,letterSpacing:"0.7px"}}>{label.toUpperCase()}</div>
+    {/* ── BODY (sidebar + content) ── */}
+    <div style={{display:"flex",flex:1,overflow:"hidden",position:"relative"}}>
+
+      {/* Mobile overlay */}
+      <div className="slack-overlay" onClick={()=>setSidebarOpen(false)}
+        style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:199,display:"none"}}/>
+
+      {/* ── LEFT SIDEBAR ── */}
+      <div className="slack-sidebar" style={{width:240,background:"#fff",borderRight:"1px solid #e8ddd0",display:"flex",flexDirection:"column",flexShrink:0,overflowY:"auto"}}>
+
+        {/* User info */}
+        <div style={{padding:"16px 14px 10px",borderBottom:"1px solid #f0ece6"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <Av member={user} photo={profiles[user.id]} size={38}/>
+            <div>
+              <div style={{fontSize:13,fontWeight:700,color:"#111"}}>{user.name}</div>
+              <div style={{fontSize:11,color:"#9c7c5a"}}>{user.title}</div>
+            </div>
+          </div>
         </div>
-      )}
-    </div>
 
-    {/* TABS */}
-    <div style={{padding:"0 20px 14px"}}>
-      <div style={{display:"flex",background:"#e5e4df",borderRadius:12,padding:4,gap:2}}>
-        {[["tasks","📋"],["maha","👑"],["chat","💬"]].map(([k,lbl])=>
-          <button key={k} className="mbtn" style={{flex:1,padding:"9px 4px",border:"none",background:tab===k?"#fff":"transparent",borderRadius:10,fontSize:tab===k?13:12,fontWeight:tab===k?700:600,color:tab===k?"#1a1a2e":"#9ca3af",boxShadow:tab===k?"0 1px 4px rgba(0,0,0,0.1)":"none"}} onClick={()=>setTab(k)}>
-            {lbl} {k==="tasks"?"Tasks":k==="maha"?"Maha's Brief":"Chat"}
+        {/* Stats */}
+        <div style={{padding:"10px 14px",borderBottom:"1px solid #f0ece6"}}>
+          <div style={{fontSize:10,fontWeight:700,color:"#9ca3af",letterSpacing:"0.6px",marginBottom:8}}>OVERVIEW</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+            {[["Mine",mineCount,"#1a1a2e"],["Urgent",urgentCount,"#dc2626"],["Done",doneCount,"#15803d"],["Overdue",overdueCount,"#ea580c"]].map(([lbl,val,col])=>
+              <div key={lbl} style={{background:"#f8f7f4",borderRadius:10,padding:"8px 10px",textAlign:"center"}}>
+                <div style={{fontSize:20,fontWeight:900,color:col,lineHeight:1}}>{val}</div>
+                <div style={{fontSize:9,color:"#9ca3af",fontWeight:700,letterSpacing:"0.4px",marginTop:2}}>{lbl.toUpperCase()}</div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Nav items */}
+        <div style={{padding:"10px 8px",flex:1}}>
+          <div style={{fontSize:10,fontWeight:700,color:"#9ca3af",letterSpacing:"0.6px",padding:"4px 8px",marginBottom:4}}>WORKSPACE</div>
+          {SIDEBAR_ITEMS.map(item=>(
+            <button key={item.id} className={`slack-sidebar-item mbtn${tab===item.id?" active":""}`}
+              onClick={()=>{setTab(item.id);setSidebarOpen(false);}}
+              style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"9px 10px",borderRadius:8,border:"none",background:"transparent",cursor:"pointer",textAlign:"left",marginBottom:2,transition:"background 0.15s"}}>
+              <span style={{fontSize:17,flexShrink:0}}>{item.icon}</span>
+              <span style={{fontSize:13,fontWeight:tab===item.id?700:500,color:tab===item.id?"#fff":"#3d2b1f",flex:1}}>{item.label}</span>
+              {item.badge&&<span style={{background:item.badgeColor,color:"#fff",fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:10,minWidth:18,textAlign:"center"}}>{item.badge}</span>}
+            </button>
+          ))}
+
+          {/* Admin section */}
+          {isAdmin&&<div style={{marginTop:12}}>
+            <div style={{fontSize:10,fontWeight:700,color:"#9ca3af",letterSpacing:"0.6px",padding:"4px 8px",marginBottom:4}}>ADMIN</div>
+            <button className="slack-sidebar-item mbtn" onClick={()=>{setTab("tasks");setSidebarOpen(false);setShowNew(true);}}
+              style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"9px 10px",borderRadius:8,border:"none",background:"transparent",cursor:"pointer",textAlign:"left",marginBottom:2}}>
+              <span style={{fontSize:17}}>＋</span>
+              <span style={{fontSize:13,fontWeight:500,color:"#3d2b1f"}}>New Task</span>
+            </button>
+            <button className="slack-sidebar-item mbtn" onClick={()=>{setTab("tasks");setSidebarOpen(false);setTimeout(()=>document.getElementById("profile-manager")?.scrollIntoView(),100);}}
+              style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"9px 10px",borderRadius:8,border:"none",background:"transparent",cursor:"pointer",textAlign:"left",marginBottom:2}}>
+              <span style={{fontSize:17}}>👥</span>
+              <span style={{fontSize:13,fontWeight:500,color:"#3d2b1f"}}>Team Profiles</span>
+            </button>
+          </div>}
+        </div>
+
+        {/* Logout at bottom */}
+        <div style={{padding:"10px 8px",borderTop:"1px solid #f0ece6"}}>
+          <button className="slack-sidebar-item mbtn" onClick={logout}
+            style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"9px 10px",borderRadius:8,border:"none",background:"transparent",cursor:"pointer",textAlign:"left"}}>
+            <span style={{fontSize:17}}>🚪</span>
+            <span style={{fontSize:13,fontWeight:500,color:"#9ca3af"}}>Sign Out</span>
           </button>
-        )}
+        </div>
+      </div>
+
+      {/* ── MAIN CONTENT ── */}
+      <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",minWidth:0}}>
+
+        {tab==="tasks"&&<div style={{flex:1,padding:"0 0 100px"}}>
+          {/* Filters */}
+          <div style={{padding:"14px 20px 10px",borderBottom:"1px solid #f0ece6",background:"#fff",position:"sticky",top:0,zIndex:10}}>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
+              {["All",...STAT].map(s=><button key={s} className="mbtn"
+                style={{padding:"5px 12px",borderRadius:20,border:filterSt===s?"1.5px solid #1a1a2e":"1.5px solid #e5e7eb",background:filterSt===s?"#1a1a2e":"#fff",fontSize:12,fontWeight:filterSt===s?700:500,color:filterSt===s?"#c9a96e":"#6b7280"}}
+                onClick={()=>setFilterSt(s)}>{s}</button>)}
+            </div>
+            <select style={{padding:"7px 12px",borderRadius:10,border:"1.5px solid #e5e7eb",background:"#fff",fontSize:13,color:"#374151",outline:"none"}} value={filterAs} onChange={e=>setFilterAs(e.target.value)}>
+              <option value="All">All Members</option>
+              {TEAM.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
+            </select>
+          </div>
+
+          {/* Announcement bar */}
+          {isAdmin&&<div style={{padding:"10px 20px 0"}}><AnnouncementBar userId={userId} profiles={profiles}/></div>}
+
+          {/* Task list */}
+          <div style={{padding:"10px 20px",display:"flex",flexDirection:"column",gap:10}}>
+            {filtered.length===0&&<div style={{textAlign:"center",padding:"60px 0",color:"#9ca3af"}}><div style={{fontSize:40,marginBottom:10}}>📋</div><div>No tasks found</div></div>}
+            {[...filtered].sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0)).map(t=><TaskCard key={t.id} task={t} profiles={profiles} onClick={()=>setSelected(t)} isAdmin={isAdmin} onPin={()=>updateTask(t.id,{pinned:!t.pinned})}/>)}
+          </div>
+
+          <div id="profile-manager" style={{padding:"0 20px"}}>
+            {isAdmin&&<ProfileManager profiles={profiles} onUpdate={updateProfile}/>}
+          </div>
+        </div>}
+
+        {tab==="chat"&&<div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+          <Chat messages={chat} onSend={sendChat} userId={userId} profiles={profiles}/>
+        </div>}
+
+        {tab==="maha"&&<div style={{flex:1,overflowY:"auto"}}>
+          <MahaBrief userId={userId} profiles={profiles}/>
+        </div>}
+
       </div>
     </div>
 
-    {isAdmin&&<AnnouncementBar userId={userId} profiles={profiles}/>}
-    {tab==="tasks"?<div>
-      {/* Filters */}
-      <div style={{padding:"0 20px 12px",display:"flex",flexDirection:"column",gap:8}}>
-        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-          {["All",...STAT].map(s=><button key={s} className="mbtn"
-            style={{padding:"6px 13px",borderRadius:20,border:filterSt===s?"1.5px solid #1a1a2e":"1.5px solid #e5e7eb",background:filterSt===s?"#1a1a2e":"#fff",fontSize:12,fontWeight:filterSt===s?700:500,color:filterSt===s?"#c9a96e":"#6b7280"}}
-            onClick={()=>setFilterSt(s)}>{s}</button>)}
-        </div>
-        <select style={{padding:"8px 12px",borderRadius:10,border:"1.5px solid #e5e7eb",background:"#fff",fontSize:13,color:"#374151",outline:"none"}} value={filterAs} onChange={e=>setFilterAs(e.target.value)}>
-          <option value="All">All Members</option>
-          {TEAM.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
-        </select>
-      </div>
-
-      {/* Task list - pinned first */}
-      <div style={{padding:"0 20px",display:"flex",flexDirection:"column",gap:10,marginBottom:12}}>
-        {filtered.length===0&&<div style={{textAlign:"center",padding:"50px 0",color:"#9ca3af"}}><div style={{fontSize:40,marginBottom:10}}>📋</div><div>No tasks found</div></div>}
-        {[...filtered].sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0)).map(t=><TaskCard key={t.id} task={t} profiles={profiles} onClick={()=>setSelected(t)} isAdmin={isAdmin} onPin={()=>updateTask(t.id,{pinned:!t.pinned})}/>)}
-      </div>
-
-      {isAdmin&&<ProfileManager profiles={profiles} onUpdate={updateProfile}/>}
-      {isAdmin&&<button className="mbtn" style={{position:"fixed",bottom:26,right:"max(22px,calc(50vw - 218px))",width:58,height:58,borderRadius:"50%",background:"#1a1a2e",color:"#c9a96e",border:"none",boxShadow:"0 4px 22px rgba(26,26,46,0.45)",fontSize:28,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setShowNew(true)}>＋</button>}
-      {showNew&&<NewTaskModal onClose={()=>setShowNew(false)} onSave={addTask}/>}
-      {selected&&<TaskDetail task={tasks.find(t=>t.id===selected.id)||selected} profiles={profiles} userId={userId} isAdmin={isAdmin} onClose={()=>setSelected(null)} onStatusChange={st=>updateTask(selected.id,{status:st})} onDelete={()=>deleteTask(selected.id)} onComment={text=>addComment(selected.id,text)} onEditReq={note=>addEditReq(selected.id,note)} onSign={()=>signTask(selected.id)} onEdit={upd=>updateTask(selected.id,upd)} onAttach={imgs=>updateTask(selected.id,{attachments:imgs})} onLinks={links=>updateTask(selected.id,{links:links})}/>}
-    </div>:tab==="chat"?<Chat messages={chat} onSend={sendChat} userId={userId} profiles={profiles}/>:<MahaBrief userId={userId} profiles={profiles}/>}
+    {/* FAB - new task */}
+    {isAdmin&&tab==="tasks"&&<button className="mbtn" style={{position:"fixed",bottom:24,right:24,width:54,height:54,borderRadius:"50%",background:"#1a1a2e",color:"#c9a96e",border:"none",boxShadow:"0 4px 22px rgba(26,26,46,0.45)",fontSize:26,display:"flex",alignItems:"center",justifyContent:"center",zIndex:50}} onClick={()=>setShowNew(true)}>＋</button>}
+    {showNew&&<NewTaskModal onClose={()=>setShowNew(false)} onSave={addTask}/>}
+    {selected&&<TaskDetail task={tasks.find(t=>t.id===selected.id)||selected} profiles={profiles} userId={userId} isAdmin={isAdmin} onClose={()=>setSelected(null)} onStatusChange={st=>updateTask(selected.id,{status:st})} onDelete={()=>deleteTask(selected.id)} onComment={text=>addComment(selected.id,text)} onEditReq={note=>addEditReq(selected.id,note)} onSign={()=>signTask(selected.id)} onEdit={upd=>updateTask(selected.id,upd)} onAttach={imgs=>updateTask(selected.id,{attachments:imgs})} onLinks={links=>updateTask(selected.id,{links:links})}/>}
   </div>;
 }
 
