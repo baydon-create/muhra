@@ -1000,6 +1000,9 @@ function MahaBrief({userId,profiles}){
   const [briefAttachUploading,setBriefAttachUploading]=useState(false);
   const [editingBriefNote,setEditingBriefNote]=useState(null); // {briefId, attachId, text}
   const [briefLightbox,setBriefLightbox]=useState(null);
+  const [editingBrief,setEditingBrief]=useState(null);
+  const [editBriefForm,setEditBriefForm]=useState({});
+  const [briefNoteEdit,setBriefNoteEdit]=useState(null);
 
   useEffect(()=>{
     loadBriefs();
