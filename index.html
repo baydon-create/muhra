@@ -996,6 +996,10 @@ function MahaBrief({userId,profiles}){
   const mediaRef=useRef(null);
   const timerRef=useRef(null);
   const chunksRef=useRef([]);
+  const attachFileRef=useRef(null);
+  const [briefAttachUploading,setBriefAttachUploading]=useState(false);
+  const [editingBriefNote,setEditingBriefNote]=useState(null); // {briefId, attachId, text}
+  const [briefLightbox,setBriefLightbox]=useState(null);
 
   useEffect(()=>{
     loadBriefs();
@@ -1030,6 +1034,51 @@ function MahaBrief({userId,profiles}){
 
   function toggleAssignee(id){
     setForm(f=>({...f,assignees:f.assignees.includes(id)?f.assignees.filter(x=>x!==id):[...f.assignees,id]}));
+  }
+
+  async function handleBriefAttach(briefId, e){
+    const files=Array.from(e.target.files).filter(f=>f.type.startsWith("image/")).filter(f=>f.size<=10*1024*1024);
+    if(!files.length)return;
+    setBriefAttachUploading(true);
+    const newItems=[];
+    for(const file of files){
+      try{
+        const ext=file.name.split(".").pop();
+        const path=`briefs/${briefId}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}.${ext}`;
+        const{error}=await sb.storage.from("task-attachments").upload(path,file,{cacheControl:"3600",upsert:false});
+        if(error){alert("Upload failed: "+error.message);continue;}
+        const{data:{publicUrl}}=sb.storage.from("task-attachments").getPublicUrl(path);
+        newItems.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2),url:publicUrl,path,name:file.name,uploadedBy:userId,uploadedAt:new Date().toISOString(),note:""});
+      }catch(err){alert("Error: "+err.message);}
+    }
+    if(newItems.length){
+      const{data:row}=await sb.from("maha_briefs").select("attachments").eq("id",briefId).single();
+      const existing=Array.isArray(row?.attachments)?row.attachments:[];
+      await sb.from("maha_briefs").update({attachments:[...existing,...newItems]}).eq("id",briefId);
+      loadBriefs();
+    }
+    setBriefAttachUploading(false);
+    e.target.value="";
+  }
+
+  async function removeBriefAttach(briefId, attachId){
+    if(!window.confirm("Remove this image?"))return;
+    const{data:row}=await sb.from("maha_briefs").select("attachments").eq("id",briefId).single();
+    const att=(row?.attachments||[]).find(a=>a.id===attachId);
+    if(att?.path)await sb.storage.from("task-attachments").remove([att.path]);
+    await sb.from("maha_briefs").update({attachments:(row?.attachments||[]).filter(a=>a.id!==attachId)}).eq("id",briefId);
+    loadBriefs();
+  }
+
+  async function saveBriefAttachNote(briefId, attachId, noteText){
+    try{
+      const{data:row}=await sb.from("maha_briefs").select("attachments").eq("id",briefId).single();
+      const base=Array.isArray(row?.attachments)?row.attachments:[];
+      const updated=base.map(a=>a.id===attachId?{...a,note:noteText}:a);
+      await sb.from("maha_briefs").update({attachments:updated}).eq("id",briefId);
+      setEditingBriefNote(null);
+      loadBriefs();
+    }catch(err){alert("Error saving note: "+err.message);}
   }
 
   async function startRec(){
@@ -1207,6 +1256,57 @@ function MahaBrief({userId,profiles}){
         </div>}
 
         {b.voice_url&&<audio controls src={b.voice_url} style={{width:"100%",height:36,borderRadius:8,marginTop:4}}/>}
+
+        {/* Attachments */}
+        {((b.attachments&&b.attachments.length>0)||isMaha)&&<div style={{marginTop:10,display:"flex",flexDirection:"column",gap:8}}>
+          {b.attachments?.length>0&&<div style={{fontSize:11,fontWeight:700,color:"#9ca3af",letterSpacing:"0.5px"}}>📎 ATTACHMENTS</div>}
+          {(b.attachments||[]).map(at=>{
+            const uploader=TEAM.find(m=>m.id===at.uploadedBy);
+            const canEdit=isMaha||at.uploadedBy===userId;
+            const isEditingThis=editingBriefNote?.briefId===b.id&&editingBriefNote?.attachId===at.id;
+            return <div key={at.id} style={{background:"#f8f7f4",border:"1.5px solid #e5e7eb",borderRadius:12,overflow:"hidden"}}>
+              <div style={{position:"relative",cursor:"pointer"}} onClick={()=>!isEditingThis&&setBriefLightbox(at)}>
+                <img src={at.url} alt={at.name} style={{width:"100%",maxHeight:180,objectFit:"cover",display:"block"}}/>
+                <div style={{position:"absolute",top:6,right:6,display:"flex",gap:4}}>
+                  {canEdit&&<button onClick={e=>{e.stopPropagation();setEditingBriefNote(isEditingThis?null:{briefId:b.id,attachId:at.id,text:at.note||""});}}
+                    style={{background:"rgba(0,0,0,0.6)",color:"#fff",border:"none",borderRadius:8,padding:"4px 8px",fontSize:11,fontWeight:600,cursor:"pointer"}}>
+                    {isEditingThis?"✕":"📝 Note"}
+                  </button>}
+                  {canEdit&&<button onClick={e=>{e.stopPropagation();removeBriefAttach(b.id,at.id);}}
+                    style={{background:"rgba(220,38,38,0.8)",color:"#fff",border:"none",borderRadius:8,padding:"4px 8px",fontSize:11,fontWeight:600,cursor:"pointer"}}>🗑</button>}
+                </div>
+                {uploader&&<div style={{position:"absolute",bottom:6,left:8,background:"rgba(0,0,0,0.55)",color:"#fff",fontSize:10,padding:"2px 7px",borderRadius:20,fontWeight:600}}>{uploader.name.split(" ")[0]}</div>}
+              </div>
+              {!isEditingThis&&at.note&&<div style={{padding:"8px 12px",fontSize:13,color:"#374151",lineHeight:1.5,borderTop:"1px solid #e5e7eb",background:"#fff"}}>
+                <span style={{fontSize:10,color:"#9ca3af",fontWeight:700,marginRight:6}}>NOTE</span><SmartText text={at.note}/>
+              </div>}
+              {!isEditingThis&&!at.note&&canEdit&&<div style={{padding:"6px 12px",fontSize:12,color:"#9ca3af",borderTop:"1px solid #f3f4f6",background:"#fff",cursor:"pointer"}} onClick={()=>setEditingBriefNote({briefId:b.id,attachId:at.id,text:""})}>+ Add a note…</div>}
+              {isEditingThis&&<div style={{padding:10,borderTop:"1px solid #e5e7eb",background:"#fff",display:"flex",flexDirection:"column",gap:8}}>
+                <textarea placeholder="Add a note to this image…" value={editingBriefNote.text} onChange={ev=>setEditingBriefNote(n=>({...n,text:ev.target.value}))}
+                  style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1.5px solid #e5e7eb",fontSize:13,outline:"none",background:"#fafafa",boxSizing:"border-box",minHeight:70,resize:"none"}} autoFocus/>
+                <div style={{display:"flex",gap:8}}>
+                  <button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:9,padding:"8px 16px",fontSize:13,fontWeight:700,flex:1}}
+                    onClick={()=>saveBriefAttachNote(b.id,at.id,editingBriefNote.text.trim())}>Save Note</button>
+                  <button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:9,padding:"8px 14px",fontSize:13,fontWeight:600}}
+                    onClick={()=>setEditingBriefNote(null)}>Cancel</button>
+                </div>
+              </div>}
+            </div>;
+          })}
+          {isMaha&&<div>
+            <input type="file" accept="image/*" multiple ref={attachFileRef} style={{display:"none"}} onChange={e=>handleBriefAttach(b.id,e)}/>
+            <button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:10,padding:"8px 14px",fontSize:12,fontWeight:600,display:"flex",alignItems:"center",gap:5}} onClick={()=>attachFileRef.current?.click()} disabled={briefAttachUploading}>
+              {briefAttachUploading?"⏳ Uploading…":"📎 Add Images"}
+            </button>
+          </div>}
+        </div>}
+
+        {/* Lightbox */}
+        {briefLightbox&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:200,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setBriefLightbox(null)}>
+          <img src={briefLightbox.url} alt={briefLightbox.name} style={{maxWidth:"100%",maxHeight:"75vh",borderRadius:12,objectFit:"contain"}}/>
+          {briefLightbox.note&&<div style={{color:"#f0e6d3",fontSize:14,marginTop:12,textAlign:"center",maxWidth:340,lineHeight:1.5,background:"rgba(255,255,255,0.1)",padding:"8px 16px",borderRadius:10}}>{briefLightbox.note}</div>}
+          <div style={{color:"#9ca3af",fontSize:11,marginTop:8}}>Tap anywhere to close</div>
+        </div>}
 
         {/* Comments */}
         <div style={{borderTop:"1px solid #f3f4f6",marginTop:10,paddingTop:8}}>
