@@ -986,7 +986,7 @@ function MahaBrief({userId,profiles}){
   const [briefs,setBriefs]=useState([]);
   const [loading,setLoading]=useState(true);
   const [showForm,setShowForm]=useState(false);
-  const [form,setForm]=useState({text:"",urgency:"Normal",deadline:"",assignees:[]});
+  const [form,setForm]=useState({text:"",urgency:"Normal",deadline:"",assignees:[],notes:""});
   const [recording,setRecording]=useState(false);
   const [recSecs,setRecSecs]=useState(0);
   const [uploadingVoice,setUploadingVoice]=useState(false);
@@ -1034,6 +1034,28 @@ function MahaBrief({userId,profiles}){
 
   function toggleAssignee(id){
     setForm(f=>({...f,assignees:f.assignees.includes(id)?f.assignees.filter(x=>x!==id):[...f.assignees,id]}));
+  }
+
+  function startEditBrief(b){
+    setEditingBrief(b.id);
+    setEditBriefForm({text:b.text||"",urgency:b.urgency||"Normal",deadline:b.deadline||"",assignees:b.assignees||[],notes:b.notes||""});
+  }
+
+  function toggleEditAssignee(id){
+    setEditBriefForm(f=>({...f,assignees:f.assignees.includes(id)?f.assignees.filter(x=>x!==id):[...f.assignees,id]}));
+  }
+
+  async function saveEditBrief(briefId){
+    if(!editBriefForm.text.trim()){alert("Instructions cannot be empty");return;}
+    await sb.from("maha_briefs").update({
+      text:editBriefForm.text,
+      urgency:editBriefForm.urgency,
+      deadline:editBriefForm.deadline||null,
+      assignees:editBriefForm.assignees.length>0?editBriefForm.assignees:null,
+      notes:editBriefForm.notes||null,
+    }).eq("id",briefId);
+    setEditingBrief(null);
+    loadBriefs();
   }
 
   async function handleBriefAttach(briefId, e){
@@ -1123,9 +1145,10 @@ function MahaBrief({userId,profiles}){
       text:form.text,urgency:form.urgency,deadline:form.deadline||null,
       voice_url:form.voiceUrl||null,voice_duration:form.voiceDuration||null,
       assignees:form.assignees.length>0?form.assignees:null,
+      notes:form.notes||null,
       created_by:"maha",created_at:new Date().toISOString()
     }]);
-    setForm({text:"",urgency:"Normal",deadline:"",assignees:[]});
+    setForm({text:"",urgency:"Normal",deadline:"",assignees:[],notes:""});
     setShowForm(false);
     loadBriefs();
   }
@@ -1206,6 +1229,10 @@ function MahaBrief({userId,profiles}){
         </div>}
       </div>
 
+      <FL>Additional Notes (optional)</FL>
+      <textarea placeholder="Any extra notes or context for the team…" value={form.notes||""} onChange={e=>setForm(f=>({...f,notes:e.target.value}))}
+        style={{width:"100%",padding:"10px 13px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:14,color:"#111",outline:"none",background:"#fafafa",boxSizing:"border-box",minHeight:60,resize:"none",fontFamily:"inherit",marginTop:4}}/>
+
       <button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:12,padding:"12px",fontSize:14,fontWeight:700,width:"100%"}} onClick={saveBrief}>
         Post Brief
       </button>
@@ -1233,29 +1260,93 @@ function MahaBrief({userId,profiles}){
             <span style={{display:"inline-flex",alignItems:"center",fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:20,background:us.bg,color:us.text,border:`1px solid ${us.border}`}}>
               <span style={{width:6,height:6,borderRadius:"50%",background:us.dot,display:"inline-block",marginRight:4}}/>{b.urgency}
             </span>
+            {isMaha&&<button className="mbtn" onClick={()=>startEditBrief(b)}
+              style={{background:"none",border:"none",color:"#9ca3af",fontSize:15,cursor:"pointer",padding:2}}>✏️</button>}
             {isMaha&&<button className="mbtn" onClick={()=>deleteBrief(b.id)} style={{background:"none",border:"none",color:"#9ca3af",fontSize:15,cursor:"pointer",padding:2}}>🗑</button>}
           </div>
         </div>
 
-        {/* Assigned members */}
-        {b.assignees&&b.assignees.length>0&&<div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,flexWrap:"wrap"}}>
-          <span style={{fontSize:11,color:"#9ca3af",fontWeight:600}}>FOR:</span>
-          {b.assignees.map(uid=>{const m=TEAM.find(t=>t.id===uid);return m?<div key={uid} style={{display:"flex",alignItems:"center",gap:4,background:"#f3f4f6",borderRadius:20,padding:"3px 8px"}}>
-            <Av member={m} photo={profiles[uid]} size={16}/>
-            <span style={{fontSize:11,fontWeight:600,color:"#374151"}}>{m.name.split(" ")[0]}</span>
-          </div>:null;})}
+        {/* EDIT MODE */}
+        {editingBrief===b.id?<div style={{display:"flex",flexDirection:"column",gap:10,marginTop:8}}>
+          <FL>Instructions</FL>
+          <textarea value={editBriefForm.text} onChange={e=>setEditBriefForm(f=>({...f,text:e.target.value}))}
+            style={{width:"100%",padding:"10px 13px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:14,color:"#111",outline:"none",background:"#fafafa",boxSizing:"border-box",minHeight:100,resize:"none",fontFamily:"inherit"}}/>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <div><FL>Urgency</FL>
+              <select value={editBriefForm.urgency} onChange={e=>setEditBriefForm(f=>({...f,urgency:e.target.value}))}
+                style={{width:"100%",padding:"9px 12px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:13,outline:"none",background:"#fafafa",marginTop:4}}>
+                {["Urgent","High","Normal","Low"].map(u=><option key={u}>{u}</option>)}
+              </select>
+            </div>
+            <div><FL>Deadline</FL>
+              <input type="date" value={editBriefForm.deadline||""} onChange={e=>setEditBriefForm(f=>({...f,deadline:e.target.value}))}
+                style={{width:"100%",padding:"9px 12px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:13,outline:"none",background:"#fafafa",marginTop:4,boxSizing:"border-box"}}/>
+            </div>
+          </div>
+          <FL>Additional Notes</FL>
+          <textarea value={editBriefForm.notes||""} onChange={e=>setEditBriefForm(f=>({...f,notes:e.target.value}))}
+            placeholder="Extra notes or context…"
+            style={{width:"100%",padding:"9px 12px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:13,outline:"none",background:"#fafafa",boxSizing:"border-box",minHeight:60,resize:"none",fontFamily:"inherit"}}/>
+          <FL>Assign To</FL>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+            {TEAM.map(m=>{const sel=editBriefForm.assignees.includes(m.id);
+              return <button key={m.id} className="mbtn" onClick={()=>toggleEditAssignee(m.id)}
+                style={{display:"flex",alignItems:"center",gap:6,padding:"5px 11px",borderRadius:20,border:`1.5px solid ${sel?"#1a1a2e":"#e5e7eb"}`,background:sel?"#1a1a2e":"#fafafa",cursor:"pointer"}}>
+                <Av member={m} photo={profiles[m.id]} size={18}/>
+                <span style={{fontSize:12,fontWeight:sel?700:500,color:sel?"#c9a96e":"#374151"}}>{m.name.split(" ")[0]}</span>
+              </button>;})}
+          </div>
+          <div style={{display:"flex",gap:8,marginTop:4}}>
+            <button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:10,padding:"10px 16px",fontSize:13,fontWeight:700,flex:1}}
+              onClick={()=>saveEditBrief(b.id)}>Save Changes</button>
+            <button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:10,padding:"10px 14px",fontSize:13,fontWeight:600}}
+              onClick={()=>setEditingBrief(null)}>Cancel</button>
+          </div>
+        </div>:
+
+        /* VIEW MODE */
+        <div>
+          {/* Assigned members */}
+          {b.assignees&&b.assignees.length>0&&<div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,flexWrap:"wrap"}}>
+            <span style={{fontSize:11,color:"#9ca3af",fontWeight:600}}>FOR:</span>
+            {b.assignees.map(uid=>{const m=TEAM.find(t=>t.id===uid);return m?<div key={uid} style={{display:"flex",alignItems:"center",gap:4,background:"#f3f4f6",borderRadius:20,padding:"3px 8px"}}>
+              <Av member={m} photo={profiles[uid]} size={16}/>
+              <span style={{fontSize:11,fontWeight:600,color:"#374151"}}>{m.name.split(" ")[0]}</span>
+            </div>:null;})}
+          </div>}
+          {(!b.assignees||b.assignees.length===0)&&<div style={{fontSize:11,color:"#9ca3af",marginBottom:8}}>👥 For everyone</div>}
+
+          {b.text&&<div style={{fontSize:14,color:"#374151",lineHeight:1.65,marginBottom:10}}><SmartText text={b.text}/></div>}
+
+          {b.deadline&&<div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+            <span style={{fontSize:12,color:od?"#dc2626":"#6b7280",fontWeight:od?700:400}}>
+              {od?"⚠ Deadline passed: ":"📅 Deadline: "}{fD(b.deadline)}
+            </span>
+          </div>}
+
+          {b.voice_url&&<audio controls src={b.voice_url} style={{width:"100%",height:36,borderRadius:8,marginTop:4}}/>}
+
+          {/* Brief body notes */}
+          {b.notes&&<div style={{background:"#fffbeb",border:"1.5px solid #fde68a",borderRadius:12,padding:"10px 14px",marginTop:8}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+              <span style={{fontSize:11,fontWeight:700,color:"#b45309",letterSpacing:"0.4px"}}>📋 NOTES</span>
+              {isMaha&&<button className="mbtn" onClick={()=>setBriefNoteEdit(briefNoteEdit===b.id?null:b.id)}
+                style={{background:"none",border:"none",fontSize:11,color:"#9ca3af",cursor:"pointer",fontWeight:600}}>
+                {briefNoteEdit===b.id?"Cancel":"✏️ Edit"}
+              </button>}
+            </div>
+            {briefNoteEdit===b.id?<div style={{display:"flex",flexDirection:"column",gap:8}}>
+              <textarea defaultValue={b.notes||""} id={`bnote-${b.id}`}
+                style={{width:"100%",padding:"8px 12px",borderRadius:9,border:"1.5px solid #fde68a",fontSize:13,outline:"none",background:"#fff",boxSizing:"border-box",minHeight:70,resize:"none",fontFamily:"inherit"}} autoFocus/>
+              <button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:9,padding:"8px 14px",fontSize:13,fontWeight:700,alignSelf:"flex-start"}}
+                onClick={async()=>{const el=document.getElementById(`bnote-${b.id}`);if(!el)return;await sb.from("maha_briefs").update({notes:el.value.trim()||null}).eq("id",b.id);setBriefNoteEdit(null);loadBriefs();}}>
+                Save Note
+              </button>
+            </div>:<div style={{fontSize:13,color:"#374151",lineHeight:1.6}}><SmartText text={b.notes}/></div>}
+          </div>}
+          {!b.notes&&isMaha&&<button className="mbtn" onClick={()=>setBriefNoteEdit(b.id)}
+            style={{background:"none",border:"none",fontSize:12,color:"#9ca3af",cursor:"pointer",padding:"4px 0",fontWeight:600,marginTop:6,display:"block"}}>📋 + Add notes to this brief</button>}
         </div>}
-        {(!b.assignees||b.assignees.length===0)&&<div style={{fontSize:11,color:"#9ca3af",marginBottom:8}}>👥 For everyone</div>}
-
-        {b.text&&<div style={{fontSize:14,color:"#374151",lineHeight:1.65,marginBottom:10}}><SmartText text={b.text}/></div>}
-
-        {b.deadline&&<div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
-          <span style={{fontSize:12,color:od?"#dc2626":"#6b7280",fontWeight:od?700:400}}>
-            {od?"⚠ Deadline passed: ":"📅 Deadline: "}{fD(b.deadline)}
-          </span>
-        </div>}
-
-        {b.voice_url&&<audio controls src={b.voice_url} style={{width:"100%",height:36,borderRadius:8,marginTop:4}}/>}
 
         {/* Attachments */}
         {((b.attachments&&b.attachments.length>0)||isMaha)&&<div style={{marginTop:10,display:"flex",flexDirection:"column",gap:8}}>
