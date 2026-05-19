@@ -1453,7 +1453,7 @@ function App(){
   const [showNew,setShowNew]=useState(false);
   const [filterSt,setFilterSt]=useState("All");
   const [filterAs,setFilterAs]=useState("All");
-
+  const [sidebarOpen, setSidebarOpen]=useState(false);
   const user=TEAM.find(m=>m.id===userId);
   const isAdmin=user?.role==="admin";
 
