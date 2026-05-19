@@ -320,21 +320,28 @@ function Login({onLogin}){
 }
 
 // ── TASK CARD ──
-function TaskCard({task,profiles,onClick}){
+function TaskCard({task,profiles,onClick,isAdmin,onPin}){
   const assignees=(Array.isArray(task.assigned_to)?task.assigned_to:[task.assigned_to]).filter(Boolean).map(id=>TEAM.find(m=>m.id===id)).filter(Boolean);
   const pm=PM[task.priority]||PM.Medium;
   const sm=SM[task.status]||SM["To Do"];
   const od=isOD(task.deadline,task.status);
-  return <div className="mcard" style={{background:"#fff",borderRadius:14,padding:"14px 16px",boxShadow:"0 1px 5px rgba(0,0,0,0.06)",borderLeft:`4px solid ${pm.dot}`}} onClick={onClick}>
+  return <div className="mcard" style={{background:task.pinned?"#fffbeb":"#fff",borderRadius:14,padding:"14px 16px",boxShadow:task.pinned?"0 2px 12px rgba(201,169,110,0.25)":"0 1px 5px rgba(0,0,0,0.06)",borderLeft:`4px solid ${task.pinned?"#c9a96e":pm.dot}`,border:task.pinned?"1.5px solid #fde68a":undefined}} onClick={onClick}>
+    {task.pinned&&<div style={{fontSize:10,fontWeight:700,color:"#b45309",marginBottom:6,letterSpacing:"0.5px"}}>📌 PINNED</div>}
     <div style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:10}}>
       <div style={{flex:1}}>
         <div style={{fontSize:15,fontWeight:700,color:"#111",lineHeight:1.3}}><SmartText text={task.title}/></div>
         {task.description&&<div style={{fontSize:13,color:"#6b7280",marginTop:3,lineHeight:1.4}}><SmartText text={task.description.slice(0,85)+(task.description.length>85?'…':'')}/></div>}
       </div>
-      <span style={{display:"inline-flex",alignItems:"center",fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:20,background:pm.bg,color:pm.text,border:`1px solid ${pm.border}`,flexShrink:0}}>
-        <span style={{width:6,height:6,borderRadius:"50%",background:pm.dot,display:"inline-block",marginRight:4}}/>
-        {task.priority}
-      </span>
+      <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4,flexShrink:0}}>
+        <span style={{display:"inline-flex",alignItems:"center",fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:20,background:pm.bg,color:pm.text,border:`1px solid ${pm.border}`}}>
+          <span style={{width:6,height:6,borderRadius:"50%",background:pm.dot,display:"inline-block",marginRight:4}}/>
+          {task.priority}
+        </span>
+        {isAdmin&&<button className="mbtn" onClick={e=>{e.stopPropagation();onPin();}}
+          style={{background:"none",border:"none",fontSize:14,cursor:"pointer",padding:2,opacity:task.pinned?1:0.3}} title={task.pinned?"Unpin":"Pin to top"}>
+          📌
+        </button>}
+      </div>
     </div>
     <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
       {assignees.length>0&&<div style={{display:"flex",alignItems:"center",gap:3}}>{assignees.map(a=><Av key={a.id} member={a} photo={profiles[a.id]} size={22} title={a.name}/>)}<span style={{fontSize:12,color:"#6b7280",marginLeft:4}}>{assignees.length===1?assignees[0].name.split(" ")[0]:`${assignees.length} members`}</span></div>}
@@ -972,6 +979,190 @@ function AnnouncementBar({userId,profiles}){
   </div>;
 }
 
+
+// ── MAHA'S DAILY BRIEF ──
+function MahaBrief({userId,profiles}){
+  const isMaha=userId==="maha";
+  const [briefs,setBriefs]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [showForm,setShowForm]=useState(false);
+  const [form,setForm]=useState({text:"",urgency:"Normal",deadline:""});
+  const [recording,setRecording]=useState(false);
+  const [recSecs,setRecSecs]=useState(0);
+  const [uploadingVoice,setUploadingVoice]=useState(false);
+  const mediaRef=useRef(null);
+  const timerRef=useRef(null);
+  const chunksRef=useRef([]);
+
+  useEffect(()=>{
+    loadBriefs();
+    const ch=sb.channel("rt-briefs").on("postgres_changes",{event:"*",schema:"public",table:"maha_briefs"},loadBriefs).subscribe();
+    return()=>sb.removeChannel(ch);
+  },[]);
+
+  async function loadBriefs(){
+    setLoading(true);
+    const{data}=await sb.from("maha_briefs").select("*").order("created_at",{ascending:false});
+    setBriefs(data||[]);
+    setLoading(false);
+  }
+
+  async function startRec(){
+    try{
+      const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+      chunksRef.current=[];
+      const mr=new MediaRecorder(stream,{mimeType:MediaRecorder.isTypeSupported("audio/webm")?"audio/webm":"audio/mp4"});
+      mr.ondataavailable=ev=>{if(ev.data.size>0)chunksRef.current.push(ev.data);};
+      mr.onstop=async()=>{
+        stream.getTracks().forEach(t=>t.stop());
+        const blob=new Blob(chunksRef.current,{type:mr.mimeType});
+        setUploadingVoice(true);
+        const ext=mr.mimeType.includes("webm")?"webm":"mp4";
+        const path=`briefs/voice_${Date.now().toString(36)}.${ext}`;
+        const{error}=await sb.storage.from("task-attachments").upload(path,blob,{contentType:mr.mimeType,upsert:false});
+        if(!error){
+          const{data:{publicUrl}}=sb.storage.from("task-attachments").getPublicUrl(path);
+          setForm(f=>({...f,voiceUrl:publicUrl,voicePath:path,voiceDuration:recSecs}));
+        }
+        setUploadingVoice(false);
+      };
+      mr.start();
+      mediaRef.current=mr;
+      setRecording(true);setRecSecs(0);
+      timerRef.current=setInterval(()=>setRecSecs(s=>s+1),1000);
+    }catch(e){alert("Microphone access needed");}
+  }
+
+  function stopRec(){
+    if(mediaRef.current&&recording){
+      mediaRef.current.stop();
+      clearInterval(timerRef.current);
+      setRecording(false);
+    }
+  }
+
+  function fmtS(s){return `${Math.floor(s/60)}:${String(s%60).padStart(2,"0")}`;}
+
+  async function saveBrief(){
+    if(!form.text.trim()&&!form.voiceUrl){alert("Add instructions or a voice note");return;}
+    await sb.from("maha_briefs").insert([{
+      text:form.text,urgency:form.urgency,deadline:form.deadline||null,
+      voice_url:form.voiceUrl||null,voice_duration:form.voiceDuration||null,
+      created_by:"maha",created_at:new Date().toISOString()
+    }]);
+    setForm({text:"",urgency:"Normal",deadline:""});
+    setShowForm(false);
+    loadBriefs();
+  }
+
+  async function deleteBrief(id){
+    if(!window.confirm("Delete this brief?"))return;
+    await sb.from("maha_briefs").delete().eq("id",id);
+    loadBriefs();
+  }
+
+  const urgencyStyle={
+    Urgent:{bg:"#fef2f2",text:"#991b1b",dot:"#f87171",border:"#fecaca"},
+    High:{bg:"#fff7ed",text:"#c2410c",dot:"#fb923c",border:"#fed7aa"},
+    Normal:{bg:"#f0fdf4",text:"#15803d",dot:"#4ade80",border:"#bbf7d0"},
+    Low:{bg:"#f8fafc",text:"#64748b",dot:"#94a3b8",border:"#e2e8f0"},
+  };
+
+  return <div style={{padding:"0 20px",paddingBottom:100}}>
+    {/* Header */}
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+      <div>
+        <div style={{fontSize:17,fontWeight:800,color:"#111"}}>👑 Maha's Daily Brief</div>
+        <div style={{fontSize:12,color:"#9ca3af",marginTop:2}}>Instructions from the Brand Owner</div>
+      </div>
+      {isMaha&&<button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:12,padding:"9px 16px",fontSize:13,fontWeight:700}} onClick={()=>setShowForm(!showForm)}>
+        {showForm?"✕ Cancel":"＋ New Brief"}
+      </button>}
+    </div>
+
+    {/* New brief form - Maha only */}
+    {isMaha&&showForm&&<div style={{background:"#fff",borderRadius:16,padding:16,marginBottom:16,boxShadow:"0 2px 12px rgba(0,0,0,0.08)",border:"1.5px solid #e5e7eb"}}>
+      <FL>Instructions *</FL>
+      <textarea placeholder="Write today's instructions…" value={form.text} onChange={e=>setForm(f=>({...f,text:e.target.value}))}
+        style={{width:"100%",padding:"10px 13px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:14,color:"#111",outline:"none",background:"#fafafa",boxSizing:"border-box",minHeight:100,resize:"none",fontFamily:"inherit",marginTop:6,marginBottom:12}}/>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+        <div>
+          <FL>Urgency</FL>
+          <select value={form.urgency} onChange={e=>setForm(f=>({...f,urgency:e.target.value}))}
+            style={{width:"100%",padding:"9px 12px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:13,outline:"none",background:"#fafafa",marginTop:4}}>
+            {["Urgent","High","Normal","Low"].map(u=><option key={u}>{u}</option>)}
+          </select>
+        </div>
+        <div>
+          <FL>Deadline</FL>
+          <input type="date" value={form.deadline||""} onChange={e=>setForm(f=>({...f,deadline:e.target.value}))}
+            style={{width:"100%",padding:"9px 12px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:13,outline:"none",background:"#fafafa",marginTop:4,boxSizing:"border-box"}}/>
+        </div>
+      </div>
+
+      {/* Voice note */}
+      <FL>Voice Note (optional)</FL>
+      <div style={{marginTop:6,marginBottom:12}}>
+        {form.voiceUrl&&<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:10,padding:"8px 12px",marginBottom:8}}>
+          <div style={{fontSize:11,color:"#15803d",fontWeight:700,marginBottom:4}}>✅ Voice note recorded {form.voiceDuration?`(${fmtS(form.voiceDuration)})`:""}
+            <button onClick={()=>setForm(f=>({...f,voiceUrl:null,voicePath:null}))} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",marginLeft:8,fontSize:12}}>Remove</button>
+          </div>
+          <audio controls src={form.voiceUrl} style={{width:"100%",height:32}}/>
+        </div>}
+        {!form.voiceUrl&&<div style={{display:"flex",alignItems:"center",gap:10}}>
+          {!recording?<button className="mbtn" style={{background:uploadingVoice?"#f3f4f6":"#1a1a2e",color:uploadingVoice?"#9ca3af":"#c9a96e",border:"none",borderRadius:10,padding:"8px 14px",fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:6}} onClick={startRec} disabled={uploadingVoice}>
+            {uploadingVoice?"⏳ Saving…":"🎙️ Record Voice"}
+          </button>:<button className="mbtn" style={{background:"#dc2626",color:"#fff",border:"none",borderRadius:10,padding:"8px 14px",fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:6,animation:"pulse 1s infinite"}} onClick={stopRec}>
+            <span style={{width:8,height:8,background:"#fff",borderRadius:2,display:"inline-block"}}/>Stop · {fmtS(recSecs)}
+          </button>}
+        </div>}
+      </div>
+
+      <button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:12,padding:"12px",fontSize:14,fontWeight:700,width:"100%"}} onClick={saveBrief}>
+        Post Brief
+      </button>
+    </div>}
+
+    {/* Briefs list */}
+    {loading&&<div style={{textAlign:"center",padding:40,color:"#9ca3af"}}>Loading…</div>}
+    {!loading&&briefs.length===0&&<div style={{textAlign:"center",padding:"50px 0",color:"#9ca3af"}}>
+      <div style={{fontSize:40,marginBottom:10}}>👑</div>
+      <div>No briefs posted yet</div>
+    </div>}
+    {briefs.map(b=>{
+      const us=urgencyStyle[b.urgency]||urgencyStyle.Normal;
+      const od=b.deadline&&new Date(b.deadline)<new Date();
+      return <div key={b.id} style={{background:"#fff",borderRadius:16,padding:16,marginBottom:12,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",border:`1.5px solid ${us.border}`}}>
+        <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:10}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <Av member={TEAM.find(m=>m.id==="maha")} photo={profiles["maha"]} size={34}/>
+            <div>
+              <div style={{fontSize:12,fontWeight:700,color:"#111"}}>Dr. Maha Adel</div>
+              <div style={{fontSize:10,color:"#9ca3af"}}>{fD(b.created_at)}</div>
+            </div>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <span style={{display:"inline-flex",alignItems:"center",fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:20,background:us.bg,color:us.text,border:`1px solid ${us.border}`}}>
+              <span style={{width:6,height:6,borderRadius:"50%",background:us.dot,display:"inline-block",marginRight:4}}/>{b.urgency}
+            </span>
+            {isMaha&&<button className="mbtn" onClick={()=>deleteBrief(b.id)} style={{background:"none",border:"none",color:"#9ca3af",fontSize:15,cursor:"pointer",padding:2}}>🗑</button>}
+          </div>
+        </div>
+
+        {b.text&&<div style={{fontSize:14,color:"#374151",lineHeight:1.65,marginBottom:10}}><SmartText text={b.text}/></div>}
+
+        {b.deadline&&<div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+          <span style={{fontSize:12,color:od?"#dc2626":"#6b7280",fontWeight:od?700:400}}>
+            {od?"⚠ Deadline passed: ":"📅 Deadline: "}{fD(b.deadline)}
+          </span>
+        </div>}
+
+        {b.voice_url&&<audio controls src={b.voice_url} style={{width:"100%",height:36,borderRadius:8,marginTop:4}}/>}
+      </div>;
+    })}
+  </div>;
+}
+
 // ── MAIN APP ──
 function App(){
   const [userId,setUserId]=useState(()=>lsG("muhra_uid_v3",null));
@@ -1038,6 +1229,7 @@ function App(){
     if("attachments"in upd)row.attachments=upd.attachments;
     if("links"in upd)row.links=upd.links;
     if("instructions"in upd)row.instructions=upd.instructions;
+    if("pinned"in upd)row.pinned=upd.pinned;
     await sb.from("tasks").update(row).eq("id",id);
     refreshTasks();
     const task=tasks.find(t=>t.id===id);
@@ -1160,9 +1352,11 @@ function App(){
 
     {/* TABS */}
     <div style={{padding:"0 20px 14px"}}>
-      <div style={{display:"flex",background:"#e5e4df",borderRadius:12,padding:4}}>
-        {[["tasks","📋 Tasks"],["chat","💬 Group Chat"]].map(([k,lbl])=>
-          <button key={k} className="mbtn" style={{flex:1,padding:"9px 0",border:"none",background:tab===k?"#fff":"transparent",borderRadius:10,fontSize:13,fontWeight:tab===k?700:600,color:tab===k?"#1a1a2e":"#9ca3af",boxShadow:tab===k?"0 1px 4px rgba(0,0,0,0.1)":"none"}} onClick={()=>setTab(k)}>{lbl}</button>
+      <div style={{display:"flex",background:"#e5e4df",borderRadius:12,padding:4,gap:2}}>
+        {[["tasks","📋"],["maha","👑"],["chat","💬"]].map(([k,lbl])=>
+          <button key={k} className="mbtn" style={{flex:1,padding:"9px 4px",border:"none",background:tab===k?"#fff":"transparent",borderRadius:10,fontSize:tab===k?13:12,fontWeight:tab===k?700:600,color:tab===k?"#1a1a2e":"#9ca3af",boxShadow:tab===k?"0 1px 4px rgba(0,0,0,0.1)":"none"}} onClick={()=>setTab(k)}>
+            {lbl} {k==="tasks"?"Tasks":k==="maha"?"Maha's Brief":"Chat"}
+          </button>
         )}
       </div>
     </div>
@@ -1182,17 +1376,17 @@ function App(){
         </select>
       </div>
 
-      {/* Task list */}
+      {/* Task list - pinned first */}
       <div style={{padding:"0 20px",display:"flex",flexDirection:"column",gap:10,marginBottom:12}}>
         {filtered.length===0&&<div style={{textAlign:"center",padding:"50px 0",color:"#9ca3af"}}><div style={{fontSize:40,marginBottom:10}}>📋</div><div>No tasks found</div></div>}
-        {filtered.map(t=><TaskCard key={t.id} task={t} profiles={profiles} onClick={()=>setSelected(t)}/>)}
+        {[...filtered].sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0)).map(t=><TaskCard key={t.id} task={t} profiles={profiles} onClick={()=>setSelected(t)} isAdmin={isAdmin} onPin={()=>updateTask(t.id,{pinned:!t.pinned})}/>)}
       </div>
 
       {isAdmin&&<ProfileManager profiles={profiles} onUpdate={updateProfile}/>}
       {isAdmin&&<button className="mbtn" style={{position:"fixed",bottom:26,right:"max(22px,calc(50vw - 218px))",width:58,height:58,borderRadius:"50%",background:"#1a1a2e",color:"#c9a96e",border:"none",boxShadow:"0 4px 22px rgba(26,26,46,0.45)",fontSize:28,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setShowNew(true)}>＋</button>}
       {showNew&&<NewTaskModal onClose={()=>setShowNew(false)} onSave={addTask}/>}
       {selected&&<TaskDetail task={tasks.find(t=>t.id===selected.id)||selected} profiles={profiles} userId={userId} isAdmin={isAdmin} onClose={()=>setSelected(null)} onStatusChange={st=>updateTask(selected.id,{status:st})} onDelete={()=>deleteTask(selected.id)} onComment={text=>addComment(selected.id,text)} onEditReq={note=>addEditReq(selected.id,note)} onSign={()=>signTask(selected.id)} onEdit={upd=>updateTask(selected.id,upd)} onAttach={imgs=>updateTask(selected.id,{attachments:imgs})} onLinks={links=>updateTask(selected.id,{links:links})}/>}
-    </div>:<Chat messages={chat} onSend={sendChat} userId={userId} profiles={profiles}/>}
+    </div>:tab==="chat"?<Chat messages={chat} onSend={sendChat} userId={userId} profiles={profiles}/>:<MahaBrief userId={userId} profiles={profiles}/>}
   </div>;
 }
 
