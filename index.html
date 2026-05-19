@@ -1207,6 +1207,40 @@ function MahaBrief({userId,profiles}){
         </div>}
 
         {b.voice_url&&<audio controls src={b.voice_url} style={{width:"100%",height:36,borderRadius:8,marginTop:4}}/>}
+
+        {/* Comments */}
+        <div style={{borderTop:"1px solid #f3f4f6",marginTop:10,paddingTop:8}}>
+          <button className="mbtn" onClick={()=>toggleComments(b.id)}
+            style={{background:"none",border:"none",fontSize:12,color:"#9ca3af",cursor:"pointer",fontWeight:600,padding:0,display:"flex",alignItems:"center",gap:5}}>
+            💬 {showCmts[b.id]?"Hide Comments":"Show Comments"}{cmts[b.id]?.length>0?` (${cmts[b.id].length})`:""}
+          </button>
+          {showCmts[b.id]&&<div style={{marginTop:10,display:"flex",flexDirection:"column",gap:8}}>
+            {(cmts[b.id]||[]).length===0&&<div style={{fontSize:12,color:"#9ca3af",textAlign:"center",padding:"8px 0"}}>No comments yet — be the first!</div>}
+            {(cmts[b.id]||[]).map(c=>{
+              const au=TEAM.find(m=>m.id===c.author);
+              const me=c.author===userId;
+              return <div key={c.id} style={{display:"flex",flexDirection:me?"row-reverse":"row",alignItems:"flex-end",gap:6}}>
+                <Av member={au} photo={profiles[au?.id]} size={24}/>
+                <div style={{maxWidth:"75%",background:me?"#1a1a2e":"#f3f4f6",color:me?"#f0e6d3":"#111",borderRadius:me?"14px 14px 4px 14px":"14px 14px 14px 4px",padding:"8px 12px",fontSize:13,lineHeight:1.45,wordBreak:"break-word"}}>
+                  <div style={{fontSize:10,opacity:0.6,marginBottom:2}}>
+                    {au?.name?.split(" ")[0]} · {c.created_at?new Date(c.created_at).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}):""}
+                  </div>
+                  <SmartText text={c.text}/>
+                </div>
+              </div>;
+            })}
+            <div style={{display:"flex",gap:8,alignItems:"flex-end",marginTop:4}}>
+              <textarea
+                value={cmtText[b.id]||""}
+                onChange={e=>setCmtText(prev=>({...prev,[b.id]:e.target.value}))}
+                placeholder="Write a comment…"
+                onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendComment(b.id);}}}
+                style={{flex:1,padding:"8px 12px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:13,outline:"none",background:"#fafafa",resize:"none",minHeight:40,fontFamily:"inherit",boxSizing:"border-box"}}/>
+              <button className="mbtn" onClick={()=>sendComment(b.id)}
+                style={{width:40,height:40,borderRadius:"50%",background:"#1a1a2e",color:"#c9a96e",border:"none",fontSize:18,cursor:"pointer",flexShrink:0}}>→</button>
+            </div>
+          </div>}
+        </div>
       </div>;
     })}
   </div>;
