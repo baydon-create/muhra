@@ -40,7 +40,9 @@
       const cleanId = userId.replace(/[^a-zA-Z0-9_-]/g, "");
     console.log("OneSignal.login with cleanId:", cleanId);
     await OneSignal.login(cleanId);
-      console.log("OneSignal login complete for:", userId);
+    // FIX: This tag is required by your Edge Function filters!
+    await OneSignal.User.addTag("external_id", cleanId); 
+    console.log("OneSignal login and tag complete for:", userId);
       // Request permission
       if (Notification.permission === "default") {
         const perm = await Notification.requestPermission();
