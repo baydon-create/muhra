@@ -35,23 +35,28 @@
         setTimeout(() => window.registerUserWithOneSignal(userId), 2000);
         return;
       }
-      console.log("Registering user with OneSignal:", userId);
-      // Set external user ID - OneSignal maps this to subscription
+      
       const cleanId = userId.replace(/[^a-zA-Z0-9_-]/g, "");
-    console.log("OneSignal.login with cleanId:", cleanId);
-    await OneSignal.login(cleanId);
-    // FIX: This tag is required by your Edge Function filters!
-    await OneSignal.User.addTag("external_id", cleanId); 
-    console.log("OneSignal login and tag complete for:", userId);
+      console.log("OneSignal.login with cleanId:", cleanId);
+      
+      // 1. Log the user in
+      await OneSignal.login(cleanId);
+      
+      // 2. CRITICAL: Add the tag for the backend filter
+      await OneSignal.User.addTag("external_id", cleanId);
+      console.log("Registered and tagged with:", cleanId);
+
       // Request permission
       if (Notification.permission === "default") {
         const perm = await Notification.requestPermission();
         console.log("Notification permission:", perm);
       }
+      
       if (Notification.permission === "granted") {
         await OneSignal.User.PushSubscription.optIn();
         console.log("Opted in to push");
       }
+      
       // Now save the subscription ID to Supabase
       await saveSubscriptionToSupabase(cleanId);
     } catch(e) {
