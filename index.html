@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
 <title>Muhra Tasks</title>
 <meta name="description" content="Muhra Team Task Management"/>
-<meta name="theme-color" content="#1a1a2e"/>
+<meta name="theme-color" content="#090c14"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="Muhra Tasks"/>
@@ -35,10 +35,10 @@ return;
 
   const cleanId = userId.replace(/[^a-zA-Z0-9_-]/g, "");
   console.log("OneSignal.login with cleanId:", cleanId);
-  
+
   // 1. Log the user in
   await OneSignal.login(cleanId);
-  
+
   // 2. CRITICAL: Add the tag for the backend filter
   await OneSignal.User.addTag("external_id", cleanId);
   console.log("Registered and tagged with:", cleanId);
@@ -48,12 +48,12 @@ return;
     const perm = await Notification.requestPermission();
     console.log("Notification permission:", perm);
   }
-  
+
   if (Notification.permission === "granted") {
     await OneSignal.User.PushSubscription.optIn();
     console.log("Opted in to push");
   }
-  
+
   // Now save the subscription ID to Supabase
   await saveSubscriptionToSupabase(cleanId);
 } catch(e) {
@@ -68,7 +68,7 @@ const SUPA_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIs
   // Get the OneSignal subscription ID (more reliable than token)
   let subId = null;
   let attempts = 0;
-  
+
   while (!subId && attempts < 15) {
     attempts++;
     subId = OneSignal.User?.PushSubscription?.id;
@@ -88,7 +88,7 @@ const SUPA_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIs
   }
 
   console.log("Saving to Supabase - userId:", userId, "subId:", subId.slice(0,20)+"...");
-  
+
   const res = await fetch(SUPA_URL + "/rest/v1/push_tokens", {
     method: "POST",
     headers: {
@@ -103,12 +103,12 @@ const SUPA_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIs
       updated_at: new Date().toISOString()
     })
   });
-  
+
   const responseText = await res.text();
   console.log("Supabase save result:", res.status, responseText);
-  
+
   if (res.ok || res.status === 201 || res.status === 200) {
-    console.log("✅ Token saved successfully for", userId);
+    console.log("Token saved successfully for", userId);
   }
 } catch(e) {
   console.log("saveSubscriptionToSupabase error:", e);
@@ -127,33 +127,47 @@ if (userId) await window.registerUserWithOneSignal(userId);
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Alexandria:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&family=Alexandria:wght@400;500;600;700&display=swap');
+:root{--bg:#090c14;--surface:#111827;--elevated:#1c2333;--sidebar:#0d1117;--border:rgba(255,255,255,0.07);--bmd:rgba(255,255,255,0.12);--gold:#c9a96e;--gdim:rgba(201,169,110,0.12);--gglow:rgba(201,169,110,0.25);--t1:#f0f4f8;--t2:#8fa3bc;--t3:#526070;--rsm:8px;--rmd:12px;--rlg:16px;--rxl:22px}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0}
-body{font-family:'Century Gothic','Nunito',Futura,'Trebuchet MS',sans-serif;background:#f5f4f0;min-height:100vh}
-
-/* Global Arabic font override using CSS unicode-range trick */
-@font-face {
-  font-family: 'ArabicOverride';
-  src: local('Alexandria');
-  unicode-range: U+0600-06FF, U+0750-077F, U+08A0-08FF, U+FB50-FDFF, U+FE70-FEFF;
-}
-@keyframes slideUp{from{transform:translateY(28px);opacity:0}to{transform:translateY(0);opacity:1}}
-@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
-@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+body{font-family:'Plus Jakarta Sans','Century Gothic',sans-serif;background:var(--bg);min-height:100vh;color:var(--t1)}
+@font-face{font-family:'ArabicOverride';src:local('Alexandria');unicode-range:U+0600-06FF,U+0750-077F,U+08A0-08FF,U+FB50-FDFF,U+FE70-FEFF}
+@keyframes slideUp{from{transform:translateY(24px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-7px)}40%,80%{transform:translateX(7px)}}
+@keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
 @keyframes spin{to{transform:rotate(360deg)}}
-.shake{animation:shake 0.4s ease}
-.mbtn:active{transform:scale(0.96)}
-.mcard{transition:all 0.18s;cursor:pointer}
-.mcard:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,0,0,0.1)!important}
-button{font-family:'Century Gothic','Nunito',Futura,'Trebuchet MS',sans-serif;cursor:pointer}
-input,textarea,select{font-family:'Century Gothic','Nunito',Futura,'Trebuchet MS',sans-serif}
+@keyframes recPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.4)}70%{box-shadow:0 0 0 8px rgba(239,68,68,0)}}
+.shake{animation:shake .4s ease}
+button{font-family:inherit;cursor:pointer}
+input,textarea,select{font-family:inherit}
 textarea{resize:none}
-::-webkit-scrollbar{width:4px}
-::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:4px}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:4px}
+::-webkit-scrollbar-track{background:transparent}
+.btn{transition:all .15s ease;cursor:pointer}
+.btn:active{transform:scale(.96)}
+.mcard{transition:transform .2s,box-shadow .2s,border-color .2s;cursor:pointer}
+.mcard:hover{transform:translateY(-2px);border-color:var(--bmd)}
+.inp{width:100%;padding:11px 14px;border-radius:var(--rmd);border:1.5px solid var(--bmd);font-size:14px;color:var(--t1);outline:none;background:rgba(255,255,255,.04);box-sizing:border-box;transition:border-color .15s}
+.inp:focus{border-color:var(--gold)}
+.inp::placeholder{color:var(--t3)}
+select.inp option{background:#1c2333;color:var(--t1)}
+.lbl{font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.65px}
+.glass{background:rgba(255,255,255,.04);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--border);border-radius:var(--rlg)}
+.sitem{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--rmd);border:none;background:transparent;cursor:pointer;text-align:left;width:100%;transition:background .15s,color .15s;color:var(--t2);font-size:13.5px;font-weight:500;min-height:44px}
+.sitem:hover{background:rgba(255,255,255,.06);color:var(--t1)}
+.sitem.active{background:var(--gdim);color:var(--gold)}
+.sitem.active svg{stroke:var(--gold)}
+.sitem svg{stroke:currentColor;flex-shrink:0}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--t2);min-height:26px;cursor:pointer;transition:all .15s}
+.pill:hover{border-color:var(--bmd);color:var(--t1)}
+.pill.active{background:var(--gdim);border-color:var(--gold);color:var(--gold);font-weight:700}
+.tap{min-height:44px;min-width:44px;display:flex;align-items:center;justify-content:center}
+@media(max-width:768px){.sidebar-wrap{position:fixed!important;z-index:200!important;height:100%!important;transition:left .25s ease!important}.mob-overlay{display:flex!important}}
 </style>
 </head>
 <body>
-<div id="root"><div style="min-height:100vh;background:#1a1a2e;display:flex;align-items:center;justify-content:center;color:#c9a96e;font-family:sans-serif;font-size:14px;letter-spacing:2px">LOADING…</div></div>
+<div id="root"><div style="min-height:100vh;background:#090c14;display:flex;align-items:center;justify-content:center;color:#c9a96e;font-family:sans-serif;font-size:11px;letter-spacing:4px;font-weight:600">LOADING</div></div>
 <script type="text/babel">
 const { useState, useEffect, useRef } = React;
 const { createClient } = supabase;const sb = createClient(
@@ -169,8 +183,8 @@ const TEAM = [
 ];
 const PRIO=["Low","Medium","High","Urgent"];
 const STAT=["To Do","In Progress","Review","Done"];
-const PM={Low:{bg:"#f0fdf4",text:"#15803d",dot:"#4ade80",border:"#bbf7d0"},Medium:{bg:"#fffbeb",text:"#b45309",dot:"#fbbf24",border:"#fde68a"},High:{bg:"#fff7ed",text:"#c2410c",dot:"#fb923c",border:"#fed7aa"},Urgent:{bg:"#fef2f2",text:"#991b1b",dot:"#f87171",border:"#fecaca"}};
-const SM={"To Do":{bg:"#f3f4f6",text:"#374151",border:"#e5e7eb"},"In Progress":{bg:"#eff6ff",text:"#1d4ed8",border:"#bfdbfe"},Review:{bg:"#fdf4ff",text:"#7e22ce",border:"#e9d5ff"},Done:{bg:"#f0fdf4",text:"#15803d",border:"#bbf7d0"}};
+const PM={Low:{bg:"rgba(34,197,94,.1)",text:"#4ade80",dot:"#4ade80",border:"rgba(74,222,128,.3)"},Medium:{bg:"rgba(251,191,36,.1)",text:"#fbbf24",dot:"#fbbf24",border:"rgba(251,191,36,.3)"},High:{bg:"rgba(249,115,22,.1)",text:"#fb923c",dot:"#fb923c",border:"rgba(251,146,60,.3)"},Urgent:{bg:"rgba(239,68,68,.1)",text:"#f87171",dot:"#f87171",border:"rgba(248,113,113,.3)"}};
+const SM={"To Do":{bg:"rgba(148,163,184,.12)",text:"#94a3b8",border:"rgba(148,163,184,.3)"},"In Progress":{bg:"rgba(96,165,250,.12)",text:"#60a5fa",border:"rgba(96,165,250,.3)"},Review:{bg:"rgba(192,132,252,.12)",text:"#c084fc",border:"rgba(192,132,252,.3)"},Done:{bg:"rgba(74,222,128,.12)",text:"#4ade80",border:"rgba(74,222,128,.3)"}};
 const fD=iso=>{if(!iso)return"—";return new Date(iso).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})};
 const fT=iso=>{if(!iso)return"";return new Date(iso).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})};
 const isOD=(dl,st)=>dl&&new Date(dl)<new Date()&&st!=="Done";
@@ -195,8 +209,39 @@ console.log("Push sent to:",toUserIds,"title:",title);
 }
 function othersExcept(userId){ return ["mohamed","maha","bassant","asmaa","moussa"].filter(id=>id!==userId); }
 function getAssignees(task){ return (Array.isArray(task.assigned_to)?task.assigned_to:[task.assigned_to]).filter(Boolean); }
-const isArabic=str=>/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(str);
+const isArabic=str=>/[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]/.test(str);
 const arabicStyle={fontFamily:"'Alexandria',sans-serif",direction:"rtl",textAlign:"right",unicodeBidi:"embed"};
+
+// ── INLINE SVG ICONS (Lucide style) ──
+const Ic = {
+  tasks:    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m9 12 2 2 4-4"/></svg>,
+  crown:    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 20h20M5 20l2-8 5 4 5-4 2 8"/></svg>,
+  chat:     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
+  plus:     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>,
+  users:    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+  logout:   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
+  bell:     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>,
+  menu:     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>,
+  edit:     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+  trash:    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>,
+  pin:      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>,
+  cal:      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+  clip:     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>,
+  link2:    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>,
+  msg:      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
+  check2:   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
+  warn:     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m10.29 3.86-8.47 14.67A1 1 0 0 0 2.69 20h18.62a1 1 0 0 0 .87-1.47L13.71 3.86a1 1 0 0 0-1.74 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
+  mic:      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>,
+  send:     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>,
+  back:     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>,
+  x:        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+  heart:    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>,
+  at:       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/></svg>,
+  announce: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 11l19-9-9 19-2-8-8-2z"/></svg>,
+  img:      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>,
+  stop:     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>,
+  chev:     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>,
+};
 
 // Updated SmartText to automatically render uploaded images inline
 function SmartText({text,style={}}){
@@ -208,8 +253,8 @@ function SmartText({text,style={}}){
     {parts.map((part,i)=>
       /^https?:\/\//.test(part)
         ? isImg(part)
-          ? <a key={i} href={part} target="_blank" rel="noopener noreferrer"><img src={part} style={{display:"block",maxWidth:"100%",maxHeight:250,borderRadius:8,marginTop:6,marginBottom:6,border:"1px solid rgba(0,0,0,0.1)"}} alt="attachment"/></a>
-          : <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{color:"#2563eb",textDecoration:"underline",wordBreak:"break-all"}}>{part}</a>
+          ? <a key={i} href={part} target="_blank" rel="noopener noreferrer"><img src={part} style={{display:"block",maxWidth:"100%",maxHeight:250,borderRadius:8,marginTop:6,marginBottom:6,border:"1px solid rgba(255,255,255,0.1)"}} alt="attachment"/></a>
+          : <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{color:"#60a5fa",textDecoration:"underline",wordBreak:"break-all"}}>{part}</a>
         :<span key={i}>{part}</span>
     )}
   </span>;
@@ -228,14 +273,14 @@ function CommentText({text,profiles}){
     {parts.map((part,i)=>{
       if(isUrl(part)){
         if(isImg(part)){
-          return <a key={i} href={part} target="_blank" rel="noopener noreferrer"><img src={part} style={{display:"block",maxWidth:"100%",maxHeight:200,borderRadius:8,marginTop:6,marginBottom:6,border:"1px solid rgba(0,0,0,0.1)"}} alt="attachment"/></a>;
+          return <a key={i} href={part} target="_blank" rel="noopener noreferrer"><img src={part} style={{display:"block",maxWidth:"100%",maxHeight:200,borderRadius:8,marginTop:6,marginBottom:6,border:"1px solid rgba(255,255,255,0.1)"}} alt="attachment"/></a>;
         }
         return <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{color:"#60a5fa",textDecoration:"underline",wordBreak:"break-all"}}>{part}</a>;
       }
       if(isMention(part)){
         const name=part.slice(1);
         const member=TEAM.find(m=>m.name.split(" ")[0].toLowerCase()===name.toLowerCase());
-        return <span key={i} style={{background:member?"rgba(201,169,110,0.25)":"rgba(150,150,150,0.15)",color:member?"#c9a96e":"#6b7280",fontWeight:700,borderRadius:4,padding:"1px 4px"}}>{part}</span>;
+        return <span key={i} style={{background:member?"rgba(201,169,110,0.18)":"rgba(150,150,150,0.15)",color:member?"#c9a96e":"#8fa3bc",fontWeight:700,borderRadius:4,padding:"1px 5px"}}>{part}</span>;
       }
       return <span key={i}>{part}</span>;
     })}
@@ -250,13 +295,14 @@ return <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
 </svg>;
 }
 function Av({member,photo,size=36,onClick,title}){
-const s={width:size,height:size,borderRadius:"50%",flexShrink:0,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",backgroundColor:member?.color||"#333",color:"#fff",fontWeight:700,fontSize:size*0.36,cursor:onClick?"pointer":"default",border:"2px solid rgba(255,255,255,0.15)"};
-return <div style={s} onClick={onClick} title={title||member?.name}>
-{photo?<img src={photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:member?.initials}
+  const s={width:size,height:size,borderRadius:"50%",flexShrink:0,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",backgroundColor:member?.color||"#1c2333",color:"#fff",fontWeight:700,fontSize:size*0.36,cursor:onClick?"pointer":"default",border:"2px solid rgba(255,255,255,0.1)",transition:"border-color .15s"};
+  return <div style={s} onClick={onClick} title={title||member?.name}>
+    {photo?<img src={photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:member?.initials}
   </div>;
 }
-function FL({children}){return <div style={{fontSize:11,fontWeight:700,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.6px"}}>{children}</div>}
+function FL({children}){return <div className="lbl">{children}</div>}
 function FS({label,children}){return <div style={{display:"flex",flexDirection:"column",gap:8}}><FL>{label}</FL>{children}</div>}
+
 // ── LOGIN ──
 function Login({onLogin}){
 const [step,setStep]=useState("pick");
@@ -275,42 +321,42 @@ else{setErr("Incorrect PIN. Try again.");setShake(true);setPin("");setTimeout(()
 },180);
 }
 }
-return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(155deg,#0f0f1e 0%,#1a1a2e 55%,#2a1a14 100%)",padding:20}}>
-<div style={{background:"#fff",borderRadius:22,padding:"30px 24px",width:"100%",maxWidth:360,boxShadow:"0 16px 56px rgba(0,0,0,0.45)"}}>
-<div style={{marginBottom:22,textAlign:"center"}}>
-<img src="https://cdn.shopify.com/s/files/1/0679/6984/3251/files/logo_muhra.png?v=1777114424" alt="Muhra" style={{height:50,objectFit:"contain"}}/>
+return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"radial-gradient(circle at 20% 10%,rgba(92,61,46,0.25),transparent 60%),radial-gradient(circle at 90% 90%,rgba(201,169,110,0.12),transparent 50%),var(--bg)",padding:20}}>
+<div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:24,padding:"32px 24px",width:"100%",maxWidth:360,boxShadow:"0 24px 64px rgba(0,0,0,0.55)"}}>
+<div style={{marginBottom:24,textAlign:"center"}}>
+<img src="https://cdn.shopify.com/s/files/1/0679/6984/3251/files/MUHRA_APP_LOGO_1.png?v=1777552159" alt="Muhra" style={{height:64,width:64,objectFit:"contain",borderRadius:18,boxShadow:"0 0 32px rgba(201,169,110,0.25)"}}/>
 </div>
-<div style={{fontSize:21,fontWeight:900,color:"#111",marginBottom:4}}>Team Workspace</div>
+<div style={{fontSize:22,fontWeight:800,color:"var(--t1)",marginBottom:4,textAlign:"center"}}>Team Workspace</div>
 
   {step==="pick"?<>
-    <div style={{fontSize:13,color:"#9ca3af",marginBottom:20}}>Select your profile to continue</div>
-    {TEAM.map(m=><button key={m.id} className="mbtn" onClick={()=>pick(m)}
-      style={{display:"flex",alignItems:"center",gap:14,background:"#f8f7f4",border:"1.5px solid #e5e7eb",borderRadius:14,padding:"12px 16px",width:"100%",marginBottom:8,textAlign:"left"}}>
-      <div style={{width:44,height:44,borderRadius:"50%",background:m.color,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:15,flexShrink:0}}>{m.initials}</div>
+    <div style={{fontSize:13,color:"var(--t2)",marginBottom:22,textAlign:"center"}}>Select your profile to continue</div>
+    {TEAM.map(m=><button key={m.id} className="btn" onClick={()=>pick(m)}
+      style={{display:"flex",alignItems:"center",gap:14,background:"var(--elevated)",border:"1px solid var(--border)",borderRadius:14,padding:"12px 14px",width:"100%",marginBottom:8,textAlign:"left",minHeight:64}}>
+      <div style={{width:44,height:44,borderRadius:"50%",background:m.color,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:15,flexShrink:0,border:"2px solid rgba(255,255,255,0.08)"}}>{m.initials}</div>
       <div style={{flex:1}}>
-        <div style={{fontWeight:700,fontSize:15,color:"#111"}}>{m.name}</div>
-        <div style={{fontSize:12,color:"#9ca3af"}}>{m.title}</div>
+        <div style={{fontWeight:700,fontSize:15,color:"var(--t1)"}}>{m.name}</div>
+        <div style={{fontSize:12,color:"var(--t2)"}}>{m.title}</div>
       </div>
-      <span style={{color:"#d1d5db",fontSize:20}}>›</span>
+      <span style={{color:"var(--t3)",display:"flex"}}>{Ic.chev}</span>
     </button>)}
   </>:<div style={{animation:"slideUp 0.2s ease"}}>
     <button onClick={()=>{setStep("pick");setErr("");setPin("")}}
-      style={{background:"none",border:"none",color:"#9ca3af",fontSize:13,padding:"2px 0 18px",display:"flex",alignItems:"center",gap:4}}>← Back</button>
+      style={{background:"none",border:"none",color:"var(--t2)",fontSize:13,padding:"2px 0 18px",display:"flex",alignItems:"center",gap:6,minHeight:32}}>{Ic.back} Back</button>
     <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:22}}>
-      <div style={{width:50,height:50,borderRadius:"50%",background:who.color,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:17}}>{who.initials}</div>
+      <div style={{width:50,height:50,borderRadius:"50%",background:who.color,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:17,border:"2px solid rgba(255,255,255,0.1)"}}>{who.initials}</div>
       <div>
-        <div style={{fontWeight:700,fontSize:16,color:"#111"}}>{who.name}</div>
-        <div style={{fontSize:12,color:"#9ca3af"}}>{who.title}</div>
+        <div style={{fontWeight:700,fontSize:16,color:"var(--t1)"}}>{who.name}</div>
+        <div style={{fontSize:12,color:"var(--t2)"}}>{who.title}</div>
       </div>
     </div>
-    <div style={{fontSize:13,color:"#9ca3af",marginBottom:4}}>Enter your 4-digit PIN</div>
+    <div style={{fontSize:13,color:"var(--t2)",marginBottom:4}}>Enter your 4-digit PIN</div>
     <div className={shake?"shake":""} style={{display:"flex",gap:14,justifyContent:"center",margin:"18px 0 6px"}}>
-      {[0,1,2,3].map(i=><div key={i} style={{width:16,height:16,borderRadius:"50%",background:i<pin.length?"#1a1a2e":"#e5e7eb",transition:"background 0.15s"}}/>)}
+      {[0,1,2,3].map(i=><div key={i} style={{width:14,height:14,borderRadius:"50%",background:i<pin.length?"var(--gold)":"rgba(255,255,255,0.1)",transition:"background 0.15s",boxShadow:i<pin.length?"0 0 12px rgba(201,169,110,0.5)":"none"}}/>)}
     </div>
-    {err&&<div style={{color:"#dc2626",fontSize:13,textAlign:"center",marginBottom:6}}>{err}</div>}
-    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:9,marginTop:16}}>
-      {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((d,i)=><button key={i} className="mbtn"
-        style={{height:58,borderRadius:14,border:`1.5px solid ${d===""?"transparent":"#e5e7eb"}`,background:d===""?"transparent":"#fff",fontSize:d==="⌫"?20:22,fontWeight:600,color:"#111",cursor:d===""?"default":"pointer",boxShadow:d===""?"none":"0 1px 3px rgba(0,0,0,0.06)"}}
+    {err&&<div style={{color:"#f87171",fontSize:13,textAlign:"center",marginBottom:6,fontWeight:500}}>{err}</div>}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginTop:16}}>
+      {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((d,i)=><button key={i} className="btn"
+        style={{height:58,borderRadius:14,border:d===""?"none":"1px solid var(--border)",background:d===""?"transparent":"var(--elevated)",fontSize:d==="⌫"?18:22,fontWeight:600,color:"var(--t1)",cursor:d===""?"default":"pointer"}}
         onClick={()=>{if(d==="⌫"){setPin(p=>p.slice(0,-1));setErr("")}else if(d!=="")digit(String(d))}}>{d}</button>)}
     </div>
   </div>}
@@ -324,33 +370,33 @@ const assignees=(Array.isArray(task.assigned_to)?task.assigned_to:[task.assigned
 const pm=PM[task.priority]||PM.Medium;
 const sm=SM[task.status]||SM["To Do"];
 const od=isOD(task.deadline,task.status);
-return <div className="mcard" style={{background:task.pinned?"#fffbeb":"#fff",borderRadius:14,padding:"14px 16px",boxShadow:task.pinned?"0 2px 12px rgba(201,169,110,0.25)":"0 1px 5px rgba(0,0,0,0.06)",borderLeft:`4px solid ${task.pinned?"#c9a96e":pm.dot}`,border:task.pinned?"1.5px solid #fde68a":undefined}} onClick={onClick}>
-{task.pinned&&<div style={{fontSize:10,fontWeight:700,color:"#b45309",marginBottom:6,letterSpacing:"0.5px"}}>📌 PINNED</div>}
+return <div className="mcard" style={{background:task.pinned?"rgba(201,169,110,0.04)":"var(--surface)",borderRadius:"var(--rlg)",padding:"14px 16px",border:`1px solid ${task.pinned?"rgba(201,169,110,0.25)":"var(--border)"}`,borderLeft:`4px solid ${pm.dot}`}} onClick={onClick}>
+{task.pinned&&<div style={{fontSize:10,fontWeight:700,color:"var(--gold)",marginBottom:6,letterSpacing:".5px",display:"flex",alignItems:"center",gap:5}}>{Ic.pin} PINNED</div>}
 <div style={{display:"flex",alignItems:"flex-start",gap:10,marginBottom:10}}>
-<div style={{flex:1}}>
-<div style={{fontSize:15,fontWeight:700,color:"#111",lineHeight:1.3}}><SmartText text={task.title}/></div>
-{task.description&&<div style={{fontSize:13,color:"#6b7280",marginTop:3,lineHeight:1.4}}><SmartText text={task.description.slice(0,85)+(task.description.length>85?'…':'')}/></div>}
+<div style={{flex:1,minWidth:0}}>
+<div style={{fontSize:15,fontWeight:700,color:"var(--t1)",lineHeight:1.3}}><SmartText text={task.title}/></div>
+{task.description&&<div style={{fontSize:13,color:"var(--t2)",marginTop:4,lineHeight:1.4}}><SmartText text={task.description.slice(0,85)+(task.description.length>85?'…':'')}/></div>}
 </div>
-<div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4,flexShrink:0}}>
-<span style={{display:"inline-flex",alignItems:"center",fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:20,background:pm.bg,color:pm.text,border:`1px solid ${pm.border}`}}>
-<span style={{width:6,height:6,borderRadius:"50%",background:pm.dot,display:"inline-block",marginRight:4}}/>
+<div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5,flexShrink:0}}>
+<span style={{display:"inline-flex",alignItems:"center",gap:5,fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:20,background:pm.bg,color:pm.text,border:`1px solid ${pm.border}`}}>
+<span style={{width:5,height:5,borderRadius:"50%",background:pm.dot,display:"inline-block"}}/>
 {task.priority}
 </span>
-{isAdmin&&<button className="mbtn" onClick={e=>{e.stopPropagation();onPin();}}
-style={{background:"none",border:"none",fontSize:14,cursor:"pointer",padding:2,opacity:task.pinned?1:0.3}} title={task.pinned?"Unpin":"Pin to top"}>
-📌
+{isAdmin&&<button className="btn" onClick={e=>{e.stopPropagation();onPin();}}
+style={{background:"none",border:"none",color:task.pinned?"var(--gold)":"var(--t3)",padding:4,opacity:task.pinned?1:.5,display:"flex",alignItems:"center",minHeight:24,minWidth:24,justifyContent:"center"}} title={task.pinned?"Unpin":"Pin to top"}>
+{Ic.pin}
 </button>}
 </div>
 </div>
 <div style={{display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}>
-{assignees.length>0&&<div style={{display:"flex",alignItems:"center",gap:3}}>{assignees.map(a=><Av key={a.id} member={a} photo={profiles[a.id]} size={22} title={a.name}/>)}<span style={{fontSize:12,color:"#6b7280",marginLeft:4}}>{assignees.length===1?assignees[0].name.split(" ")[0]:`${assignees.length} members`}</span></div>}
-<span style={{display:"inline-flex",alignItems:"center",fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:20,background:sm.bg,color:sm.text,border:`1px solid ${sm.border}`}}>{task.status}</span>
-{task.deadline&&<span style={{fontSize:11,color:od?"#dc2626":"#9ca3af",fontWeight:od?700:400}}>{od?"⚠ ":"📅 "}{fD(task.deadline)}</span>}
-{task.comments?.length>0&&<span style={{fontSize:11,color:"#9ca3af"}}>💬 {task.comments.length}</span>}
-{task.signed_by?.length>0&&<span style={{fontSize:11,color:"#15803d"}}>✅ {task.signed_by.length}</span>}
-{task.edit_requests?.length>0&&<span style={{fontSize:11,color:"#b45309"}}>📝 {task.edit_requests.length}</span>}
-{task.attachments?.length>0&&<span style={{fontSize:11,color:"#6366f1"}}>📎 {task.attachments.length}</span>}
-{task.links?.length>0&&<span style={{fontSize:11,color:"#2563eb"}}>🔗 {task.links.length}</span>}
+{assignees.length>0&&<div style={{display:"flex",alignItems:"center",gap:3}}>{assignees.map(a=><Av key={a.id} member={a} photo={profiles[a.id]} size={22} title={a.name}/>)}<span style={{fontSize:12,color:"var(--t2)",marginLeft:4}}>{assignees.length===1?assignees[0].name.split(" ")[0]:`${assignees.length} members`}</span></div>}
+<span style={{display:"inline-flex",alignItems:"center",fontSize:11,fontWeight:600,padding:"3px 9px",borderRadius:20,background:sm.bg,color:sm.text,border:`1px solid ${sm.border}`}}>{task.status}</span>
+{task.deadline&&<span style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:od?"#f87171":"var(--t3)",fontWeight:od?700:500}}>{od?Ic.warn:Ic.cal}{fD(task.deadline)}</span>}
+{task.comments?.length>0&&<span style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:"var(--t3)"}}>{Ic.msg}{task.comments.length}</span>}
+{task.signed_by?.length>0&&<span style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:"#4ade80"}}>{Ic.check2}{task.signed_by.length}</span>}
+{task.edit_requests?.length>0&&<span style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:"#fbbf24"}}>{Ic.edit}{task.edit_requests.length}</span>}
+{task.attachments?.length>0&&<span style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:"var(--t3)"}}>{Ic.clip}{task.attachments.length}</span>}
+{task.links?.length>0&&<span style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:"var(--t3)"}}>{Ic.link2}{task.links.length}</span>}
 </div>
 </div>;
 }
@@ -395,7 +441,6 @@ const sig=task.signed_by?.includes(userId);
 const assignedIds=(Array.isArray(task.assigned_to)?task.assigned_to:[task.assigned_to]).filter(Boolean);
 const canSign=assignedIds.includes(userId)&&!sig&&task.status==="Done";
 const canStatus=isAdmin||assignedIds.includes(userId);
-const inp={width:"100%",padding:"10px 13px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:14,color:"#111",outline:"none",background:"#fafafa",boxSizing:"border-box"};
 
 async function startRecording(){
 try{
@@ -531,14 +576,18 @@ async function handleCmtAttach(e){
   e.target.value="";
 }
 
-return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",backdropFilter:"blur(5px)",zIndex:100,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={ev=>ev.target===ev.currentTarget&&onClose()}>
-<div style={{background:"#fff",borderRadius:"22px 22px 0 0",width:"100%",maxWidth:480,maxHeight:"94vh",overflowY:"auto",animation:"slideUp 0.28s ease"}}>
-<div style={{width:40,height:4,background:"#e5e7eb",borderRadius:4,margin:"12px auto 0"}}/>
-<div style={{padding:"14px 20px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,background:"#fff",zIndex:1,borderBottom:"1px solid #f3f4f6"}}>
-<button style={{background:"none",border:"none",fontSize:15,fontWeight:700,color:"#1a1a2e",padding:"5px 0"}} onClick={onClose}>← Back</button>
+const btnPrimary={background:"var(--gold)",color:"var(--sidebar)",border:"none",borderRadius:12,padding:"12px 20px",fontSize:14,fontWeight:700,minHeight:44};
+const btnSec={background:"var(--elevated)",color:"var(--t1)",border:"1px solid var(--border)",borderRadius:12,padding:"10px 16px",fontSize:14,fontWeight:600,minHeight:44};
+const btnDanger={background:"rgba(239,68,68,0.12)",color:"#f87171",border:"1px solid rgba(248,113,113,0.25)",borderRadius:10,fontSize:14,fontWeight:600};
+
+return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:100,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={ev=>ev.target===ev.currentTarget&&onClose()}>
+<div style={{background:"var(--surface)",borderRadius:"22px 22px 0 0",width:"100%",maxWidth:480,maxHeight:"94vh",overflowY:"auto",animation:"slideUp 0.28s ease",border:"1px solid var(--border)",borderBottom:"none"}}>
+<div style={{width:42,height:4,background:"rgba(255,255,255,0.18)",borderRadius:4,margin:"12px auto 0"}}/>
+<div style={{padding:"14px 20px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,background:"var(--surface)",zIndex:1,borderBottom:"1px solid var(--border)"}}>
+<button className="btn" style={{background:"none",border:"none",fontSize:14,fontWeight:700,color:"var(--t1)",padding:"5px 0",display:"flex",alignItems:"center",gap:6,minHeight:36}} onClick={onClose}>{Ic.back} Back</button>
 <div style={{display:"flex",gap:8}}>
-{isAdmin&&!editMode&&<button style={{background:"#f3f4f6",border:"none",width:36,height:36,borderRadius:10,fontSize:16}} onClick={()=>{setEf({title:task.title,description:task.description||"",deadline:task.deadline||"",priority:task.priority,assigned_to:Array.isArray(task.assigned_to)?task.assigned_to:[task.assigned_to].filter(Boolean)});setEditMode(true);}}>✏️</button>}
-{isAdmin&&<button style={{background:"#fef2f2",border:"none",width:36,height:36,borderRadius:10,fontSize:16,color:"#dc2626"}} onClick={()=>window.confirm("Delete this task?")&&onDelete()}>🗑</button>}
+{isAdmin&&!editMode&&<button className="btn" style={{background:"var(--elevated)",border:"1px solid var(--border)",width:40,height:40,borderRadius:10,color:"var(--t1)",display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>{setEf({title:task.title,description:task.description||"",deadline:task.deadline||"",priority:task.priority,assigned_to:Array.isArray(task.assigned_to)?task.assigned_to:[task.assigned_to].filter(Boolean)});setEditMode(true);}}>{Ic.edit}</button>}
+{isAdmin&&<button className="btn" style={{...btnDanger,width:40,height:40,padding:0,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>window.confirm("Delete this task?")&&onDelete()}>{Ic.trash}</button>}
 </div>
 </div>
 
@@ -546,11 +595,11 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",backd
 
     {/* ── EDIT MODE ── */}
     {editMode&&isAdmin?<div style={{display:"flex",flexDirection:"column",gap:12}}>
-      <FL>Title</FL><input style={inp} value={ef.title} onChange={ev=>setEf(f=>({...f,title:ev.target.value}))}/>
-      <FL>Description</FL><textarea style={{...inp,minHeight:80}} value={ef.description} onChange={ev=>setEf(f=>({...f,description:ev.target.value}))}/>
+      <FL>Title</FL><input className="inp" value={ef.title} onChange={ev=>setEf(f=>({...f,title:ev.target.value}))}/>
+      <FL>Description</FL><textarea className="inp" style={{minHeight:80}} value={ef.description} onChange={ev=>setEf(f=>({...f,description:ev.target.value}))}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        <div><FL>Priority</FL><select style={inp} value={ef.priority} onChange={ev=>setEf(f=>({...f,priority:ev.target.value}))}>{PRIO.map(p=><option key={p}>{p}</option>)}</select></div>
-        <div><FL>Deadline</FL><input type="date" style={inp} value={ef.deadline} onChange={ev=>setEf(f=>({...f,deadline:ev.target.value}))}/></div>
+        <div><FL>Priority</FL><select className="inp" value={ef.priority} onChange={ev=>setEf(f=>({...f,priority:ev.target.value}))}>{PRIO.map(p=><option key={p}>{p}</option>)}</select></div>
+        <div><FL>Deadline</FL><input type="date" className="inp" value={ef.deadline} onChange={ev=>setEf(f=>({...f,deadline:ev.target.value}))}/></div>
       </div>
       <FL>Assign To</FL>
       <div style={{display:"flex",flexDirection:"column",gap:6}}>
@@ -558,51 +607,51 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",backd
           const cur=Array.isArray(ef.assigned_to)?ef.assigned_to:[ef.assigned_to].filter(Boolean);
           const sel=cur.includes(m.id);
           return <div key={m.id} onClick={()=>setEf(f=>{const c2=Array.isArray(f.assigned_to)?f.assigned_to:[f.assigned_to].filter(Boolean);return {...f,assigned_to:c2.includes(m.id)?c2.filter(x=>x!==m.id):[...c2,m.id]};})}
-            style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",borderRadius:10,border:`1.5px solid ${sel?"#1a1a2e":"#e5e7eb"}`,background:sel?"#f0f0f8":"#fafafa",cursor:"pointer"}}>
-            <Av member={m} photo={profiles[m.id]} size={26}/>
-            <div style={{flex:1,fontSize:13,fontWeight:600,color:"#111"}}>{m.name}</div>
-            <div style={{width:18,height:18,borderRadius:5,border:`2px solid ${sel?"#1a1a2e":"#d1d5db"}`,background:sel?"#1a1a2e":"#fff",display:"flex",alignItems:"center",justifyContent:"center"}}>
-              {sel&&<span style={{color:"#c9a96e",fontSize:12,fontWeight:900}}>✓</span>}
+            style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:10,border:`1.5px solid ${sel?"var(--gold)":"var(--border)"}`,background:sel?"var(--gdim)":"var(--elevated)",cursor:"pointer",minHeight:48}}>
+            <Av member={m} photo={profiles[m.id]} size={28}/>
+            <div style={{flex:1,fontSize:13,fontWeight:600,color:"var(--t1)"}}>{m.name}</div>
+            <div style={{width:18,height:18,borderRadius:5,border:`2px solid ${sel?"var(--gold)":"var(--bmd)"}`,background:sel?"var(--gold)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",color:"var(--sidebar)"}}>
+              {sel&&Ic.check2}
             </div>
           </div>;})}
       </div>
       <div style={{display:"flex",gap:8}}>
-        <button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:12,padding:"12px 20px",fontSize:14,fontWeight:700}} onClick={async()=>{await onEdit(ef);setEditMode(false);}}>Save</button>
-        <button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:12,padding:"10px 16px",fontSize:14,fontWeight:600}} onClick={()=>setEditMode(false)}>Cancel</button>
+        <button className="btn" style={btnPrimary} onClick={async()=>{await onEdit(ef);setEditMode(false);}}>Save</button>
+        <button className="btn" style={btnSec} onClick={()=>setEditMode(false)}>Cancel</button>
       </div>
     </div>:
 
     /* ── VIEW MODE ── */
     <div style={{display:"flex",flexDirection:"column",gap:16}}>
       <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
-        <div style={{flex:1}}>
-          <h2 style={{fontSize:21,fontWeight:900,color:"#111",margin:0,lineHeight:1.25}}><SmartText text={task.title}/></h2>
-          <div style={{fontSize:12,color:"#9ca3af",marginTop:5}}>By {cr?.name} · {fD(task.created_at)}</div>
+        <div style={{flex:1,minWidth:0}}>
+          <h2 style={{fontSize:21,fontWeight:800,color:"var(--t1)",margin:0,lineHeight:1.25}}><SmartText text={task.title}/></h2>
+          <div style={{fontSize:12,color:"var(--t3)",marginTop:6}}>By {cr?.name} · {fD(task.created_at)}</div>
         </div>
-        <span style={{display:"inline-flex",alignItems:"center",fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:20,background:pm.bg,color:pm.text,border:`1px solid ${pm.border}`,flexShrink:0}}>
-          <span style={{width:6,height:6,borderRadius:"50%",background:pm.dot,display:"inline-block",marginRight:4}}/>{task.priority}
+        <span style={{display:"inline-flex",alignItems:"center",gap:5,fontSize:11,fontWeight:700,padding:"4px 10px",borderRadius:20,background:pm.bg,color:pm.text,border:`1px solid ${pm.border}`,flexShrink:0}}>
+          <span style={{width:5,height:5,borderRadius:"50%",background:pm.dot}}/>{task.priority}
         </span>
       </div>
 
-      {task.description&&<FS label="Description"><p style={{fontSize:14,color:"#374151",lineHeight:1.65,margin:0,wordBreak:"break-word"}}><SmartText text={task.description}/></p></FS>}
+      {task.description&&<FS label="Description"><p style={{fontSize:14,color:"var(--t1)",lineHeight:1.65,margin:0,wordBreak:"break-word"}}><SmartText text={task.description}/></p></FS>}
 
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
         <FS label={`Assigned (${assignees.length})`}>
-          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
             {assignees.map(a=><div key={a.id} style={{display:"flex",alignItems:"center",gap:8}}>
               <Av member={a} photo={profiles[a.id]} size={28}/>
-              <div><div style={{fontSize:13,fontWeight:600}}>{a.name}</div><div style={{fontSize:11,color:"#9ca3af"}}>{a.title}</div></div>
+              <div><div style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{a.name}</div><div style={{fontSize:11,color:"var(--t3)"}}>{a.title}</div></div>
             </div>)}
           </div>
         </FS>
-        <FS label="Deadline"><div style={{fontSize:15,fontWeight:700,color:od?"#dc2626":"#111"}}>{od?"⚠ ":""}{fD(task.deadline)}</div></FS>
+        <FS label="Deadline"><div style={{fontSize:15,fontWeight:700,color:od?"#f87171":"var(--t1)",display:"flex",alignItems:"center",gap:6}}>{od&&Ic.warn}{fD(task.deadline)}</div></FS>
       </div>
 
       <FS label="Status">
         <div style={{display:"flex",flexWrap:"wrap",gap:7}}>
-          {STAT.map(s=>{const sm=SM[s];const active=task.status===s;
-            return <button key={s} disabled={!canStatus} className="mbtn"
-              style={{padding:"7px 15px",borderRadius:20,fontSize:12,fontWeight:active?700:500,cursor:canStatus?"pointer":"default",border:`1.5px solid ${active?sm.text:"#e5e7eb"}`,background:active?sm.bg:"#fff",color:active?sm.text:"#9ca3af"}}
+          {STAT.map(s=>{const ssm=SM[s];const active=task.status===s;
+            return <button key={s} disabled={!canStatus} className="btn"
+              style={{padding:"8px 14px",borderRadius:20,fontSize:12,fontWeight:active?700:500,cursor:canStatus?"pointer":"default",border:`1.5px solid ${active?ssm.text:"var(--border)"}`,background:active?ssm.bg:"transparent",color:active?ssm.text:"var(--t2)",minHeight:36}}
               onClick={()=>canStatus&&onStatusChange(s)}>{s}</button>;})}
         </div>
       </FS>
@@ -612,73 +661,73 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",backd
           {task.signed_by.map(uid=>{const m=TEAM.find(t=>t.id===uid);return m?<Av key={uid} member={m} photo={profiles[uid]} size={30} title={m.name}/>:null})}
         </div>
       </FS>}
-      {canSign&&<button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:12,padding:"12px 20px",fontSize:14,fontWeight:700}} onClick={onSign}>✅ Sign & Approve Task</button>}
-      {sig&&<div style={{fontSize:13,color:"#15803d",fontWeight:700}}>✅ You signed this task</div>}
+      {canSign&&<button className="btn" style={{...btnPrimary,display:"flex",alignItems:"center",gap:8,justifyContent:"center"}} onClick={onSign}>{Ic.check2} Sign & Approve Task</button>}
+      {sig&&<div style={{fontSize:13,color:"#4ade80",fontWeight:700,display:"flex",alignItems:"center",gap:6}}>{Ic.check2} You signed this task</div>}
 
       {!isAdmin&&<div>
-        <button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:12,padding:"10px 16px",fontSize:14,fontWeight:600}} onClick={()=>setShowReq(!showReq)}>📝 Request Edit</button>
+        <button className="btn" style={{...btnSec,display:"flex",alignItems:"center",gap:6}} onClick={()=>setShowReq(!showReq)}>{Ic.edit} Request Edit</button>
         {showReq&&<div style={{display:"flex",flexDirection:"column",gap:8,marginTop:8}}>
-          <textarea placeholder="Describe what needs to change…" value={note} onChange={ev=>setNote(ev.target.value)} style={{...inp,minHeight:70}}/>
-          <button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:12,padding:"12px 20px",fontSize:14,fontWeight:700}} onClick={async()=>{await onEditReq(note);setNote("");setShowReq(false);}}>Send Request</button>
+          <textarea placeholder="Describe what needs to change…" value={note} onChange={ev=>setNote(ev.target.value)} className="inp" style={{minHeight:70}}/>
+          <button className="btn" style={btnPrimary} onClick={async()=>{await onEditReq(note);setNote("");setShowReq(false);}}>Send Request</button>
         </div>}
       </div>}
 
       {isAdmin&&task.edit_requests?.length>0&&<FS label={`Edit Requests (${task.edit_requests.length})`}>
         {task.edit_requests.map(r=>{const au=TEAM.find(m=>m.id===r.author);
-          return <div key={r.id} style={{background:"#fffbeb",border:"1px solid #fde68a",borderRadius:10,padding:"10px 12px",marginBottom:6}}>
-            <div style={{fontSize:11,color:"#9ca3af",marginBottom:3}}>{au?.name} · {fD(r.created_at)}</div>
-            <div style={{fontSize:13}}>{r.note}</div>
+          return <div key={r.id} style={{background:"rgba(251,191,36,0.06)",border:"1px solid rgba(251,191,36,0.2)",borderRadius:10,padding:"10px 12px",marginBottom:6}}>
+            <div style={{fontSize:11,color:"var(--t3)",marginBottom:4}}>{au?.name} · {fD(r.created_at)}</div>
+            <div style={{fontSize:13,color:"var(--t1)"}}>{r.note}</div>
           </div>;})}
       </FS>}
 
       {/* ── INSTRUCTIONS ── */}
       <FS label="Instructions">
-        {/* Text instructions */}
         <textarea
           placeholder="Add text instructions for this task…"
           value={instrText}
           onChange={ev=>setInstrText(ev.target.value)}
-          style={{width:"100%",padding:"10px 13px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:14,color:"#111",outline:"none",background:"#fafafa",boxSizing:"border-box",minHeight:80,resize:"none",fontFamily:"inherit"}}
+          className="inp"
+          style={{minHeight:80}}
         />
-        {instrText!==( task.instructions?.text||"")&&<button className="mbtn"
-          style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:10,padding:"8px 16px",fontSize:13,fontWeight:700,alignSelf:"flex-start"}}
+        {instrText!==( task.instructions?.text||"")&&<button className="btn"
+          style={{...btnPrimary,padding:"9px 16px",fontSize:13,alignSelf:"flex-start"}}
           onClick={saveInstructions}>{instrSaving?"Saving…":"Save Instructions"}</button>}
 
         {/* Voice notes */}
         <div style={{display:"flex",flexDirection:"column",gap:8}}>
           {(task.instructions?.voices||[]).map(v=>{
             const uploader=TEAM.find(m=>m.id===v.uploadedBy);
-            return <div key={v.id} style={{background:"#f8f7f4",border:"1.5px solid #e5e7eb",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:6}}>
+            return <div key={v.id} style={{background:"var(--elevated)",border:"1px solid var(--border)",borderRadius:12,padding:"10px 14px",display:"flex",flexDirection:"column",gap:8}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <div style={{width:34,height:34,borderRadius:"50%",background:"#1a1a2e",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                    <span style={{color:"#c9a96e",fontSize:16}}>🎙️</span>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{width:34,height:34,borderRadius:"50%",background:"var(--gdim)",display:"flex",alignItems:"center",justifyContent:"center",color:"var(--gold)",flexShrink:0}}>
+                    {Ic.mic}
                   </div>
                   <div>
-                    <div style={{fontSize:12,fontWeight:700,color:"#111"}}>Voice Note</div>
-                    <div style={{fontSize:10,color:"#9ca3af"}}>{uploader?.name?.split(" ")[0]} · {fD(v.uploadedAt)}{v.duration?` · ${fmtSec(v.duration)}`:""}</div>
+                    <div style={{fontSize:12,fontWeight:700,color:"var(--t1)"}}>Voice Note</div>
+                    <div style={{fontSize:10,color:"var(--t3)"}}>{uploader?.name?.split(" ")[0]} · {fD(v.uploadedAt)}{v.duration?` · ${fmtSec(v.duration)}`:""}</div>
                   </div>
                 </div>
-                {(isAdmin||v.uploadedBy===userId)&&<button className="mbtn" onClick={()=>deleteVoice(v.id)}
-                  style={{background:"none",border:"none",color:"#9ca3af",fontSize:16,cursor:"pointer",padding:4}}>🗑</button>}
+                {(isAdmin||v.uploadedBy===userId)&&<button className="btn" onClick={()=>deleteVoice(v.id)}
+                  style={{background:"none",border:"none",color:"var(--t3)",cursor:"pointer",padding:6,display:"flex",minHeight:32,minWidth:32,alignItems:"center",justifyContent:"center"}}>{Ic.trash}</button>}
               </div>
-              <audio controls src={v.url} style={{width:"100%",height:36,borderRadius:8,accentColor:"#1a1a2e"}}/>
+              <audio controls src={v.url} style={{width:"100%",height:34,filter:"invert(0.85) hue-rotate(180deg)"}}/>
             </div>;})}
         </div>
 
         {/* Record button */}
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           {!recording?
-            <button className="mbtn"
-              style={{background:uploadingVoice?"#f3f4f6":"#1a1a2e",color:uploadingVoice?"#9ca3af":"#c9a96e",border:"none",borderRadius:12,padding:"10px 18px",fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:8,cursor:uploadingVoice?"default":"pointer"}}
+            <button className="btn"
+              style={{background:uploadingVoice?"var(--elevated)":"var(--gold)",color:uploadingVoice?"var(--t2)":"var(--sidebar)",border:"none",borderRadius:12,padding:"10px 18px",fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:8,cursor:uploadingVoice?"default":"pointer",minHeight:44}}
               onClick={startRecording} disabled={uploadingVoice}>
-              {uploadingVoice?<><span style={{animation:"pulse 1s infinite"}}>⏳</span> Saving voice note…</>:<><span>🎙️</span> Record Voice Note</>}
+              {uploadingVoice?<>Saving voice note…</>:<>{Ic.mic} Record Voice Note</>}
             </button>
           :
-            <button className="mbtn"
-              style={{background:"#dc2626",color:"#fff",border:"none",borderRadius:12,padding:"10px 18px",fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:8,cursor:"pointer",animation:"pulse 1s ease infinite"}}
+            <button className="btn"
+              style={{background:"#dc2626",color:"#fff",border:"none",borderRadius:12,padding:"10px 18px",fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:8,cursor:"pointer",animation:"recPulse 1.4s ease infinite",minHeight:44}}
               onClick={stopRecording}>
-              <span style={{width:10,height:10,background:"#fff",borderRadius:2,display:"inline-block"}}/>
+              {Ic.stop}
               Stop · {fmtSec(recSeconds)}
             </button>
           }
@@ -692,76 +741,74 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",backd
             const uploader=TEAM.find(m=>m.id===at.uploadedBy);
             const canEdit=isAdmin||at.uploadedBy===userId;
             const isEditingThis=editingNote?.id===at.id;
-            return <div key={at.id} style={{background:"#f8f7f4",border:"1.5px solid #e5e7eb",borderRadius:12,overflow:"hidden"}}>
+            return <div key={at.id} style={{background:"var(--elevated)",border:"1px solid var(--border)",borderRadius:12,overflow:"hidden"}}>
               <div style={{position:"relative",cursor:"pointer"}} onClick={()=>!isEditingThis&&setLightbox(at)}>
                 <img src={at.url||at.dataUrl} alt={at.name} style={{width:"100%",maxHeight:200,objectFit:"cover",display:"block"}}/>
                 <div style={{position:"absolute",top:6,right:6,display:"flex",gap:4}}>
                   {canEdit&&<button onClick={ev=>{ev.stopPropagation();setEditingNote(isEditingThis?null:{id:at.id,text:at.note||""});}}
-                    style={{background:"rgba(0,0,0,0.6)",color:"#fff",border:"none",borderRadius:8,padding:"4px 8px",fontSize:11,fontWeight:600,cursor:"pointer"}}>
-                    {isEditingThis?"✕":"📝 Note"}
+                    style={{background:"rgba(0,0,0,0.7)",color:"#fff",border:"none",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4,minHeight:30}}>
+                    {isEditingThis?Ic.x:<>{Ic.edit} Note</>}
                   </button>}
                   {canEdit&&<button onClick={ev=>{ev.stopPropagation();removeAttach(at.id);}}
-                    style={{background:"rgba(220,38,38,0.8)",color:"#fff",border:"none",borderRadius:8,padding:"4px 8px",fontSize:11,fontWeight:600,cursor:"pointer"}}>🗑</button>}
+                    style={{background:"rgba(220,38,38,0.85)",color:"#fff",border:"none",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",minHeight:30}}>{Ic.trash}</button>}
                 </div>
-                {uploader&&<div style={{position:"absolute",bottom:6,left:8,background:"rgba(0,0,0,0.55)",color:"#fff",fontSize:10,padding:"2px 7px",borderRadius:20,fontWeight:600}}>{uploader.name.split(" ")[0]}</div>}
+                {uploader&&<div style={{position:"absolute",bottom:6,left:8,background:"rgba(0,0,0,0.65)",color:"#fff",fontSize:10,padding:"3px 8px",borderRadius:20,fontWeight:600}}>{uploader.name.split(" ")[0]}</div>}
               </div>
-              {!isEditingThis&&at.note&&<div style={{padding:"8px 12px",fontSize:13,color:"#374151",lineHeight:1.5,borderTop:"1px solid #e5e7eb",background:"#fff"}}>
-                <span style={{fontSize:10,color:"#9ca3af",fontWeight:700,marginRight:6}}>NOTE</span><SmartText text={at.note}/>
+              {!isEditingThis&&at.note&&<div style={{padding:"10px 12px",fontSize:13,color:"var(--t1)",lineHeight:1.5,borderTop:"1px solid var(--border)",background:"var(--surface)"}}>
+                <span style={{fontSize:10,color:"var(--t3)",fontWeight:700,marginRight:6}}>NOTE</span><SmartText text={at.note}/>
               </div>}
-              {!isEditingThis&&!at.note&&canEdit&&<div style={{padding:"6px 12px",fontSize:12,color:"#9ca3af",borderTop:"1px solid #f3f4f6",background:"#fff",cursor:"pointer"}} onClick={()=>setEditingNote({id:at.id,text:""})}>+ Add a note…</div>}
-              {isEditingThis&&<div style={{padding:10,borderTop:"1px solid #e5e7eb",background:"#fff",display:"flex",flexDirection:"column",gap:8}}>
+              {!isEditingThis&&!at.note&&canEdit&&<div style={{padding:"8px 12px",fontSize:12,color:"var(--t3)",borderTop:"1px solid var(--border)",background:"var(--surface)",cursor:"pointer"}} onClick={()=>setEditingNote({id:at.id,text:""})}>+ Add a note…</div>}
+              {isEditingThis&&<div style={{padding:10,borderTop:"1px solid var(--border)",background:"var(--surface)",display:"flex",flexDirection:"column",gap:8}}>
                 <textarea placeholder="Add a note to this image…" value={editingNote.text} onChange={ev=>setEditingNote(n=>({...n,text:ev.target.value}))}
-                  style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1.5px solid #e5e7eb",fontSize:13,outline:"none",background:"#fafafa",boxSizing:"border-box",minHeight:70,resize:"none"}} autoFocus/>
+                  className="inp" style={{minHeight:70}} autoFocus/>
                 <div style={{display:"flex",gap:8}}>
-                  <button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:9,padding:"8px 16px",fontSize:13,fontWeight:700,flex:1}}
+                  <button className="btn" style={{...btnPrimary,padding:"9px 16px",fontSize:13,flex:1}}
                     onClick={()=>saveNote(at.id,editingNote.text.trim())}>Save Note</button>
-                  <button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:9,padding:"8px 14px",fontSize:13,fontWeight:600}}
+                  <button className="btn" style={{...btnSec,padding:"9px 14px",fontSize:13}}
                     onClick={()=>setEditingNote(null)}>Cancel</button>
                 </div>
               </div>}
             </div>;})}
         </div>}
         <input type="file" accept="image/*" multiple ref={fileRef} style={{display:"none"}} onChange={handleAttach}/>
-        <button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:10,padding:"9px 16px",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",gap:6}} onClick={()=>fileRef.current?.click()} disabled={uploading}>
-          {uploading?"⏳ Uploading…":"📎 Add Images"}
+        <button className="btn" style={{...btnSec,padding:"10px 16px",fontSize:13,display:"flex",alignItems:"center",gap:6,alignSelf:"flex-start"}} onClick={()=>fileRef.current?.click()} disabled={uploading}>
+          {uploading?"Uploading…":<>{Ic.img} Add Images</>}
         </button>
       </FS>
 
-      {lightbox&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:200,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setLightbox(null)}>
+      {lightbox&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.95)",zIndex:200,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setLightbox(null)}>
         <img src={lightbox.url||lightbox.dataUrl} alt={lightbox.name} style={{maxWidth:"100%",maxHeight:"75vh",borderRadius:12,objectFit:"contain"}}/>
-        {lightbox.note&&<div style={{color:"#f0e6d3",fontSize:14,marginTop:12,textAlign:"center",maxWidth:340,lineHeight:1.5,background:"rgba(255,255,255,0.1)",padding:"8px 16px",borderRadius:10}}>{lightbox.note}</div>}
-        <div style={{color:"#9ca3af",fontSize:11,marginTop:8}}>Tap anywhere to close</div>
+        {lightbox.note&&<div style={{color:"var(--t1)",fontSize:14,marginTop:12,textAlign:"center",maxWidth:340,lineHeight:1.5,background:"rgba(255,255,255,0.08)",padding:"10px 16px",borderRadius:10,border:"1px solid var(--border)"}}>{lightbox.note}</div>}
+        <div style={{color:"var(--t3)",fontSize:11,marginTop:8}}>Tap anywhere to close</div>
       </div>}
 
       {/* ── LINKS ── */}
       <FS label={`Resources & Links (${task.links?.length||0})`}>
         {task.links?.length>0&&<div style={{display:"flex",flexDirection:"column",gap:6}}>
-          {task.links.map(lk=><div key={lk.id} style={{display:"flex",alignItems:"center",gap:10,background:"#f8f7f4",border:"1.5px solid #e5e7eb",borderRadius:10,padding:"10px 12px"}}>
-            <span style={{fontSize:16,flexShrink:0}}>🔗</span>
+          {task.links.map(lk=><div key={lk.id} style={{display:"flex",alignItems:"center",gap:10,background:"var(--elevated)",border:"1px solid var(--border)",borderRadius:10,padding:"10px 12px"}}>
+            <span style={{color:"var(--gold)",flexShrink:0,display:"flex"}}>{Ic.link2}</span>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:13,fontWeight:700,color:"#1a1a2e",marginBottom:2}}>{lk.name}</div>
-              <a href={lk.url} target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:"#2563eb",textDecoration:"underline",wordBreak:"break-all"}}>{lk.url}</a>
+              <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",marginBottom:2}}>{lk.name}</div>
+              <a href={lk.url} target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:"#60a5fa",textDecoration:"underline",wordBreak:"break-all"}}>{lk.url}</a>
             </div>
-            {(isAdmin||lk.addedBy===userId)&&<button onClick={()=>{if(window.confirm("Remove?"))onLinks((task.links||[]).filter(l=>l.id!==lk.id));}} style={{background:"none",border:"none",color:"#9ca3af",fontSize:16,cursor:"pointer",padding:4}}>✕</button>}
+            {(isAdmin||lk.addedBy===userId)&&<button onClick={()=>{if(window.confirm("Remove?"))onLinks((task.links||[]).filter(l=>l.id!==lk.id));}} style={{background:"none",border:"none",color:"var(--t3)",cursor:"pointer",padding:6,display:"flex",alignItems:"center",justifyContent:"center",minHeight:32,minWidth:32}}>{Ic.x}</button>}
           </div>)}
         </div>}
-        {showAddLink?<div style={{display:"flex",flexDirection:"column",gap:8,background:"#f0fdf4",border:"1.5px solid #bbf7d0",borderRadius:12,padding:12}}>
-          <input placeholder="Link name (e.g. Product Sheet…)" value={newLinkName} onChange={ev=>setNewLinkName(ev.target.value)}
-            style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1.5px solid #e5e7eb",fontSize:13,outline:"none",background:"#fff",boxSizing:"border-box"}}/>
-          <input placeholder="URL (https://…)" value={newLinkUrl} onChange={ev=>setNewLinkUrl(ev.target.value)}
-            style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1.5px solid #e5e7eb",fontSize:13,outline:"none",background:"#fff",boxSizing:"border-box"}}/>
+        {showAddLink?<div style={{display:"flex",flexDirection:"column",gap:8,background:"rgba(74,222,128,0.04)",border:"1px solid rgba(74,222,128,0.2)",borderRadius:12,padding:12}}>
+          <input placeholder="Link name (e.g. Product Sheet…)" value={newLinkName} onChange={ev=>setNewLinkName(ev.target.value)} className="inp"/>
+          <input placeholder="URL (https://…)" value={newLinkUrl} onChange={ev=>setNewLinkUrl(ev.target.value)} className="inp"/>
           <div style={{display:"flex",gap:8}}>
-            <button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:10,padding:"9px 16px",fontSize:13,fontWeight:700,flex:1}}
+            <button className="btn" style={{...btnPrimary,padding:"10px 16px",fontSize:13,flex:1}}
               onClick={()=>{
                 if(!newLinkName.trim())return alert("Enter a link name");
                 if(!newLinkUrl.trim()||!newLinkUrl.startsWith("http"))return alert("Enter a valid URL starting with http");
                 const updated=[...(task.links||[]),{id:Date.now().toString(36)+Math.random().toString(36).slice(2),name:newLinkName.trim(),url:newLinkUrl.trim(),addedBy:userId,addedAt:new Date().toISOString()}];
                 onLinks(updated);setNewLinkName("");setNewLinkUrl("");setShowAddLink(false);
               }}>Add Link</button>
-            <button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:10,padding:"9px 14px",fontSize:13,fontWeight:600}}
+            <button className="btn" style={{...btnSec,padding:"10px 14px",fontSize:13}}
               onClick={()=>{setShowAddLink(false);setNewLinkName("");setNewLinkUrl("");}}>Cancel</button>
           </div>
-        </div>:<button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:10,padding:"9px 16px",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",gap:6}} onClick={()=>setShowAddLink(true)}>🔗 Add Resource Link</button>}
+        </div>:<button className="btn" style={{...btnSec,padding:"10px 16px",fontSize:13,display:"flex",alignItems:"center",gap:6,alignSelf:"flex-start"}} onClick={()=>setShowAddLink(true)}>{Ic.link2} Add Resource Link</button>}
       </FS>
 
       {/* ── COMMENTS ── */}
@@ -777,19 +824,18 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",backd
               <Av member={au} photo={profiles[au?.id]} size={26}/>
               <div style={{maxWidth:"78%",minWidth:0,display:"flex",flexDirection:"column",gap:3}}>
                 {isEditingThis?
-                  <div style={{background:me?"#1a1a2e":"#f3f4f6",borderRadius:14,padding:"8px 10px",display:"flex",flexDirection:"column",gap:6}}>
-                    <textarea value={editingCmt.text} onChange={ev=>setEditingCmt(ec=>({...ec,text:ev.target.value}))} autoFocus
-                      style={{width:"100%",padding:"7px 10px",borderRadius:8,border:"1.5px solid #c9a96e",fontSize:13,outline:"none",background:"rgba(255,255,255,0.15)",color:me?"#fff":"#111",boxSizing:"border-box",minHeight:60,resize:"none"}}/>
+                  <div style={{background:me?"var(--gdim)":"var(--elevated)",border:`1px solid ${me?"rgba(201,169,110,0.25)":"var(--border)"}`,borderRadius:14,padding:"8px 10px",display:"flex",flexDirection:"column",gap:6}}>
+                    <textarea value={editingCmt.text} onChange={ev=>setEditingCmt(ec=>({...ec,text:ev.target.value}))} autoFocus className="inp" style={{minHeight:60,fontSize:13}}/>
                     <div style={{display:"flex",gap:6}}>
-                      <button className="mbtn" style={{background:"#c9a96e",color:"#1a1a2e",border:"none",borderRadius:8,padding:"5px 12px",fontSize:12,fontWeight:700,flex:1}}
+                      <button className="btn" style={{background:"var(--gold)",color:"var(--sidebar)",border:"none",borderRadius:8,padding:"7px 12px",fontSize:12,fontWeight:700,flex:1,minHeight:34}}
                         onClick={()=>handleEditComment(comment.id,editingCmt.text)}>Save</button>
-                      <button className="mbtn" style={{background:"rgba(200,200,200,0.3)",color:me?"#fff":"#374151",border:"none",borderRadius:8,padding:"5px 10px",fontSize:12}}
+                      <button className="btn" style={{background:"rgba(255,255,255,0.06)",color:"var(--t1)",border:"1px solid var(--border)",borderRadius:8,padding:"7px 10px",fontSize:12,minHeight:34}}
                         onClick={()=>setEditingCmt(null)}>Cancel</button>
                     </div>
                   </div>
                 :
-                  <div style={{background:me?"#1a1a2e":"#f3f4f6",color:me?"#f0e6d3":"#111",borderRadius:me?"16px 16px 4px 16px":"16px 16px 16px 4px",padding:"9px 13px",fontSize:14,lineHeight:1.45,wordBreak:"break-word",overflowWrap:"anywhere"}}>
-                    <div style={{fontSize:10,opacity:0.6,marginBottom:3,display:"flex",alignItems:"center",gap:6}}>
+                  <div style={{background:me?"var(--gdim)":"var(--elevated)",border:`1px solid ${me?"rgba(201,169,110,0.2)":"var(--border)"}`,color:"var(--t1)",borderRadius:me?"16px 16px 4px 16px":"16px 16px 16px 4px",padding:"9px 13px",fontSize:14,lineHeight:1.45,wordBreak:"break-word",overflowWrap:"anywhere"}}>
+                    <div style={{fontSize:10,color:"var(--t3)",marginBottom:3,display:"flex",alignItems:"center",gap:6}}>
                       <span>{au?.name?.split(" ")[0]} · {fT(comment.created_at)}</span>
                       {comment.edited&&<span style={{fontStyle:"italic"}}>(edited)</span>}
                     </div>
@@ -797,27 +843,27 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",backd
                   </div>
                 }
                 {!isEditingThis&&<div style={{display:"flex",alignItems:"center",gap:8,padding:"0 4px",flexDirection:me?"row-reverse":"row"}}>
-                  <button className="mbtn" onClick={()=>toggleLike(comment.id)}
-                    style={{background:"none",border:"none",fontSize:13,cursor:"pointer",color:iLiked?"#e53e3e":"#9ca3af",display:"flex",alignItems:"center",gap:3,padding:"2px 0"}}>
-                    {iLiked?"❤️":"🤍"}{likes.length>0&&<span style={{fontSize:11}}>{likes.length}</span>}
+                  <button className="btn" onClick={()=>toggleLike(comment.id)}
+                    style={{background:"none",border:"none",cursor:"pointer",color:iLiked?"#f87171":"var(--t3)",display:"flex",alignItems:"center",gap:4,padding:"4px 0",minHeight:24}}>
+                    {Ic.heart}{likes.length>0&&<span style={{fontSize:11}}>{likes.length}</span>}
                   </button>
                   {likes.length>0&&<div style={{display:"flex",gap:2}}>
                     {likes.slice(0,3).map(uid=>{const m=TEAM.find(t=>t.id===uid);return m?<Av key={uid} member={m} photo={profiles[uid]} size={14} title={m.name}/>:null})}
                   </div>}
-                  {me&&<button className="mbtn" onClick={()=>setEditingCmt({id:comment.id,text:comment.text})}
-                    style={{background:"none",border:"none",fontSize:11,cursor:"pointer",color:"#9ca3af",padding:"2px 0"}}>✏️ Edit</button>}
+                  {me&&<button className="btn" onClick={()=>setEditingCmt({id:comment.id,text:comment.text})}
+                    style={{background:"none",border:"none",cursor:"pointer",color:"var(--t3)",padding:"4px 0",display:"flex",alignItems:"center",gap:4,fontSize:11,minHeight:24}}>{Ic.edit} Edit</button>}
                 </div>}
               </div>
             </div>;})}
           <div ref={botRef}/>
         </div>
 
-        {showMentions&&<div style={{background:"#fff",border:"1.5px solid #e5e7eb",borderRadius:12,padding:8,marginBottom:8,boxShadow:"0 4px 12px rgba(0,0,0,0.1)"}}>
-          <div style={{fontSize:11,color:"#9ca3af",fontWeight:700,letterSpacing:"0.5px",marginBottom:6,paddingLeft:4}}>MENTION SOMEONE</div>
-          {TEAM.filter(m=>m.id!==userId).map(m=><button key={m.id} className="mbtn" onClick={()=>insertMention(m.name)}
-            style={{display:"flex",alignItems:"center",gap:10,width:"100%",background:"none",border:"none",padding:"7px 8px",borderRadius:8,cursor:"pointer",textAlign:"left"}}>
+        {showMentions&&<div style={{background:"var(--elevated)",border:"1px solid var(--border)",borderRadius:12,padding:8,marginBottom:8,boxShadow:"0 8px 24px rgba(0,0,0,0.4)"}}>
+          <div className="lbl" style={{marginBottom:6,paddingLeft:4}}>MENTION SOMEONE</div>
+          {TEAM.filter(m=>m.id!==userId).map(m=><button key={m.id} className="btn" onClick={()=>insertMention(m.name)}
+            style={{display:"flex",alignItems:"center",gap:10,width:"100%",background:"none",border:"none",padding:"8px 8px",borderRadius:8,cursor:"pointer",textAlign:"left",minHeight:44}}>
             <Av member={m} photo={profiles[m.id]} size={28}/>
-            <div><div style={{fontSize:13,fontWeight:600,color:"#111"}}>{m.name}</div><div style={{fontSize:11,color:"#9ca3af"}}>{m.title}</div></div>
+            <div><div style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{m.name}</div><div style={{fontSize:11,color:"var(--t3)"}}>{m.title}</div></div>
           </button>)}
         </div>}
 
@@ -828,16 +874,16 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",backd
               onChange={ev=>{setCmt(ev.target.value);if(ev.target.value.endsWith("@"))setShowMentions(true);else if(!ev.target.value.includes("@"))setShowMentions(false);}}
               placeholder="Comment… (type @ to mention)"
               onKeyDown={ev=>{if(ev.key==="Enter"&&!ev.shiftKey){ev.preventDefault();sendComment();}}}
-              style={{...inp,width:"100%",minHeight:44,paddingRight:66,resize:"none"}}/>
-            <button className="mbtn" onClick={()=>cmtFileRef.current?.click()} disabled={uploadingCmt}
-              style={{position:"absolute",right:34,bottom:10,background:"none",border:"none",fontSize:18,cursor:"pointer",color:"#9ca3af"}}>
-              {uploadingCmt?"⏳":"📎"}
+              className="inp" style={{minHeight:46,paddingRight:78}}/>
+            <button className="btn" onClick={()=>cmtFileRef.current?.click()} disabled={uploadingCmt}
+              style={{position:"absolute",right:40,bottom:8,background:"none",border:"none",cursor:"pointer",color:"var(--t3)",padding:6,display:"flex",alignItems:"center",justifyContent:"center",minHeight:32,minWidth:32}}>
+              {uploadingCmt?<span style={{fontSize:10}}>…</span>:Ic.clip}
             </button>
-            <button className="mbtn" onClick={()=>{setShowMentions(!showMentions);if(!showMentions)setCmt(prev=>prev+"@");}}
-              style={{position:"absolute",right:8,bottom:10,background:"none",border:"none",fontSize:16,cursor:"pointer",color:showMentions?"#1a1a2e":"#9ca3af"}}>@</button>
+            <button className="btn" onClick={()=>{setShowMentions(!showMentions);if(!showMentions)setCmt(prev=>prev+"@");}}
+              style={{position:"absolute",right:8,bottom:8,background:"none",border:"none",cursor:"pointer",color:showMentions?"var(--gold)":"var(--t3)",padding:6,display:"flex",alignItems:"center",justifyContent:"center",minHeight:32,minWidth:32}}>{Ic.at}</button>
           </div>
-          <button className="mbtn" style={{width:46,height:46,borderRadius:"50%",flexShrink:0,background:"#1a1a2e",color:"#c9a96e",border:"none",fontSize:20}}
-            onClick={sendComment}>→</button>
+          <button className="btn" style={{width:46,height:46,borderRadius:"50%",flexShrink:0,background:"var(--gold)",color:"var(--sidebar)",border:"none",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 16px var(--gglow)"}}
+            onClick={sendComment}>{Ic.send}</button>
         </div>
       </FS>
 
@@ -851,33 +897,32 @@ function NewTaskModal({onClose,onSave}){
 const [f,setF]=useState({title:"",description:"",priority:"Medium",assignedTo:[],deadline:""});
 const set=(k,v)=>setF(p=>({...p,[k]:v}));
 const toggleMember=(id)=>setF(p=>({...p,assignedTo:p.assignedTo.includes(id)?p.assignedTo.filter(x=>x!==id):[...p.assignedTo,id]}));
-const inp={width:"100%",padding:"10px 13px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:14,color:"#111",outline:"none",background:"#fafafa",boxSizing:"border-box"};
-return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",backdropFilter:"blur(5px)",zIndex:100,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
-<div style={{background:"#fff",borderRadius:"22px 22px 0 0",width:"100%",maxWidth:480,maxHeight:"94vh",overflowY:"auto",animation:"slideUp 0.28s ease"}}>
-<div style={{width:40,height:4,background:"#e5e7eb",borderRadius:4,margin:"12px auto 0"}}/>
-<div style={{padding:"14px 20px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:"1px solid #f3f4f6"}}>
-<div style={{fontSize:18,fontWeight:800,color:"#111"}}>New Task</div>
-<button style={{background:"#f3f4f6",border:"none",width:36,height:36,borderRadius:10,fontSize:16}} onClick={onClose}>✕</button>
+return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",backdropFilter:"blur(6px)",WebkitBackdropFilter:"blur(6px)",zIndex:100,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
+<div style={{background:"var(--surface)",borderRadius:"22px 22px 0 0",width:"100%",maxWidth:480,maxHeight:"94vh",overflowY:"auto",animation:"slideUp 0.28s ease",border:"1px solid var(--border)",borderBottom:"none"}}>
+<div style={{width:42,height:4,background:"rgba(255,255,255,0.18)",borderRadius:4,margin:"12px auto 0"}}/>
+<div style={{padding:"14px 20px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:"1px solid var(--border)"}}>
+<div style={{fontSize:18,fontWeight:800,color:"var(--t1)"}}>New Task</div>
+<button className="btn" style={{background:"var(--elevated)",border:"1px solid var(--border)",width:36,height:36,borderRadius:10,color:"var(--t1)",display:"flex",alignItems:"center",justifyContent:"center"}} onClick={onClose}>{Ic.x}</button>
 </div>
 <div style={{padding:"16px 20px 44px",display:"flex",flexDirection:"column",gap:12}}>
-<FL>Title *</FL><input style={inp} placeholder="Task title…" value={f.title} onChange={e=>set("title",e.target.value)}/>
-<FL>Description</FL><textarea style={{...inp,minHeight:80}} placeholder="Details…" value={f.description} onChange={e=>set("description",e.target.value)}/>
+<FL>Title *</FL><input className="inp" placeholder="Task title…" value={f.title} onChange={e=>set("title",e.target.value)}/>
+<FL>Description</FL><textarea className="inp" style={{minHeight:80}} placeholder="Details…" value={f.description} onChange={e=>set("description",e.target.value)}/>
 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-<div><FL>Priority</FL><select style={inp} value={f.priority} onChange={e=>set("priority",e.target.value)}>{PRIO.map(p=><option key={p}>{p}</option>)}</select></div>
-<div><FL>Deadline</FL><input type="date" style={inp} value={f.deadline} onChange={e=>set("deadline",e.target.value)}/></div>
+<div><FL>Priority</FL><select className="inp" value={f.priority} onChange={e=>set("priority",e.target.value)}>{PRIO.map(p=><option key={p}>{p}</option>)}</select></div>
+<div><FL>Deadline</FL><input type="date" className="inp" value={f.deadline} onChange={e=>set("deadline",e.target.value)}/></div>
 </div>
 <FL>Assign To (select one or more)</FL>
 <div style={{display:"flex",flexDirection:"column",gap:6}}>
 {TEAM.map(m=>{const sel=f.assignedTo.includes(m.id);return <div key={m.id} onClick={()=>toggleMember(m.id)}
-style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:10,border:`1.5px solid ${sel?"#1a1a2e":"#e5e7eb"}`,background:sel?"#f0f0f8":"#fafafa",cursor:"pointer",transition:"all 0.15s"}}>
+style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:10,border:`1.5px solid ${sel?"var(--gold)":"var(--border)"}`,background:sel?"var(--gdim)":"var(--elevated)",cursor:"pointer",transition:"all 0.15s",minHeight:50}}>
 <Av member={m} photo={{}} size={30}/>
-<div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,color:"#111"}}>{m.name}</div><div style={{fontSize:11,color:"#9ca3af"}}>{m.title}</div></div>
-<div style={{width:20,height:20,borderRadius:6,border:`2px solid ${sel?"#1a1a2e":"#d1d5db"}`,background:sel?"#1a1a2e":"#fff",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-{sel&&<span style={{color:"#c9a96e",fontSize:13,fontWeight:900}}>✓</span>}
+<div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{m.name}</div><div style={{fontSize:11,color:"var(--t3)"}}>{m.title}</div></div>
+<div style={{width:20,height:20,borderRadius:6,border:`2px solid ${sel?"var(--gold)":"var(--bmd)"}`,background:sel?"var(--gold)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:"var(--sidebar)"}}>
+{sel&&Ic.check2}
 </div>
 </div>;})}
 </div>
-<button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:12,padding:"14px",fontSize:15,fontWeight:700,marginTop:4}}
+<button className="btn" style={{background:"var(--gold)",color:"var(--sidebar)",border:"none",borderRadius:12,padding:"14px",fontSize:15,fontWeight:700,marginTop:4,minHeight:50,boxShadow:"0 4px 16px var(--gglow)"}}
 onClick={async()=>{if(!f.title.trim())return alert("Title required");if(!f.assignedTo.length)return alert("Please select at least one team member");await onSave(f);onClose()}}>Create Task</button>
 </div>
 </div>
@@ -891,7 +936,6 @@ const [uploadingChat, setUploadingChat] = useState(false);
 const chatFileRef = useRef(null);
 const botRef=useRef(null);
 useEffect(()=>{setTimeout(()=>botRef.current?.scrollIntoView({behavior:"smooth"}),80)},[messages.length]);
-const inp={width:"100%",padding:"10px 13px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:14,color:"#111",outline:"none",background:"#fafafa",boxSizing:"border-box"};
 
 async function handleChatAttach(e){
   const file=e.target.files[0];
@@ -909,39 +953,39 @@ async function handleChatAttach(e){
   e.target.value="";
 }
 
-return <div style={{display:"flex",flexDirection:"column",height:"calc(100vh - 265px)",minHeight:300}}>
-<div style={{padding:"0 20px 10px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-<div style={{fontSize:15,fontWeight:700,color:"#111"}}>🏇 Muhra Team Chat</div>
-<div style={{fontSize:11,color:"#9ca3af"}}>{TEAM.length} members · Live</div>
+return <div style={{display:"flex",flexDirection:"column",height:"calc(100vh - 113px)",minHeight:300,background:"var(--bg)"}}>
+<div style={{padding:"14px 20px 10px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"1px solid var(--border)",background:"var(--surface)"}}>
+<div style={{display:"flex",alignItems:"center",gap:8}}><span style={{color:"var(--gold)",display:"flex"}}>{Ic.chat}</span><div style={{fontSize:15,fontWeight:700,color:"var(--t1)"}}>Muhra Team Chat</div></div>
+<div style={{fontSize:11,color:"var(--t3)",display:"flex",alignItems:"center",gap:6}}><span style={{width:6,height:6,borderRadius:"50%",background:"#4ade80",display:"inline-block",boxShadow:"0 0 8px rgba(74,222,128,0.6)"}}/>{TEAM.length} members · Live</div>
 </div>
-<div style={{flex:1,overflowY:"auto",padding:"10px 20px"}}>
-{messages.length===0&&<div style={{textAlign:"center",color:"#9ca3af",paddingTop:60}}><div style={{fontSize:36,marginBottom:10}}>💬</div><div>No messages yet</div></div>}
+<div style={{flex:1,overflowY:"auto",padding:"14px 20px"}}>
+{messages.length===0&&<div style={{textAlign:"center",color:"var(--t3)",paddingTop:60,display:"flex",flexDirection:"column",alignItems:"center",gap:12}}><span style={{color:"var(--t3)",display:"flex"}}><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span><div style={{fontSize:13}}>No messages yet</div></div>}
 {messages.map((m,i)=>{
 const au=TEAM.find(t=>t.id===m.author);const me=m.author===userId;
 const showName=!messages[i-1]||messages[i-1].author!==m.author;
 return <div key={m.id} style={{display:"flex",flexDirection:me?"row-reverse":"row",alignItems:"flex-end",gap:8,marginBottom:showName?14:4}}>
 {showName?<Av member={au} photo={profiles[au?.id]} size={28}/>:<div style={{width:28,flexShrink:0}}/>}
 <div style={{maxWidth:"76%"}}>
-{showName&&!me&&<div style={{fontSize:11,color:"#9ca3af",marginBottom:3,paddingLeft:4}}>{au?.name}</div>}
-<div style={{background:me?"#1a1a2e":"#fff",color:me?"#f0e6d3":"#111",borderRadius:me?"16px 16px 4px 16px":"16px 16px 16px 4px",padding:"10px 14px",fontSize:14,lineHeight:1.45,boxShadow:"0 1px 4px rgba(0,0,0,0.07)"}}><SmartText text={m.text}/></div>
-<div style={{fontSize:10,color:"#9ca3af",marginTop:3,textAlign:me?"right":"left",paddingLeft:4}}>{fT(m.created_at)}</div>
+{showName&&!me&&<div style={{fontSize:11,color:"var(--t3)",marginBottom:4,paddingLeft:4}}>{au?.name}</div>}
+<div style={{background:me?"var(--gdim)":"var(--elevated)",border:`1px solid ${me?"rgba(201,169,110,0.2)":"var(--border)"}`,color:"var(--t1)",borderRadius:me?"16px 16px 4px 16px":"16px 16px 16px 4px",padding:"10px 14px",fontSize:14,lineHeight:1.45}}><SmartText text={m.text}/></div>
+<div style={{fontSize:10,color:"var(--t3)",marginTop:4,textAlign:me?"right":"left",paddingLeft:4}}>{fT(m.created_at)}</div>
 </div>
 </div>;})}
 <div ref={botRef}/>
 </div>
-<div style={{padding:"10px 20px 16px",display:"flex",gap:8,alignItems:"center",borderTop:"1px solid #ede9e3",background:"#f5f4f0",position:"relative"}}>
+<div style={{padding:"10px 16px 14px",display:"flex",gap:8,alignItems:"center",borderTop:"1px solid var(--border)",background:"var(--sidebar)",position:"relative"}}>
   <div style={{flex:1, position:"relative"}}>
     <input type="file" ref={chatFileRef} style={{display:"none"}} onChange={handleChatAttach}/>
     <input value={text} onChange={e=>setText(e.target.value)} placeholder="Type a message…"
       onKeyDown={e=>{if(e.key==="Enter"&&text.trim()){onSend(text.trim());setText("")}}}
-      style={{...inp,width:"100%",height:46,paddingRight:40}}/>
-    <button className="mbtn" onClick={()=>chatFileRef.current?.click()} disabled={uploadingChat}
-      style={{position:"absolute",right:10,bottom:10,background:"none",border:"none",fontSize:18,cursor:"pointer",color:"#9ca3af"}}>
-      {uploadingChat?"⏳":"📎"}
+      className="inp" style={{height:46,paddingRight:46}}/>
+    <button className="btn" onClick={()=>chatFileRef.current?.click()} disabled={uploadingChat}
+      style={{position:"absolute",right:8,bottom:7,background:"none",border:"none",cursor:"pointer",color:"var(--t3)",padding:6,display:"flex",alignItems:"center",justifyContent:"center",minHeight:32,minWidth:32}}>
+      {uploadingChat?<span style={{fontSize:10}}>…</span>:Ic.clip}
     </button>
   </div>
-  <button className="mbtn" style={{width:46,height:46,borderRadius:"50%",flexShrink:0,background:"#1a1a2e",color:"#c9a96e",border:"none",fontSize:20}}
-    onClick={()=>{if(text.trim()){onSend(text.trim());setText("")}}}>→</button>
+  <button className="btn" style={{width:46,height:46,borderRadius:"50%",flexShrink:0,background:"var(--gold)",color:"var(--sidebar)",border:"none",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 16px var(--gglow)"}}
+    onClick={()=>{if(text.trim()){onSend(text.trim());setText("")}}}>{Ic.send}</button>
 </div>
 
   </div>;
@@ -949,16 +993,16 @@ return <div key={m.id} style={{display:"flex",flexDirection:me?"row-reverse":"ro
 function ProfileManager({profiles,onUpdate}){
 const [open,setOpen]=useState(false);
 const refs=useRef({});
-return <div style={{margin:"4px 20px 16px"}}>
-<button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:12,padding:"10px 16px",fontSize:14,fontWeight:600}} onClick={()=>setOpen(!open)}>{open?"▲ Hide Profiles":"👥 Manage Team Photos"}</button>
-{open&&<div style={{background:"#fff",borderRadius:16,padding:16,marginTop:10,boxShadow:"0 2px 12px rgba(0,0,0,0.07)"}}>
-<div style={{fontSize:10,color:"#9ca3af",fontWeight:700,letterSpacing:"0.8px",marginBottom:12}}>TEAM PROFILE PHOTOS</div>
+return <div style={{margin:"4px 0 16px"}}>
+<button className="btn" style={{background:"var(--elevated)",color:"var(--t1)",border:"1px solid var(--border)",borderRadius:12,padding:"10px 16px",fontSize:14,fontWeight:600,display:"flex",alignItems:"center",gap:8,minHeight:44}} onClick={()=>setOpen(!open)}>{open?<>{Ic.x} Hide Profiles</>:<>{Ic.users} Manage Team Photos</>}</button>
+{open&&<div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:16,padding:16,marginTop:10}}>
+<div className="lbl" style={{marginBottom:12}}>TEAM PROFILE PHOTOS</div>
 {TEAM.map(m=><div key={m.id} style={{display:"flex",alignItems:"center",gap:12,marginBottom:12}}>
 <Av member={m} photo={profiles[m.id]} size={44}/>
-<div style={{flex:1}}><div style={{fontSize:14,fontWeight:600}}>{m.name}</div><div style={{fontSize:11,color:"#9ca3af"}}>{m.title}</div></div>
+<div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:"var(--t1)"}}>{m.name}</div><div style={{fontSize:11,color:"var(--t3)"}}>{m.title}</div></div>
 <input type="file" accept="image/*" ref={el=>refs.current[m.id]=el} style={{display:"none"}} onChange={e=>{const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=()=>onUpdate(m.id,r.result);r.readAsDataURL(file)}}/>
-<button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:10,padding:"6px 12px",fontSize:12,fontWeight:600}} onClick={()=>refs.current[m.id]?.click()}>{profiles[m.id]?"Change":"Upload"}</button>
-{profiles[m.id]&&<button className="mbtn" style={{background:"#fef2f2",color:"#dc2626",border:"none",borderRadius:10,padding:"6px 10px",fontSize:12,fontWeight:600}} onClick={()=>onUpdate(m.id,null)}>✕</button>}
+<button className="btn" style={{background:"var(--elevated)",color:"var(--t1)",border:"1px solid var(--border)",borderRadius:10,padding:"8px 12px",fontSize:12,fontWeight:600,minHeight:36}} onClick={()=>refs.current[m.id]?.click()}>{profiles[m.id]?"Change":"Upload"}</button>
+{profiles[m.id]&&<button className="btn" style={{background:"rgba(239,68,68,0.12)",color:"#f87171",border:"1px solid rgba(248,113,113,0.25)",borderRadius:10,padding:"8px 10px",fontSize:12,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",minHeight:36,minWidth:36}} onClick={()=>onUpdate(m.id,null)}>{Ic.x}</button>}
 </div>)}
 </div>}
 
@@ -975,36 +1019,33 @@ if(!msg.trim())return;
 setSending(true);
 const allIds=["mohamed","maha","bassant","asmaa","moussa"];
 const toIds=targets.includes("all")?allIds.filter(id=>id!==userId):targets.filter(id=>id!==userId);
-await sendPush(toIds,"📣 Announcement",msg.trim(),null);
+await sendPush(toIds,"Announcement",msg.trim(),null);
 setMsg("");setShow(false);setSending(false);
 alert("Announcement sent!");
 }
 const user=TEAM.find(m=>m.id===userId);
-return <div style={{margin:"0 20px 12px"}}>
-{!show?<button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:12,padding:"10px 16px",fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:8,width:"100%",justifyContent:"center"}}
-onClick={()=>setShow(true)}>📣 Send Team Announcement</button>
-:<div style={{background:"#1a1a2e",borderRadius:16,padding:16,display:"flex",flexDirection:"column",gap:10}}>
-<div style={{color:"#c9a96e",fontSize:13,fontWeight:700}}>📣 Send Announcement</div>
-<textarea placeholder="Type your announcement…" value={msg} onChange={ev=>setMsg(ev.target.value)}
-style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"none",fontSize:14,outline:"none",background:"rgba(255,255,255,0.1)",color:"#fff",boxSizing:"border-box",minHeight:70,resize:"none",fontFamily:"inherit"}}/>
+return <div>
+{!show?<button className="btn" style={{background:"var(--surface)",color:"var(--gold)",border:"1px solid rgba(201,169,110,0.25)",borderRadius:12,padding:"10px 16px",fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:8,width:"100%",justifyContent:"center",minHeight:44}}
+onClick={()=>setShow(true)}>{Ic.announce} Send Team Announcement</button>
+:<div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:16,padding:16,display:"flex",flexDirection:"column",gap:12}}>
+<div style={{color:"var(--gold)",fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:6}}>{Ic.announce} Send Announcement</div>
+<textarea placeholder="Type your announcement…" value={msg} onChange={ev=>setMsg(ev.target.value)} className="inp" style={{minHeight:70}}/>
 <div style={{display:"flex",flexDirection:"column",gap:6}}>
-<div style={{color:"#9ca3af",fontSize:11,fontWeight:700}}>SEND TO:</div>
+<div className="lbl">SEND TO</div>
 <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-<button className="mbtn" onClick={()=>setTargets(["all"])}
-style={{padding:"5px 12px",borderRadius:20,border:`1.5px solid ${targets.includes("all")?"#c9a96e":"rgba(255,255,255,0.2)"}`,background:targets.includes("all")?"#c9a96e":"transparent",color:targets.includes("all")?"#1a1a2e":"#fff",fontSize:12,fontWeight:600,cursor:"pointer"}}>Everyone</button>
+<button className={`pill${targets.includes("all")?" active":""}`} onClick={()=>setTargets(["all"])}>Everyone</button>
 {TEAM.filter(m=>m.id!==userId).map(m=>{
 const sel=targets.includes(m.id)&&!targets.includes("all");
-return <button key={m.id} className="mbtn"
-onClick={()=>setTargets(prev=>{if(prev.includes("all"))return[m.id];return prev.includes(m.id)?prev.filter(x=>x!==m.id):[...prev,m.id];})}
-style={{padding:"5px 12px",borderRadius:20,border:`1.5px solid ${sel?"#c9a96e":"rgba(255,255,255,0.2)"}`,background:sel?"#c9a96e":"transparent",color:sel?"#1a1a2e":"#fff",fontSize:12,fontWeight:600,cursor:"pointer"}}>
+return <button key={m.id} className={`pill${sel?" active":""}`}
+onClick={()=>setTargets(prev=>{if(prev.includes("all"))return[m.id];return prev.includes(m.id)?prev.filter(x=>x!==m.id):[...prev,m.id];})}>
 {m.name.split(" ")[0]}
 </button>;})}
 </div>
 </div>
 <div style={{display:"flex",gap:8}}>
-<button className="mbtn" style={{background:"#c9a96e",color:"#1a1a2e",border:"none",borderRadius:10,padding:"10px 16px",fontSize:13,fontWeight:700,flex:1,opacity:sending?0.7:1}}
-onClick={sendAnnouncement} disabled={sending}>{sending?"Sending…":"Send 🚀"}</button>
-<button className="mbtn" style={{background:"rgba(255,255,255,0.1)",color:"#fff",border:"none",borderRadius:10,padding:"10px 14px",fontSize:13,fontWeight:600}}
+<button className="btn" style={{background:"var(--gold)",color:"var(--sidebar)",border:"none",borderRadius:10,padding:"11px 16px",fontSize:13,fontWeight:700,flex:1,opacity:sending?0.7:1,minHeight:44}}
+onClick={sendAnnouncement} disabled={sending}>{sending?"Sending…":"Send"}</button>
+<button className="btn" style={{background:"var(--elevated)",color:"var(--t1)",border:"1px solid var(--border)",borderRadius:10,padding:"11px 14px",fontSize:13,fontWeight:600,minHeight:44}}
 onClick={()=>{setShow(false);setMsg("");}}>Cancel</button>
 </div>
 </div>}
@@ -1021,15 +1062,15 @@ const [form,setForm]=useState({text:"",urgency:"Normal",deadline:"",assignees:[]
 const [recording,setRecording]=useState(false);
 const [recSecs,setRecSecs]=useState(0);
 const [uploadingVoice,setUploadingVoice]=useState(false);
-const [cmts,setCmts]=useState({}); // {briefId: [comments]}
-const [cmtText,setCmtText]=useState({}); // {briefId: text}
-const [showCmts,setShowCmts]=useState({}); // {briefId: bool}
+const [cmts,setCmts]=useState({});
+const [cmtText,setCmtText]=useState({});
+const [showCmts,setShowCmts]=useState({});
 const mediaRef=useRef(null);
 const timerRef=useRef(null);
 const chunksRef=useRef([]);
 const attachFileRef=useRef(null);
 const [briefAttachUploading,setBriefAttachUploading]=useState(false);
-const [editingBriefNote,setEditingBriefNote]=useState(null); // {briefId, attachId, text}
+const [editingBriefNote,setEditingBriefNote]=useState(null);
 const [briefLightbox,setBriefLightbox]=useState(null);
 const [editingBrief,setEditingBrief]=useState(null);
 const [editBriefForm,setEditBriefForm]=useState({});
@@ -1179,7 +1220,6 @@ await sb.from("maha_briefs").delete().eq("id",id);
 loadBriefs();
 }
 
-// Upload attachment directly into brief comment box
 async function handleBriefCmtAttach(briefId, e){
   const file=e.target.files[0];
   if(!file)return;
@@ -1200,224 +1240,215 @@ async function handleBriefCmtAttach(briefId, e){
 }
 
 const urgencyStyle={
-Urgent:{bg:"#fef2f2",text:"#991b1b",dot:"#f87171",border:"#fecaca"},
-High:{bg:"#fff7ed",text:"#c2410c",dot:"#fb923c",border:"#fed7aa"},
-Normal:{bg:"#f0fdf4",text:"#15803d",dot:"#4ade80",border:"#bbf7d0"},
-Low:{bg:"#f8fafc",text:"#64748b",dot:"#94a3b8",border:"#e2e8f0"},
+Urgent:{bg:"rgba(239,68,68,.1)",text:"#f87171",dot:"#f87171",border:"rgba(248,113,113,.3)"},
+High:{bg:"rgba(249,115,22,.1)",text:"#fb923c",dot:"#fb923c",border:"rgba(251,146,60,.3)"},
+Normal:{bg:"rgba(74,222,128,.1)",text:"#4ade80",dot:"#4ade80",border:"rgba(74,222,128,.3)"},
+Low:{bg:"rgba(148,163,184,.1)",text:"#94a3b8",dot:"#94a3b8",border:"rgba(148,163,184,.3)"},
 };
-return <div style={{padding:"0 20px",paddingBottom:100}}>
+
+const btnPrimary={background:"var(--gold)",color:"var(--sidebar)",border:"none",borderRadius:12,padding:"10px 16px",fontSize:13,fontWeight:700,minHeight:44};
+const btnSec={background:"var(--elevated)",color:"var(--t1)",border:"1px solid var(--border)",borderRadius:10,padding:"10px 14px",fontSize:13,fontWeight:600,minHeight:40};
+
+return <div style={{padding:"16px 20px 100px"}}>
 {/* Header */}
 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+<div style={{display:"flex",alignItems:"center",gap:10}}>
+<div style={{width:38,height:38,borderRadius:12,background:"var(--gdim)",display:"flex",alignItems:"center",justifyContent:"center",color:"var(--gold)"}}>{Ic.crown}</div>
 <div>
-<div style={{fontSize:17,fontWeight:800,color:"#111"}}>👑 Maha's Daily Brief</div>
-<div style={{fontSize:12,color:"#9ca3af",marginTop:2}}>Instructions from the Brand Owner</div>
+<div style={{fontSize:17,fontWeight:800,color:"var(--t1)"}}>Maha's Brief</div>
+<div style={{fontSize:12,color:"var(--t3)",marginTop:2}}>Instructions from the Brand Owner</div>
 </div>
-{isMaha&&<button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:12,padding:"9px 16px",fontSize:13,fontWeight:700}} onClick={()=>setShowForm(!showForm)}>
-{showForm?"✕ Cancel":"＋ New Brief"}
+</div>
+{isMaha&&<button className="btn" style={{...btnPrimary,padding:"10px 16px",display:"flex",alignItems:"center",gap:6}} onClick={()=>setShowForm(!showForm)}>
+{showForm?<>{Ic.x} Cancel</>:<>{Ic.plus} New Brief</>}
 </button>}
 </div>
 
 {/* New brief form - Maha only */}
-{isMaha&&showForm&&<div style={{background:"#fff",borderRadius:16,padding:16,marginBottom:16,boxShadow:"0 2px 12px rgba(0,0,0,0.08)",border:"1.5px solid #e5e7eb"}}>
+{isMaha&&showForm&&<div style={{background:"var(--surface)",borderRadius:16,padding:16,marginBottom:16,border:"1px solid var(--border)"}}>
   <FL>Instructions *</FL>
-  <textarea placeholder="Write today's instructions…" value={form.text} onChange={e=>setForm(f=>({...f,text:e.target.value}))}
-    style={{width:"100%",padding:"10px 13px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:14,color:"#111",outline:"none",background:"#fafafa",boxSizing:"border-box",minHeight:100,resize:"none",fontFamily:"inherit",marginTop:6,marginBottom:12}}/>
+  <textarea placeholder="Write today's instructions…" value={form.text} onChange={e=>setForm(f=>({...f,text:e.target.value}))} className="inp" style={{minHeight:100,marginTop:6,marginBottom:12}}/>
   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
     <div>
       <FL>Urgency</FL>
-      <select value={form.urgency} onChange={e=>setForm(f=>({...f,urgency:e.target.value}))}
-        style={{width:"100%",padding:"9px 12px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:13,outline:"none",background:"#fafafa",marginTop:4}}>
+      <select value={form.urgency} onChange={e=>setForm(f=>({...f,urgency:e.target.value}))} className="inp" style={{marginTop:4}}>
         {["Urgent","High","Normal","Low"].map(u=><option key={u}>{u}</option>)}
       </select>
     </div>
     <div>
       <FL>Deadline</FL>
-      <input type="date" value={form.deadline||""} onChange={e=>setForm(f=>({...f,deadline:e.target.value}))}
-        style={{width:"100%",padding:"9px 12px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:13,outline:"none",background:"#fafafa",marginTop:4,boxSizing:"border-box"}}/>
+      <input type="date" value={form.deadline||""} onChange={e=>setForm(f=>({...f,deadline:e.target.value}))} className="inp" style={{marginTop:4}}/>
     </div>
   </div>
 
-  {/* Assign To */}
   <FL>Assign To (optional — leave empty for everyone)</FL>
   <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:6,marginBottom:12}}>
     {TEAM.map(m=>{
       const sel=form.assignees.includes(m.id);
-      return <button key={m.id} className="mbtn" onClick={()=>toggleAssignee(m.id)}
-        style={{display:"flex",alignItems:"center",gap:7,padding:"6px 12px",borderRadius:20,border:`1.5px solid ${sel?"#1a1a2e":"#e5e7eb"}`,background:sel?"#1a1a2e":"#fafafa",cursor:"pointer",transition:"all 0.15s"}}>
+      return <button key={m.id} className={`pill${sel?" active":""}`} onClick={()=>toggleAssignee(m.id)} style={{padding:"6px 12px",minHeight:34,display:"flex",alignItems:"center",gap:7}}>
         <Av member={m} photo={profiles[m.id]} size={20}/>
-        <span style={{fontSize:12,fontWeight:sel?700:500,color:sel?"#c9a96e":"#374151"}}>{m.name.split(" ")[0]}</span>
+        <span style={{fontSize:12}}>{m.name.split(" ")[0]}</span>
       </button>;
     })}
   </div>
 
-  {/* Voice note */}
   <FL>Voice Note (optional)</FL>
   <div style={{marginTop:6,marginBottom:12}}>
-    {form.voiceUrl&&<div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:10,padding:"8px 12px",marginBottom:8}}>
-      <div style={{fontSize:11,color:"#15803d",fontWeight:700,marginBottom:4}}>✅ Voice note recorded {form.voiceDuration?`(${fmtS(form.voiceDuration)})`:""}
-        <button onClick={()=>setForm(f=>({...f,voiceUrl:null,voicePath:null}))} style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",marginLeft:8,fontSize:12}}>Remove</button>
+    {form.voiceUrl&&<div style={{background:"rgba(74,222,128,0.06)",border:"1px solid rgba(74,222,128,0.2)",borderRadius:10,padding:"10px 12px",marginBottom:8}}>
+      <div style={{fontSize:11,color:"#4ade80",fontWeight:700,marginBottom:6,display:"flex",alignItems:"center",gap:6}}>{Ic.check2} Voice note recorded {form.voiceDuration?`(${fmtS(form.voiceDuration)})`:""}
+        <button onClick={()=>setForm(f=>({...f,voiceUrl:null,voicePath:null}))} style={{background:"none",border:"none",color:"#f87171",cursor:"pointer",marginLeft:8,fontSize:12}}>Remove</button>
       </div>
-      <audio controls src={form.voiceUrl} style={{width:"100%",height:32}}/>
+      <audio controls src={form.voiceUrl} style={{width:"100%",height:32,filter:"invert(0.85) hue-rotate(180deg)"}}/>
     </div>}
     {!form.voiceUrl&&<div style={{display:"flex",alignItems:"center",gap:10}}>
-      {!recording?<button className="mbtn" style={{background:uploadingVoice?"#f3f4f6":"#1a1a2e",color:uploadingVoice?"#9ca3af":"#c9a96e",border:"none",borderRadius:10,padding:"8px 14px",fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:6}} onClick={startRec} disabled={uploadingVoice}>
-        {uploadingVoice?"⏳ Saving…":"🎙️ Record Voice"}
-      </button>:<button className="mbtn" style={{background:"#dc2626",color:"#fff",border:"none",borderRadius:10,padding:"8px 14px",fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:6,animation:"pulse 1s infinite"}} onClick={stopRec}>
-        <span style={{width:8,height:8,background:"#fff",borderRadius:2,display:"inline-block"}}/>Stop · {fmtS(recSecs)}
+      {!recording?<button className="btn" style={{background:uploadingVoice?"var(--elevated)":"var(--gold)",color:uploadingVoice?"var(--t2)":"var(--sidebar)",border:"none",borderRadius:10,padding:"10px 14px",fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:6,minHeight:44}} onClick={startRec} disabled={uploadingVoice}>
+        {uploadingVoice?"Saving…":<>{Ic.mic} Record Voice</>}
+      </button>:<button className="btn" style={{background:"#dc2626",color:"#fff",border:"none",borderRadius:10,padding:"10px 14px",fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:6,animation:"recPulse 1.4s infinite",minHeight:44}} onClick={stopRec}>
+        {Ic.stop}Stop · {fmtS(recSecs)}
       </button>}
     </div>}
   </div>
 
   <FL>Additional Notes (optional)</FL>
-  <textarea placeholder="Any extra notes or context for the team…" value={form.notes||""} onChange={e=>setForm(f=>({...f,notes:e.target.value}))}
-    style={{width:"100%",padding:"10px 13px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:14,color:"#111",outline:"none",background:"#fafafa",boxSizing:"border-box",minHeight:60,resize:"none",fontFamily:"inherit",marginTop:4}}/>
+  <textarea placeholder="Any extra notes or context for the team…" value={form.notes||""} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} className="inp" style={{minHeight:60,marginTop:4,marginBottom:12}}/>
 
-  <button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:12,padding:"12px",fontSize:14,fontWeight:700,width:"100%"}} onClick={saveBrief}>
+  <button className="btn" style={{...btnPrimary,padding:"12px",width:"100%",fontSize:14,boxShadow:"0 4px 16px var(--gglow)"}} onClick={saveBrief}>
     Post Brief
   </button>
 </div>}
 
 {/* Briefs list */}
-{loading&&<div style={{textAlign:"center",padding:40,color:"#9ca3af"}}>Loading…</div>}
-{!loading&&briefs.length===0&&<div style={{textAlign:"center",padding:"50px 0",color:"#9ca3af"}}>
-  <div style={{fontSize:40,marginBottom:10}}>👑</div>
+{loading&&<div style={{textAlign:"center",padding:40,color:"var(--t3)"}}>Loading…</div>}
+{!loading&&briefs.length===0&&<div style={{textAlign:"center",padding:"50px 0",color:"var(--t3)",display:"flex",flexDirection:"column",alignItems:"center",gap:12}}>
+  <span style={{color:"var(--t3)",display:"flex"}}><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 20h20M5 20l2-8 5 4 5-4 2 8"/></svg></span>
   <div>No briefs posted yet</div>
 </div>}
 {briefs.map(b=>{
   const us=urgencyStyle[b.urgency]||urgencyStyle.Normal;
   const od=b.deadline&&new Date(b.deadline)<new Date();
-  return <div key={b.id} style={{background:"#fff",borderRadius:16,padding:16,marginBottom:12,boxShadow:"0 2px 8px rgba(0,0,0,0.06)",border:`1.5px solid ${us.border}`}}>
+  return <div key={b.id} style={{background:"var(--surface)",borderRadius:16,padding:16,marginBottom:12,border:"1px solid var(--border)",borderLeft:`4px solid ${us.dot}`}}>
     <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:10}}>
       <div style={{display:"flex",alignItems:"center",gap:10}}>
         <Av member={TEAM.find(m=>m.id==="maha")} photo={profiles["maha"]} size={34}/>
         <div>
-          <div style={{fontSize:12,fontWeight:700,color:"#111"}}>Dr. Maha Adel</div>
-          <div style={{fontSize:10,color:"#9ca3af"}}>{fD(b.created_at)}</div>
+          <div style={{fontSize:12,fontWeight:700,color:"var(--t1)"}}>Dr. Maha Adel</div>
+          <div style={{fontSize:10,color:"var(--t3)"}}>{fD(b.created_at)}</div>
         </div>
       </div>
       <div style={{display:"flex",alignItems:"center",gap:6}}>
-        <span style={{display:"inline-flex",alignItems:"center",fontSize:11,fontWeight:700,padding:"3px 9px",borderRadius:20,background:us.bg,color:us.text,border:`1px solid ${us.border}`}}>
-          <span style={{width:6,height:6,borderRadius:"50%",background:us.dot,display:"inline-block",marginRight:4}}/>{b.urgency}
+        <span style={{display:"inline-flex",alignItems:"center",gap:5,fontSize:11,fontWeight:700,padding:"4px 10px",borderRadius:20,background:us.bg,color:us.text,border:`1px solid ${us.border}`}}>
+          <span style={{width:5,height:5,borderRadius:"50%",background:us.dot}}/>{b.urgency}
         </span>
-        {isMaha&&<button className="mbtn" onClick={()=>startEditBrief(b)}
-          style={{background:"none",border:"none",color:"#9ca3af",fontSize:15,cursor:"pointer",padding:2}}>✏️</button>}
-        {isMaha&&<button className="mbtn" onClick={()=>deleteBrief(b.id)} style={{background:"none",border:"none",color:"#9ca3af",fontSize:15,cursor:"pointer",padding:2}}>🗑</button>}
+        {isMaha&&<button className="btn" onClick={()=>startEditBrief(b)}
+          style={{background:"none",border:"none",color:"var(--t3)",cursor:"pointer",padding:6,display:"flex",alignItems:"center",justifyContent:"center",minHeight:32,minWidth:32}}>{Ic.edit}</button>}
+        {isMaha&&<button className="btn" onClick={()=>deleteBrief(b.id)} style={{background:"none",border:"none",color:"var(--t3)",cursor:"pointer",padding:6,display:"flex",alignItems:"center",justifyContent:"center",minHeight:32,minWidth:32}}>{Ic.trash}</button>}
       </div>
     </div>
 
     {/* EDIT MODE */}
     {editingBrief===b.id?<div style={{display:"flex",flexDirection:"column",gap:10,marginTop:8}}>
       <FL>Instructions</FL>
-      <textarea value={editBriefForm.text} onChange={e=>setEditBriefForm(f=>({...f,text:e.target.value}))}
-        style={{width:"100%",padding:"10px 13px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:14,color:"#111",outline:"none",background:"#fafafa",boxSizing:"border-box",minHeight:100,resize:"none",fontFamily:"inherit"}}/>
+      <textarea value={editBriefForm.text} onChange={e=>setEditBriefForm(f=>({...f,text:e.target.value}))} className="inp" style={{minHeight:100}}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
         <div><FL>Urgency</FL>
-          <select value={editBriefForm.urgency} onChange={e=>setEditBriefForm(f=>({...f,urgency:e.target.value}))}
-            style={{width:"100%",padding:"9px 12px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:13,outline:"none",background:"#fafafa",marginTop:4}}>
+          <select value={editBriefForm.urgency} onChange={e=>setEditBriefForm(f=>({...f,urgency:e.target.value}))} className="inp" style={{marginTop:4}}>
             {["Urgent","High","Normal","Low"].map(u=><option key={u}>{u}</option>)}
           </select>
         </div>
         <div><FL>Deadline</FL>
-          <input type="date" value={editBriefForm.deadline||""} onChange={e=>setEditBriefForm(f=>({...f,deadline:e.target.value}))}
-            style={{width:"100%",padding:"9px 12px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:13,outline:"none",background:"#fafafa",marginTop:4,boxSizing:"border-box"}}/>
+          <input type="date" value={editBriefForm.deadline||""} onChange={e=>setEditBriefForm(f=>({...f,deadline:e.target.value}))} className="inp" style={{marginTop:4}}/>
         </div>
       </div>
       <FL>Additional Notes</FL>
       <textarea value={editBriefForm.notes||""} onChange={e=>setEditBriefForm(f=>({...f,notes:e.target.value}))}
-        placeholder="Extra notes or context…"
-        style={{width:"100%",padding:"9px 12px",borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:13,outline:"none",background:"#fafafa",boxSizing:"border-box",minHeight:60,resize:"none",fontFamily:"inherit"}}/>
+        placeholder="Extra notes or context…" className="inp" style={{minHeight:60}}/>
       <FL>Assign To</FL>
       <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
         {TEAM.map(m=>{const sel=editBriefForm.assignees.includes(m.id);
-          return <button key={m.id} className="mbtn" onClick={()=>toggleEditAssignee(m.id)}
-            style={{display:"flex",alignItems:"center",gap:6,padding:"5px 11px",borderRadius:20,border:`1.5px solid ${sel?"#1a1a2e":"#e5e7eb"}`,background:sel?"#1a1a2e":"#fafafa",cursor:"pointer"}}>
+          return <button key={m.id} className={`pill${sel?" active":""}`} onClick={()=>toggleEditAssignee(m.id)} style={{padding:"5px 11px",display:"flex",alignItems:"center",gap:6}}>
             <Av member={m} photo={profiles[m.id]} size={18}/>
-            <span style={{fontSize:12,fontWeight:sel?700:500,color:sel?"#c9a96e":"#374151"}}>{m.name.split(" ")[0]}</span>
+            <span style={{fontSize:12}}>{m.name.split(" ")[0]}</span>
           </button>;})}
       </div>
       <div style={{display:"flex",gap:8,marginTop:4}}>
-        <button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:10,padding:"10px 16px",fontSize:13,fontWeight:700,flex:1}}
+        <button className="btn" style={{...btnPrimary,flex:1}}
           onClick={()=>saveEditBrief(b.id)}>Save Changes</button>
-        <button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:10,padding:"10px 14px",fontSize:13,fontWeight:600}}
+        <button className="btn" style={btnSec}
           onClick={()=>setEditingBrief(null)}>Cancel</button>
       </div>
     </div>:
 
     /* VIEW MODE */
     <div>
-      {/* Assigned members */}
       {b.assignees&&b.assignees.length>0&&<div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,flexWrap:"wrap"}}>
-        <span style={{fontSize:11,color:"#9ca3af",fontWeight:600}}>FOR:</span>
-        {b.assignees.map(uid=>{const m=TEAM.find(t=>t.id===uid);return m?<div key={uid} style={{display:"flex",alignItems:"center",gap:4,background:"#f3f4f6",borderRadius:20,padding:"3px 8px"}}>
+        <span className="lbl">FOR:</span>
+        {b.assignees.map(uid=>{const m=TEAM.find(t=>t.id===uid);return m?<div key={uid} style={{display:"flex",alignItems:"center",gap:5,background:"var(--elevated)",border:"1px solid var(--border)",borderRadius:20,padding:"3px 9px"}}>
           <Av member={m} photo={profiles[uid]} size={16}/>
-          <span style={{fontSize:11,fontWeight:600,color:"#374151"}}>{m.name.split(" ")[0]}</span>
+          <span style={{fontSize:11,fontWeight:600,color:"var(--t1)"}}>{m.name.split(" ")[0]}</span>
         </div>:null;})}
       </div>}
-      {(!b.assignees||b.assignees.length===0)&&<div style={{fontSize:11,color:"#9ca3af",marginBottom:8}}>👥 For everyone</div>}
+      {(!b.assignees||b.assignees.length===0)&&<div style={{fontSize:11,color:"var(--t3)",marginBottom:8,display:"flex",alignItems:"center",gap:5}}>{Ic.users} For everyone</div>}
 
-      {b.text&&<div style={{fontSize:14,color:"#374151",lineHeight:1.65,marginBottom:10}}><SmartText text={b.text}/></div>}
+      {b.text&&<div style={{fontSize:14,color:"var(--t1)",lineHeight:1.65,marginBottom:10}}><SmartText text={b.text}/></div>}
 
       {b.deadline&&<div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
-        <span style={{fontSize:12,color:od?"#dc2626":"#6b7280",fontWeight:od?700:400}}>
-          {od?"⚠ Deadline passed: ":"📅 Deadline: "}{fD(b.deadline)}
+        <span style={{fontSize:12,color:od?"#f87171":"var(--t2)",fontWeight:od?700:500,display:"flex",alignItems:"center",gap:5}}>
+          {od?Ic.warn:Ic.cal}{od?"Deadline passed: ":"Deadline: "}{fD(b.deadline)}
         </span>
       </div>}
 
-      {b.voice_url&&<audio controls src={b.voice_url} style={{width:"100%",height:36,borderRadius:8,marginTop:4}}/>}
+      {b.voice_url&&<audio controls src={b.voice_url} style={{width:"100%",height:36,marginTop:4,filter:"invert(0.85) hue-rotate(180deg)"}}/>}
 
-      {/* Brief body notes */}
-      {b.notes&&<div style={{background:"#fffbeb",border:"1.5px solid #fde68a",borderRadius:12,padding:"10px 14px",marginTop:8}}>
+      {b.notes&&<div style={{background:"rgba(251,191,36,0.06)",border:"1px solid rgba(251,191,36,0.2)",borderRadius:12,padding:"10px 14px",marginTop:8}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
-          <span style={{fontSize:11,fontWeight:700,color:"#b45309",letterSpacing:"0.4px"}}>📋 NOTES</span>
-          {isMaha&&<button className="mbtn" onClick={()=>setBriefNoteEdit(briefNoteEdit===b.id?null:b.id)}
-            style={{background:"none",border:"none",fontSize:11,color:"#9ca3af",cursor:"pointer",fontWeight:600}}>
-            {briefNoteEdit===b.id?"Cancel":"✏️ Edit"}
+          <span style={{fontSize:11,fontWeight:700,color:"#fbbf24",letterSpacing:".4px"}}>NOTES</span>
+          {isMaha&&<button className="btn" onClick={()=>setBriefNoteEdit(briefNoteEdit===b.id?null:b.id)}
+            style={{background:"none",border:"none",fontSize:11,color:"var(--t3)",cursor:"pointer",fontWeight:600,display:"flex",alignItems:"center",gap:4}}>
+            {briefNoteEdit===b.id?"Cancel":<>{Ic.edit} Edit</>}
           </button>}
         </div>
         {briefNoteEdit===b.id?<div style={{display:"flex",flexDirection:"column",gap:8}}>
-          <textarea defaultValue={b.notes||""} id={`bnote-${b.id}`}
-            style={{width:"100%",padding:"8px 12px",borderRadius:9,border:"1.5px solid #fde68a",fontSize:13,outline:"none",background:"#fff",boxSizing:"border-box",minHeight:70,resize:"none",fontFamily:"inherit"}} autoFocus/>
-          <button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:9,padding:"8px 14px",fontSize:13,fontWeight:700,alignSelf:"flex-start"}}
+          <textarea defaultValue={b.notes||""} id={`bnote-${b.id}`} className="inp" style={{minHeight:70}} autoFocus/>
+          <button className="btn" style={{...btnPrimary,alignSelf:"flex-start"}}
             onClick={async()=>{const el=document.getElementById(`bnote-${b.id}`);if(!el)return;await sb.from("maha_briefs").update({notes:el.value.trim()||null}).eq("id",b.id);setBriefNoteEdit(null);loadBriefs();}}>
             Save Note
           </button>
-        </div>:<div style={{fontSize:13,color:"#374151",lineHeight:1.6}}><SmartText text={b.notes}/></div>}
+        </div>:<div style={{fontSize:13,color:"var(--t1)",lineHeight:1.6}}><SmartText text={b.notes}/></div>}
       </div>}
-      {!b.notes&&isMaha&&<button className="mbtn" onClick={()=>setBriefNoteEdit(b.id)}
-        style={{background:"none",border:"none",fontSize:12,color:"#9ca3af",cursor:"pointer",padding:"4px 0",fontWeight:600,marginTop:6,display:"block"}}>📋 + Add notes to this brief</button>}
+      {!b.notes&&isMaha&&<button className="btn" onClick={()=>setBriefNoteEdit(b.id)}
+        style={{background:"none",border:"none",fontSize:12,color:"var(--t3)",cursor:"pointer",padding:"6px 0",fontWeight:600,marginTop:6,display:"flex",alignItems:"center",gap:5}}>{Ic.plus} Add notes to this brief</button>}
     </div>}
 
     {/* Attachments */}
     {((b.attachments&&b.attachments.length>0)||isMaha)&&<div style={{marginTop:10,display:"flex",flexDirection:"column",gap:8}}>
-      {b.attachments?.length>0&&<div style={{fontSize:11,fontWeight:700,color:"#9ca3af",letterSpacing:"0.5px"}}>📎 ATTACHMENTS</div>}
+      {b.attachments?.length>0&&<div className="lbl" style={{display:"flex",alignItems:"center",gap:5}}>{Ic.clip} ATTACHMENTS</div>}
       {(b.attachments||[]).map(at=>{
         const uploader=TEAM.find(m=>m.id===at.uploadedBy);
         const canEdit=isMaha||at.uploadedBy===userId;
         const isEditingThis=editingBriefNote?.briefId===b.id&&editingBriefNote?.attachId===at.id;
-        return <div key={at.id} style={{background:"#f8f7f4",border:"1.5px solid #e5e7eb",borderRadius:12,overflow:"hidden"}}>
+        return <div key={at.id} style={{background:"var(--elevated)",border:"1px solid var(--border)",borderRadius:12,overflow:"hidden"}}>
           <div style={{position:"relative",cursor:"pointer"}} onClick={()=>!isEditingThis&&setBriefLightbox(at)}>
             <img src={at.url} alt={at.name} style={{width:"100%",maxHeight:180,objectFit:"cover",display:"block"}}/>
             <div style={{position:"absolute",top:6,right:6,display:"flex",gap:4}}>
               {canEdit&&<button onClick={e=>{e.stopPropagation();setEditingBriefNote(isEditingThis?null:{briefId:b.id,attachId:at.id,text:at.note||""});}}
-                style={{background:"rgba(0,0,0,0.6)",color:"#fff",border:"none",borderRadius:8,padding:"4px 8px",fontSize:11,fontWeight:600,cursor:"pointer"}}>
-                {isEditingThis?"✕":"📝 Note"}
+                style={{background:"rgba(0,0,0,0.7)",color:"#fff",border:"none",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:4,minHeight:30}}>
+                {isEditingThis?Ic.x:<>{Ic.edit} Note</>}
               </button>}
               {canEdit&&<button onClick={e=>{e.stopPropagation();removeBriefAttach(b.id,at.id);}}
-                style={{background:"rgba(220,38,38,0.8)",color:"#fff",border:"none",borderRadius:8,padding:"4px 8px",fontSize:11,fontWeight:600,cursor:"pointer"}}>🗑</button>}
+                style={{background:"rgba(220,38,38,0.85)",color:"#fff",border:"none",borderRadius:8,padding:"6px 10px",fontSize:11,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",minHeight:30}}>{Ic.trash}</button>}
             </div>
-            {uploader&&<div style={{position:"absolute",bottom:6,left:8,background:"rgba(0,0,0,0.55)",color:"#fff",fontSize:10,padding:"2px 7px",borderRadius:20,fontWeight:600}}>{uploader.name.split(" ")[0]}</div>}
+            {uploader&&<div style={{position:"absolute",bottom:6,left:8,background:"rgba(0,0,0,0.65)",color:"#fff",fontSize:10,padding:"3px 8px",borderRadius:20,fontWeight:600}}>{uploader.name.split(" ")[0]}</div>}
           </div>
-          {!isEditingThis&&at.note&&<div style={{padding:"8px 12px",fontSize:13,color:"#374151",lineHeight:1.5,borderTop:"1px solid #e5e7eb",background:"#fff"}}>
-            <span style={{fontSize:10,color:"#9ca3af",fontWeight:700,marginRight:6}}>NOTE</span><SmartText text={at.note}/>
+          {!isEditingThis&&at.note&&<div style={{padding:"10px 12px",fontSize:13,color:"var(--t1)",lineHeight:1.5,borderTop:"1px solid var(--border)",background:"var(--surface)"}}>
+            <span style={{fontSize:10,color:"var(--t3)",fontWeight:700,marginRight:6}}>NOTE</span><SmartText text={at.note}/>
           </div>}
-          {!isEditingThis&&!at.note&&canEdit&&<div style={{padding:"6px 12px",fontSize:12,color:"#9ca3af",borderTop:"1px solid #f3f4f6",background:"#fff",cursor:"pointer"}} onClick={()=>setEditingBriefNote({briefId:b.id,attachId:at.id,text:""})}>+ Add a note…</div>}
-          {isEditingThis&&<div style={{padding:10,borderTop:"1px solid #e5e7eb",background:"#fff",display:"flex",flexDirection:"column",gap:8}}>
-            <textarea placeholder="Add a note to this image…" value={editingBriefNote.text} onChange={ev=>setEditingBriefNote(n=>({...n,text:ev.target.value}))}
-              style={{width:"100%",padding:"9px 12px",borderRadius:9,border:"1.5px solid #e5e7eb",fontSize:13,outline:"none",background:"#fafafa",boxSizing:"border-box",minHeight:70,resize:"none"}} autoFocus/>
+          {!isEditingThis&&!at.note&&canEdit&&<div style={{padding:"8px 12px",fontSize:12,color:"var(--t3)",borderTop:"1px solid var(--border)",background:"var(--surface)",cursor:"pointer"}} onClick={()=>setEditingBriefNote({briefId:b.id,attachId:at.id,text:""})}>+ Add a note…</div>}
+          {isEditingThis&&<div style={{padding:10,borderTop:"1px solid var(--border)",background:"var(--surface)",display:"flex",flexDirection:"column",gap:8}}>
+            <textarea placeholder="Add a note to this image…" value={editingBriefNote.text} onChange={ev=>setEditingBriefNote(n=>({...n,text:ev.target.value}))} className="inp" style={{minHeight:70}} autoFocus/>
             <div style={{display:"flex",gap:8}}>
-              <button className="mbtn" style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:9,padding:"8px 16px",fontSize:13,fontWeight:700,flex:1}}
+              <button className="btn" style={{...btnPrimary,flex:1}}
                 onClick={()=>saveBriefAttachNote(b.id,at.id,editingBriefNote.text.trim())}>Save Note</button>
-              <button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:9,padding:"8px 14px",fontSize:13,fontWeight:600}}
+              <button className="btn" style={btnSec}
                 onClick={()=>setEditingBriefNote(null)}>Cancel</button>
             </div>
           </div>}
@@ -1425,34 +1456,33 @@ return <div style={{padding:"0 20px",paddingBottom:100}}>
       })}
       {isMaha&&<div>
   <input type="file" accept="image/*" multiple id={`brief-attach-${b.id}`} style={{display:"none"}} onChange={e=>handleBriefAttach(b.id,e)}/>
-  <button className="mbtn" style={{background:"#f3f4f6",color:"#374151",border:"none",borderRadius:10,padding:"8px 14px",fontSize:12,fontWeight:600,display:"flex",alignItems:"center",gap:5}} onClick={()=>document.getElementById(`brief-attach-${b.id}`)?.click()} disabled={briefAttachUploading}>
-    {briefAttachUploading?"⏳ Uploading…":"📎 Add Images"}
+  <button className="btn" style={{...btnSec,padding:"8px 14px",fontSize:12,display:"flex",alignItems:"center",gap:5,alignSelf:"flex-start"}} onClick={()=>document.getElementById(`brief-attach-${b.id}`)?.click()} disabled={briefAttachUploading}>
+    {briefAttachUploading?"Uploading…":<>{Ic.img} Add Images</>}
   </button>
 </div>}
     </div>}
 
-    {/* Lightbox */}
-    {briefLightbox&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:200,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setBriefLightbox(null)}>
+    {briefLightbox&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.95)",zIndex:200,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setBriefLightbox(null)}>
       <img src={briefLightbox.url} alt={briefLightbox.name} style={{maxWidth:"100%",maxHeight:"75vh",borderRadius:12,objectFit:"contain"}}/>
-      {briefLightbox.note&&<div style={{color:"#f0e6d3",fontSize:14,marginTop:12,textAlign:"center",maxWidth:340,lineHeight:1.5,background:"rgba(255,255,255,0.1)",padding:"8px 16px",borderRadius:10}}>{briefLightbox.note}</div>}
-      <div style={{color:"#9ca3af",fontSize:11,marginTop:8}}>Tap anywhere to close</div>
+      {briefLightbox.note&&<div style={{color:"var(--t1)",fontSize:14,marginTop:12,textAlign:"center",maxWidth:340,lineHeight:1.5,background:"rgba(255,255,255,0.08)",padding:"10px 16px",borderRadius:10,border:"1px solid var(--border)"}}>{briefLightbox.note}</div>}
+      <div style={{color:"var(--t3)",fontSize:11,marginTop:8}}>Tap anywhere to close</div>
     </div>}
 
     {/* Comments */}
-    <div style={{borderTop:"1px solid #f3f4f6",marginTop:10,paddingTop:8}}>
-      <button className="mbtn" onClick={()=>toggleComments(b.id)}
-        style={{background:"none",border:"none",fontSize:12,color:"#9ca3af",cursor:"pointer",fontWeight:600,padding:0,display:"flex",alignItems:"center",gap:5}}>
-        💬 {showCmts[b.id]?"Hide Comments":"Show Comments"}{cmts[b.id]?.length>0?` (${cmts[b.id].length})`:""}
+    <div style={{borderTop:"1px solid var(--border)",marginTop:10,paddingTop:10}}>
+      <button className="btn" onClick={()=>toggleComments(b.id)}
+        style={{background:"none",border:"none",fontSize:12,color:"var(--t2)",cursor:"pointer",fontWeight:600,padding:0,display:"flex",alignItems:"center",gap:6,minHeight:32}}>
+        {Ic.msg} {showCmts[b.id]?"Hide Comments":"Show Comments"}{cmts[b.id]?.length>0?` (${cmts[b.id].length})`:""}
       </button>
       {showCmts[b.id]&&<div style={{marginTop:10,display:"flex",flexDirection:"column",gap:8}}>
-        {(cmts[b.id]||[]).length===0&&<div style={{fontSize:12,color:"#9ca3af",textAlign:"center",padding:"8px 0"}}>No comments yet — be the first!</div>}
+        {(cmts[b.id]||[]).length===0&&<div style={{fontSize:12,color:"var(--t3)",textAlign:"center",padding:"8px 0"}}>No comments yet — be the first!</div>}
         {(cmts[b.id]||[]).map(c=>{
           const au=TEAM.find(m=>m.id===c.author);
           const me=c.author===userId;
           return <div key={c.id} style={{display:"flex",flexDirection:me?"row-reverse":"row",alignItems:"flex-end",gap:6}}>
             <Av member={au} photo={profiles[au?.id]} size={24}/>
-            <div style={{maxWidth:"75%",background:me?"#1a1a2e":"#f3f4f6",color:me?"#f0e6d3":"#111",borderRadius:me?"14px 14px 4px 14px":"14px 14px 14px 4px",padding:"8px 12px",fontSize:13,lineHeight:1.45,wordBreak:"break-word"}}>
-              <div style={{fontSize:10,opacity:0.6,marginBottom:2}}>
+            <div style={{maxWidth:"75%",background:me?"var(--gdim)":"var(--elevated)",border:`1px solid ${me?"rgba(201,169,110,0.2)":"var(--border)"}`,color:"var(--t1)",borderRadius:me?"14px 14px 4px 14px":"14px 14px 14px 4px",padding:"8px 12px",fontSize:13,lineHeight:1.45,wordBreak:"break-word"}}>
+              <div style={{fontSize:10,color:"var(--t3)",marginBottom:3}}>
                 {au?.name?.split(" ")[0]} · {c.created_at?new Date(c.created_at).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}):""}
               </div>
               <SmartText text={c.text}/>
@@ -1467,14 +1497,14 @@ return <div style={{padding:"0 20px",paddingBottom:100}}>
               onChange={e=>setCmtText(prev=>({...prev,[b.id]:e.target.value}))}
               placeholder="Write a comment…"
               onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendComment(b.id);}}}
-              style={{width:"100%",padding:"8px 12px",paddingRight:36,borderRadius:10,border:"1.5px solid #e5e7eb",fontSize:13,outline:"none",background:"#fafafa",resize:"none",minHeight:40,fontFamily:"inherit",boxSizing:"border-box"}}/>
-            <button className="mbtn" onClick={()=>document.getElementById(`bc-file-${b.id}`)?.click()} disabled={uploadingBriefCmtId===b.id}
-              style={{position:"absolute",right:8,bottom:8,background:"none",border:"none",fontSize:16,cursor:"pointer",color:"#9ca3af"}}>
-              {uploadingBriefCmtId===b.id?"⏳":"📎"}
+              className="inp" style={{paddingRight:40,minHeight:42,fontSize:13}}/>
+            <button className="btn" onClick={()=>document.getElementById(`bc-file-${b.id}`)?.click()} disabled={uploadingBriefCmtId===b.id}
+              style={{position:"absolute",right:6,bottom:6,background:"none",border:"none",cursor:"pointer",color:"var(--t3)",padding:6,display:"flex",alignItems:"center",justifyContent:"center",minHeight:32,minWidth:32}}>
+              {uploadingBriefCmtId===b.id?<span style={{fontSize:10}}>…</span>:Ic.clip}
             </button>
           </div>
-          <button className="mbtn" onClick={()=>sendComment(b.id)}
-            style={{width:40,height:40,borderRadius:"50%",background:"#1a1a2e",color:"#c9a96e",border:"none",fontSize:18,cursor:"pointer",flexShrink:0}}>→</button>
+          <button className="btn" onClick={()=>sendComment(b.id)}
+            style={{width:42,height:42,borderRadius:"50%",background:"var(--gold)",color:"var(--sidebar)",border:"none",cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 16px var(--gglow)"}}>{Ic.send}</button>
         </div>
       </div>}
     </div>
@@ -1525,12 +1555,10 @@ async function refreshTasks(){const{data}=await sb.from("tasks").select("*, comm
 async function addTask(form){
 const {data}=await sb.from("tasks").insert([{title:form.title,description:form.description,priority:form.priority,assigned_to:form.assignedTo,created_by:userId,deadline:form.deadline||null,status:"To Do",signed_by:[],attachments:[],links:[],instructions:{text:"",voices:[]}}]).select().single();
 refreshTasks();
-// Notify assignees
 const assignees=(Array.isArray(form.assignedTo)?form.assignedTo:[form.assignedTo]).filter(id=>id!==userId);
-if(assignees.length>0)sendPush(assignees,"📋 New Task Assigned",`${TEAM.find(m=>m.id===userId)?.name} assigned you: "${form.title}"`,data?.id);
-// Notify everyone else about new task
+if(assignees.length>0)sendPush(assignees,"New Task Assigned",`${TEAM.find(m=>m.id===userId)?.name} assigned you: "${form.title}"`,data?.id);
 const others=othersExcept(userId).filter(id=>!assignees.includes(id));
-if(others.length>0)sendPush(others,"🆕 New Task Created",`${TEAM.find(m=>m.id===userId)?.name} created: "${form.title}"`,data?.id);
+if(others.length>0)sendPush(others,"New Task Created",`${TEAM.find(m=>m.id===userId)?.name} created: "${form.title}"`,data?.id);
 }
 async function updateTask(id,upd){
 const row={};
@@ -1552,15 +1580,13 @@ if(!task)return;
 const assignees=getAssignees(task);
 const others=othersExcept(userId);
 const sender=TEAM.find(m=>m.id===userId)?.name;
-// Status change notification
 if("status"in upd){
 const targets=[...new Set([...assignees,...others])].filter(id=>id!==userId);
-sendPush(targets,"🔄 Task Status Updated",`${sender} changed "${task.title}" to ${upd.status}`,id);
+sendPush(targets,"Task Status Updated",`${sender} changed "${task.title}" to ${upd.status}`,id);
 }
-// Signed notification
 if("signed_by"in upd){
 const admins=["mohamed","maha","bassant"].filter(id=>id!==userId);
-sendPush(admins,"✅ Task Signed",`${sender} signed off on "${task.title}"`,id);
+sendPush(admins,"Task Signed",`${sender} signed off on "${task.title}"`,id);
 }
 }
 async function deleteTask(id){await sb.from("tasks").delete().eq("id",id);setSelected(null);refreshTasks()}
@@ -1570,7 +1596,6 @@ refreshTasks();
 const task=tasks.find(t=>t.id===tid);
 if(!task)return;
 const sender=TEAM.find(m=>m.id===userId)?.name;
-// Check for @mentions
 const mentionRegex=/@(\w+)/g;
 let match;
 const mentionedIds=[];
@@ -1579,13 +1604,11 @@ const firstName=match[1].toLowerCase();
 const member=TEAM.find(m=>m.name.split(" ")[0].toLowerCase()===firstName);
 if(member&&member.id!==userId)mentionedIds.push(member.id);
 }
-// Send mention notifications
-if(mentionedIds.length>0)sendPush(mentionedIds,"@ You were mentioned",`${sender} mentioned you in "${task.title}"`,tid);
-// Send comment notification to assignees + admins (not mentioned ones, not self)
+if(mentionedIds.length>0)sendPush(mentionedIds,"You were mentioned",`${sender} mentioned you in "${task.title}"`,tid);
 const assignees=getAssignees(task);
 const admins=["mohamed","maha","bassant"];
 const targets=[...new Set([...assignees,...admins])].filter(id=>id!==userId&&!mentionedIds.includes(id));
-if(targets.length>0)sendPush(targets,"💬 New Comment",`${sender}: "${text.slice(0,60)}${text.length>60?"…":""}"`,tid);
+if(targets.length>0)sendPush(targets,"New Comment",`${sender}: "${text.slice(0,60)}${text.length>60?"…":""}"`,tid);
 }
 async function addEditReq(tid,note){
 await sb.from("edit_requests").insert([{task_id:tid,author:userId,note}]);
@@ -1593,7 +1616,7 @@ refreshTasks();
 const task=tasks.find(t=>t.id===tid);
 const sender=TEAM.find(m=>m.id===userId)?.name;
 const admins=["mohamed","maha","bassant"].filter(id=>id!==userId);
-sendPush(admins,"📝 Edit Request",`${sender} requested an edit on "${task?.title}"`,tid);
+sendPush(admins,"Edit Request",`${sender} requested an edit on "${task?.title}"`,tid);
 }
 async function signTask(tid){
 const task=tasks.find(t=>t.id===tid);
@@ -1601,7 +1624,7 @@ if(!task||task.signed_by?.includes(userId))return;
 await updateTask(tid,{signed_by:[...(task.signed_by||[]),userId]});
 const sender=TEAM.find(m=>m.id===userId)?.name;
 const admins=["mohamed","maha","bassant"].filter(id=>id!==userId);
-sendPush(admins,"✅ Task Approved",`${sender} signed off on "${task.title}"`,tid);
+sendPush(admins,"Task Approved",`${sender} signed off on "${task.title}"`,tid);
 }
 async function sendChat(text){await sb.from("chat").insert([{author:userId,text}])}
 async function updateProfile(mid,dataUrl){await sb.from("profiles").upsert({user_id:mid,photo_url:dataUrl,updated_at:new Date().toISOString()});setProfiles(p=>({...p,[mid]:dataUrl}))}
@@ -1610,24 +1633,23 @@ const filtered=tasks.filter(t=>(filterSt==="All"||t.status===filterSt)&&(filterA
 if(!user)return <Login onLogin={id=>{
 lsS("muhra_uid_v3",id);
 setUserId(id);
-// Register this user with OneSignal after login
 setTimeout(()=>{
 if(typeof window.registerUserWithOneSignal==="function"){
 window.registerUserWithOneSignal(id);
 }
 }, 1500);
 }}/>;
-if(loading)return <div style={{minHeight:"100vh",background:"#1a1a2e",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:20}}>
-<img src="https://cdn.shopify.com/s/files/1/0679/6984/3251/files/MUHRA_APP_LOGO_1.png?v=1777552159" alt="Muhra" style={{width:120,height:120,objectFit:"contain",borderRadius:24}}/>
-<div style={{color:"#c9a96e",fontSize:13,letterSpacing:3,animation:"pulse 1.4s ease infinite"}}>LOADING</div>
+if(loading)return <div style={{minHeight:"100vh",background:"var(--bg)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:20}}>
+<img src="https://cdn.shopify.com/s/files/1/0679/6984/3251/files/MUHRA_APP_LOGO_1.png?v=1777552159" alt="Muhra" style={{width:96,height:96,objectFit:"contain",borderRadius:22,boxShadow:"0 0 40px rgba(201,169,110,0.2)"}}/>
+<div style={{color:"var(--gold)",fontSize:11,letterSpacing:4,fontWeight:600,animation:"pulse 1.4s ease infinite"}}>LOADING</div>
 
 
-  </div>;if(dbError)return <div style={{minHeight:"100vh",background:"#1a1a2e",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16,padding:24,textAlign:"center"}}>
+  </div>;if(dbError)return <div style={{minHeight:"100vh",background:"var(--bg)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16,padding:24,textAlign:"center"}}>
 <Shoe size={48} color="#c9a96e"/>
 <div style={{color:"#f87171",fontSize:17,fontWeight:700}}>Connection Error</div>
-<div style={{color:"#9ca3af",fontSize:14,maxWidth:300,lineHeight:1.65}}>Could not connect to database. Check your internet and try again.</div>
-<button onClick={loadAll} style={{background:"#c9a96e",color:"#1a1a2e",border:"none",borderRadius:10,padding:"11px 22px",fontWeight:700,fontSize:14}}>Try Again</button>
-<button onClick={logout} style={{background:"transparent",color:"#9ca3af",border:"none",fontSize:13,marginTop:4}}>Back to Login</button>
+<div style={{color:"var(--t2)",fontSize:14,maxWidth:300,lineHeight:1.65}}>Could not connect to database. Check your internet and try again.</div>
+<button onClick={loadAll} style={{background:"var(--gold)",color:"var(--sidebar)",border:"none",borderRadius:10,padding:"12px 22px",fontWeight:700,fontSize:14,minHeight:44,boxShadow:"0 4px 16px var(--gglow)"}}>Try Again</button>
+<button onClick={logout} style={{background:"transparent",color:"var(--t2)",border:"none",fontSize:13,marginTop:4,padding:"8px 12px"}}>Back to Login</button>
 
 
   </div>;const mineCount=tasks.filter(t=>Array.isArray(t.assigned_to)?t.assigned_to.includes(userId):t.assigned_to===userId).length;
@@ -1636,36 +1658,32 @@ const doneCount=tasks.filter(t=>t.status==="Done").length;
 const overdueCount=tasks.filter(t=>isOD(t.deadline,t.status)).length;
 const unreadChat=chat.filter(m=>m.author!==userId).length>0;
 const SIDEBAR_ITEMS=[
-{id:"tasks", icon:"📋", label:"All Tasks",    badge:urgentCount>0?urgentCount:null, badgeColor:"#dc2626"},
-{id:"maha",  icon:"👑", label:"Maha's Brief", badge:null},
-{id:"chat",  icon:"💬", label:"Team Chat",     badge:unreadChat?null:null},
+{id:"tasks", icon:Ic.tasks, label:"All Tasks",    badge:urgentCount>0?urgentCount:null, badgeColor:"#f87171"},
+{id:"maha",  icon:Ic.crown, label:"Maha's Brief", badge:null},
+{id:"chat",  icon:Ic.chat,  label:"Team Chat",    badge:unreadChat?null:null},
 ];
-return <div style={{fontFamily:"'Century Gothic','Nunito',Futura,'Trebuchet MS',sans-serif",display:"flex",flexDirection:"column",height:"100vh",overflow:"hidden",background:"#f5f4f0"}}>
-<style>{`      .slack-sidebar-item:hover{background:rgba(26,26,46,0.08)!important;}       .slack-sidebar-item.active{background:#1a1a2e!important;color:#fff!important;}       .slack-sidebar-item.active span{color:#c9a96e!important;}       @media(max-width:768px){         .slack-sidebar{position:fixed!important;left:${sidebarOpen?0:-260}px!important;z-index:200!important;height:100%!important;transition:left 0.25s ease!important;}         .slack-overlay{display:${sidebarOpen?"flex":"none"}!important;}       }    `}</style>
+return <div style={{display:"flex",flexDirection:"column",height:"100vh",overflow:"hidden",background:"var(--bg)"}}>
+<style>{`@media(max-width:768px){.sidebar-wrap{position:fixed!important;left:${sidebarOpen?0:-260}px!important;z-index:200!important;height:100%!important;transition:left 0.25s ease!important;}.mob-overlay{display:${sidebarOpen?"flex":"none"}!important;}}`}</style>
 
 {/* ── TOP BAR ── */}
-<div style={{background:"#f5efe6",borderBottom:"1px solid #e8ddd0",padding:"0 16px",height:52,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,zIndex:100,boxShadow:"0 1px 8px rgba(0,0,0,0.07)"}}>
-  {/* Left: hamburger (mobile) + logo */}
+<div style={{background:"var(--sidebar)",borderBottom:"1px solid var(--border)",padding:"0 16px",height:56,display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0,zIndex:100}}>
   <div style={{display:"flex",alignItems:"center",gap:12}}>
-    <button className="mbtn" onClick={()=>setSidebarOpen(!sidebarOpen)}
-      style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"#5c3d2e",padding:4,display:"flex",flexDirection:"column",gap:4,lineHeight:1}}>
-      <span style={{display:"block",width:20,height:2,background:"#5c3d2e",borderRadius:2}}/>
-      <span style={{display:"block",width:20,height:2,background:"#5c3d2e",borderRadius:2}}/>
-      <span style={{display:"block",width:20,height:2,background:"#5c3d2e",borderRadius:2}}/>
+    <button className="btn tap" onClick={()=>setSidebarOpen(!sidebarOpen)}
+      style={{background:"none",border:"none",color:"var(--t1)"}}>
+      {Ic.menu}
     </button>
-    <img src="https://cdn.shopify.com/s/files/1/0679/6984/3251/files/logo_muhra.png?v=1777114424" alt="Muhra" style={{height:34,objectFit:"contain"}}/>
+    <img src="https://cdn.shopify.com/s/files/1/0679/6984/3251/files/MUHRA_APP_LOGO_1.png?v=1777552159" alt="Muhra" style={{height:32,width:32,objectFit:"contain",borderRadius:8}}/>
   </div>
-  {/* Center: page title */}
-  <div style={{fontWeight:700,fontSize:15,color:"#3d2b1f"}}>
-    {tab==="tasks"?"📋 Tasks":tab==="maha"?"👑 Maha's Brief":"💬 Team Chat"}
+  <div style={{fontWeight:700,fontSize:14,color:"var(--t1)",display:"flex",alignItems:"center",gap:7}}>
+    <span style={{color:"var(--gold)",display:"flex"}}>{tab==="tasks"?Ic.tasks:tab==="maha"?Ic.crown:Ic.chat}</span>
+    {tab==="tasks"?"Tasks":tab==="maha"?"Maha's Brief":"Team Chat"}
   </div>
-  {/* Right: notification + avatar */}
   <div style={{display:"flex",alignItems:"center",gap:8}}>
     {"Notification"in window&&Notification.permission==="default"&&(
-      <button className="mbtn" onClick={()=>window.requestNotificationPermission?.()}
-        style={{background:"#1a1a2e",color:"#c9a96e",border:"none",borderRadius:16,padding:"4px 10px",fontSize:11,fontWeight:700,cursor:"pointer"}}>🔔</button>
+      <button className="btn tap" onClick={()=>window.requestNotificationPermission?.()}
+        style={{background:"var(--gdim)",color:"var(--gold)",border:"1px solid rgba(201,169,110,0.25)",borderRadius:10,padding:"6px 10px",fontSize:11,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:5}}>{Ic.bell}</button>
     )}
-    <Av member={user} photo={profiles[user.id]} size={32} onClick={logout} title="Tap to logout"/>
+    <Av member={user} photo={profiles[user.id]} size={34} onClick={logout} title="Tap to logout"/>
   </div>
 </div>
 
@@ -1673,98 +1691,98 @@ return <div style={{fontFamily:"'Century Gothic','Nunito',Futura,'Trebuchet MS',
 <div style={{display:"flex",flex:1,overflow:"hidden",position:"relative"}}>
 
   {/* Mobile overlay */}
-  <div className="slack-overlay" onClick={()=>setSidebarOpen(false)}
-    style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",zIndex:199,display:"none"}}/>
+  <div className="mob-overlay" onClick={()=>setSidebarOpen(false)}
+    style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",zIndex:199,display:"none"}}/>
 
   {/* ── LEFT SIDEBAR ── */}
-  <div className="slack-sidebar" style={{width:240,background:"#fff",borderRight:"1px solid #e8ddd0",display:"flex",flexDirection:"column",flexShrink:0,overflowY:"auto"}}>
+  <div className="sidebar-wrap" style={{width:240,background:"var(--sidebar)",borderRight:"1px solid var(--border)",display:"flex",flexDirection:"column",flexShrink:0,overflowY:"auto"}}>
 
     {/* User info */}
-    <div style={{padding:"16px 14px 10px",borderBottom:"1px solid #f0ece6"}}>
+    <div style={{padding:"16px 14px 14px",borderBottom:"1px solid var(--border)"}}>
       <div style={{display:"flex",alignItems:"center",gap:10}}>
-        <Av member={user} photo={profiles[user.id]} size={38}/>
-        <div>
-          <div style={{fontSize:13,fontWeight:700,color:"#111"}}>{user.name}</div>
-          <div style={{fontSize:11,color:"#9c7c5a"}}>{user.title}</div>
+        <div style={{position:"relative"}}>
+          <Av member={user} photo={profiles[user.id]} size={40}/>
+          <span style={{position:"absolute",bottom:0,right:0,width:10,height:10,borderRadius:"50%",background:"#4ade80",border:"2px solid var(--sidebar)",boxShadow:"0 0 6px rgba(74,222,128,0.6)"}}/>
+        </div>
+        <div style={{minWidth:0,flex:1}}>
+          <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.name}</div>
+          <div style={{fontSize:11,color:"var(--gold)",fontWeight:500}}>{user.title}</div>
         </div>
       </div>
     </div>
 
     {/* Stats */}
-    <div style={{padding:"10px 14px",borderBottom:"1px solid #f0ece6"}}>
-      <div style={{fontSize:10,fontWeight:700,color:"#9ca3af",letterSpacing:"0.6px",marginBottom:8}}>OVERVIEW</div>
+    <div style={{padding:"12px 14px",borderBottom:"1px solid var(--border)"}}>
+      <div className="lbl" style={{marginBottom:10}}>OVERVIEW</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-        {[["Mine",mineCount,"#1a1a2e"],["Urgent",urgentCount,"#dc2626"],["Done",doneCount,"#15803d"],["Overdue",overdueCount,"#ea580c"]].map(([lbl,val,col])=>
-          <div key={lbl} style={{background:"#f8f7f4",borderRadius:10,padding:"8px 10px",textAlign:"center"}}>
-            <div style={{fontSize:20,fontWeight:900,color:col,lineHeight:1}}>{val}</div>
-            <div style={{fontSize:9,color:"#9ca3af",fontWeight:700,letterSpacing:"0.4px",marginTop:2}}>{lbl.toUpperCase()}</div>
+        {[["Mine",mineCount],["Urgent",urgentCount],["Done",doneCount],["Overdue",overdueCount]].map(([lbl,val])=>
+          <div key={lbl} style={{background:"rgba(255,255,255,0.03)",border:"1px solid var(--border)",borderRadius:10,padding:"10px 8px",textAlign:"center"}}>
+            <div style={{fontSize:20,fontWeight:800,color:"var(--gold)",lineHeight:1}}>{val}</div>
+            <div style={{fontSize:9,color:"var(--t3)",fontWeight:700,letterSpacing:".4px",marginTop:3}}>{lbl.toUpperCase()}</div>
           </div>
         )}
       </div>
     </div>
 
     {/* Nav items */}
-    <div style={{padding:"10px 8px",flex:1}}>
-      <div style={{fontSize:10,fontWeight:700,color:"#9ca3af",letterSpacing:"0.6px",padding:"4px 8px",marginBottom:4}}>WORKSPACE</div>
+    <div style={{padding:"12px 8px",flex:1}}>
+      <div className="lbl" style={{padding:"4px 8px",marginBottom:6}}>WORKSPACE</div>
       {SIDEBAR_ITEMS.map(item=>(
-        <button key={item.id} className={`slack-sidebar-item mbtn${tab===item.id?" active":""}`}
-          onClick={()=>{setTab(item.id);setSidebarOpen(false);}}
-          style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"9px 10px",borderRadius:8,border:"none",background:"transparent",cursor:"pointer",textAlign:"left",marginBottom:2,transition:"background 0.15s"}}>
-          <span style={{fontSize:17,flexShrink:0}}>{item.icon}</span>
-          <span style={{fontSize:13,fontWeight:tab===item.id?700:500,color:tab===item.id?"#fff":"#3d2b1f",flex:1}}>{item.label}</span>
-          {item.badge&&<span style={{background:item.badgeColor,color:"#fff",fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:10,minWidth:18,textAlign:"center"}}>{item.badge}</span>}
+        <button key={item.id} className={`sitem${tab===item.id?" active":""}`}
+          onClick={()=>{setTab(item.id);setSidebarOpen(false);}}>
+          {item.icon}
+          <span style={{flex:1}}>{item.label}</span>
+          {item.badge&&<span style={{background:item.badgeColor,color:"#fff",fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:10,minWidth:18,textAlign:"center"}}>{item.badge}</span>}
         </button>
       ))}
 
-      {/* Admin section */}
-      {isAdmin&&<div style={{marginTop:12}}>
-        <div style={{fontSize:10,fontWeight:700,color:"#9ca3af",letterSpacing:"0.6px",padding:"4px 8px",marginBottom:4}}>ADMIN</div>
-        <button className="slack-sidebar-item mbtn" onClick={()=>{setTab("tasks");setSidebarOpen(false);setShowNew(true);}}
-          style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"9px 10px",borderRadius:8,border:"none",background:"transparent",cursor:"pointer",textAlign:"left",marginBottom:2}}>
-          <span style={{fontSize:17}}>＋</span>
-          <span style={{fontSize:13,fontWeight:500,color:"#3d2b1f"}}>New Task</span>
+      {isAdmin&&<div style={{marginTop:14}}>
+        <div className="lbl" style={{padding:"4px 8px",marginBottom:6}}>ADMIN</div>
+        <button className="sitem" onClick={()=>{setTab("tasks");setSidebarOpen(false);setShowNew(true);}}>
+          {Ic.plus}
+          <span>New Task</span>
         </button>
-        <button className="slack-sidebar-item mbtn" onClick={()=>{setTab("tasks");setSidebarOpen(false);setTimeout(()=>document.getElementById("profile-manager")?.scrollIntoView(),100);}}
-          style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"9px 10px",borderRadius:8,border:"none",background:"transparent",cursor:"pointer",textAlign:"left",marginBottom:2}}>
-          <span style={{fontSize:17}}>👥</span>
-          <span style={{fontSize:13,fontWeight:500,color:"#3d2b1f"}}>Team Profiles</span>
+        <button className="sitem" onClick={()=>{setTab("tasks");setSidebarOpen(false);setTimeout(()=>document.getElementById("profile-manager")?.scrollIntoView(),100);}}>
+          {Ic.users}
+          <span>Team Profiles</span>
         </button>
       </div>}
     </div>
 
     {/* Logout at bottom */}
-    <div style={{padding:"10px 8px",borderTop:"1px solid #f0ece6"}}>
-      <button className="slack-sidebar-item mbtn" onClick={logout}
-        style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"9px 10px",borderRadius:8,border:"none",background:"transparent",cursor:"pointer",textAlign:"left"}}>
-        <span style={{fontSize:17}}>🚪</span>
-        <span style={{fontSize:13,fontWeight:500,color:"#9ca3af"}}>Sign Out</span>
+    <div style={{padding:"10px 8px",borderTop:"1px solid var(--border)"}}>
+      <button className="sitem" onClick={logout}>
+        {Ic.logout}
+        <span>Sign Out</span>
       </button>
     </div>
   </div>
 
   {/* ── MAIN CONTENT ── */}
-  <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",minWidth:0}}>
+  <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",minWidth:0,background:"var(--bg)"}}>
 
     {tab==="tasks"&&<div style={{flex:1,padding:"0 0 100px"}}>
       {/* Filters */}
-      <div style={{padding:"14px 20px 10px",borderBottom:"1px solid #f0ece6",background:"#fff",position:"sticky",top:0,zIndex:10}}>
-        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
-          {["All",...STAT].map(s=><button key={s} className="mbtn"
-            style={{padding:"5px 12px",borderRadius:20,border:filterSt===s?"1.5px solid #1a1a2e":"1.5px solid #e5e7eb",background:filterSt===s?"#1a1a2e":"#fff",fontSize:12,fontWeight:filterSt===s?700:500,color:filterSt===s?"#c9a96e":"#6b7280"}}
+      <div style={{padding:"14px 20px 12px",borderBottom:"1px solid var(--border)",background:"var(--surface)",position:"sticky",top:0,zIndex:10}}>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:10}}>
+          {["All",...STAT].map(s=><button key={s} className={`pill${filterSt===s?" active":""}`}
             onClick={()=>setFilterSt(s)}>{s}</button>)}
         </div>
-        <select style={{padding:"7px 12px",borderRadius:10,border:"1.5px solid #e5e7eb",background:"#fff",fontSize:13,color:"#374151",outline:"none"}} value={filterAs} onChange={e=>setFilterAs(e.target.value)}>
+        <select className="inp" style={{padding:"9px 12px",fontSize:13}} value={filterAs} onChange={e=>setFilterAs(e.target.value)}>
           <option value="All">All Members</option>
           {TEAM.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}
         </select>
       </div>
 
       {/* Announcement bar */}
-      {isAdmin&&<div style={{padding:"10px 20px 0"}}><AnnouncementBar userId={userId} profiles={profiles}/></div>}
+      {isAdmin&&<div style={{padding:"12px 20px 0"}}><AnnouncementBar userId={userId} profiles={profiles}/></div>}
 
       {/* Task list */}
-      <div style={{padding:"10px 20px",display:"flex",flexDirection:"column",gap:10}}>
-        {filtered.length===0&&<div style={{textAlign:"center",padding:"60px 0",color:"#9ca3af"}}><div style={{fontSize:40,marginBottom:10}}>📋</div><div>No tasks found</div></div>}
+      <div style={{padding:"12px 20px",display:"flex",flexDirection:"column",gap:10}}>
+        {filtered.length===0&&<div style={{textAlign:"center",padding:"60px 20px",color:"var(--t3)",display:"flex",flexDirection:"column",alignItems:"center",gap:12}}>
+          <span style={{color:"var(--t3)",display:"flex"}}><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m9 12 2 2 4-4"/></svg></span>
+          <div style={{fontSize:13}}>No tasks found</div>
+        </div>}
         {[...filtered].sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0)).map(t=><TaskCard key={t.id} task={t} profiles={profiles} onClick={()=>setSelected(t)} isAdmin={isAdmin} onPin={()=>updateTask(t.id,{pinned:!t.pinned})}/>)}
       </div>
 
@@ -1785,7 +1803,7 @@ return <div style={{fontFamily:"'Century Gothic','Nunito',Futura,'Trebuchet MS',
 </div>
 
 {/* FAB - new task */}
-{isAdmin&&tab==="tasks"&&<button className="mbtn" style={{position:"fixed",bottom:24,right:24,width:54,height:54,borderRadius:"50%",background:"#1a1a2e",color:"#c9a96e",border:"none",boxShadow:"0 4px 22px rgba(26,26,46,0.45)",fontSize:26,display:"flex",alignItems:"center",justifyContent:"center",zIndex:50}} onClick={()=>setShowNew(true)}>＋</button>}
+{isAdmin&&tab==="tasks"&&<button className="btn" style={{position:"fixed",bottom:24,right:24,width:54,height:54,borderRadius:"50%",background:"var(--gold)",color:"var(--sidebar)",border:"none",boxShadow:"0 4px 24px var(--gglow)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:50}} onClick={()=>setShowNew(true)}>{Ic.plus}</button>}
 {showNew&&<NewTaskModal onClose={()=>setShowNew(false)} onSave={addTask}/>}
 {selected&&<TaskDetail task={tasks.find(t=>t.id===selected.id)||selected} profiles={profiles} userId={userId} isAdmin={isAdmin} onClose={()=>setSelected(null)} onStatusChange={st=>updateTask(selected.id,{status:st})} onDelete={()=>deleteTask(selected.id)} onComment={text=>addComment(selected.id,text)} onEditReq={note=>addEditReq(selected.id,note)} onSign={()=>signTask(selected.id)} onEdit={upd=>updateTask(selected.id,upd)} onAttach={imgs=>updateTask(selected.id,{attachments:imgs})} onLinks={links=>updateTask(selected.id,{links:links})}/>}
 
@@ -1795,7 +1813,7 @@ return <div style={{fontFamily:"'Century Gothic','Nunito',Futura,'Trebuchet MS',
 function applyArabicFont(root){
 const arabicRx=/[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]/;
 function walk(node){
-if(node.nodeType===3){// text node
+if(node.nodeType===3){
 const txt=node.textContent||"";
 if(arabicRx.test(txt)&&node.parentElement){
 const el=node.parentElement;
@@ -1812,10 +1830,8 @@ node.childNodes.forEach(walk);
 }
 walk(root||document.getElementById("root"));
 }
-// Run on every DOM mutation (catches all React updates)
 const arabicObserver=new MutationObserver(()=>applyArabicFont());
 arabicObserver.observe(document.getElementById("root"),{childList:true,subtree:true,characterData:true});
-// Run once on load
 setTimeout(applyArabicFont,500);
 </script>
 
