@@ -241,6 +241,8 @@ const Ic = {
   img:      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>,
   stop:     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>,
   chev:     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>,
+  msgSm:    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
+  star:     <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
 };
 
 // Updated SmartText to automatically render uploaded images inline
@@ -401,6 +403,105 @@ style={{background:"none",border:"none",color:task.pinned?"var(--gold)":"var(--t
 </div>;
 }
 
+// ── SUBTASK COMMENTS POPUP ──
+function SubtaskCommentsPopup({subtask,task,userId,isAdmin,profiles,onClose,onSubtasksUpdate}){
+  const [text,setText]=useState("");
+  const [saving,setSaving]=useState(false);
+  const assignedIds=(Array.isArray(task.assigned_to)?task.assigned_to:[task.assigned_to]).filter(Boolean);
+  const isAssigned=assignedIds.includes(userId)||subtask.assignedTo===userId;
+  const canComment=isAdmin||isAssigned;
+  const msgType=isAdmin?"evaluation":"reply";
+  const comments=subtask.comments||[];
+
+  async function submit(){
+    if(!text.trim())return;
+    setSaving(true);
+    const entry={id:Date.now().toString(36)+Math.random().toString(36).slice(2),author:userId,type:msgType,text:text.trim(),createdAt:new Date().toISOString()};
+    const allSubs=(task.subtasks||[]).map(s=>s.id===subtask.id?{...s,comments:[...(s.comments||[]),entry]}:s);
+    await onSubtasksUpdate(allSubs);
+    setText("");
+    setSaving(false);
+  }
+
+  async function deleteComment(cid){
+    if(!window.confirm("Remove this comment?"))return;
+    const allSubs=(task.subtasks||[]).map(s=>s.id===subtask.id?{...s,comments:(s.comments||[]).filter(c=>c.id!==cid)}:s);
+    await onSubtasksUpdate(allSubs);
+  }
+
+  const stMember=TEAM.find(m=>m.id===subtask.assignedTo);
+
+  return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.72)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px 16px"}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+    <div style={{background:"var(--surface)",border:"1px solid var(--bmd)",borderRadius:20,width:"100%",maxWidth:480,maxHeight:"80vh",display:"flex",flexDirection:"column",boxShadow:"0 24px 80px rgba(0,0,0,0.6)",overflow:"hidden"}}>
+
+      {/* Header */}
+      <div style={{padding:"16px 18px 14px",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"flex-start",gap:12,flexShrink:0}}>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:11,fontWeight:700,color:"var(--gold)",letterSpacing:".6px",marginBottom:4,textTransform:"uppercase",display:"flex",alignItems:"center",gap:5}}>{Ic.star} Subtask Evaluation</div>
+          <div style={{fontSize:14,fontWeight:700,color:"var(--t1)",lineHeight:1.35}}>{subtask.title}</div>
+          {stMember&&<div style={{display:"flex",alignItems:"center",gap:6,marginTop:6}}>
+            <Av member={stMember} photo={profiles[stMember.id]} size={18}/>
+            <span style={{fontSize:11,color:"var(--t3)"}}>{stMember.name}</span>
+            {subtask.completed
+              ?<span style={{fontSize:10,fontWeight:700,color:"#4ade80",background:"rgba(74,222,128,0.12)",border:"1px solid rgba(74,222,128,0.25)",borderRadius:20,padding:"1px 7px"}}>✓ Completed</span>
+              :<span style={{fontSize:10,fontWeight:700,color:"var(--t3)",background:"rgba(255,255,255,0.05)",border:"1px solid var(--border)",borderRadius:20,padding:"1px 7px"}}>Pending</span>
+            }
+          </div>}
+        </div>
+        <button onClick={onClose} style={{background:"none",border:"none",color:"var(--t3)",cursor:"pointer",padding:6,display:"flex",flexShrink:0}}>{Ic.x}</button>
+      </div>
+
+      {/* Comment thread */}
+      <div style={{flex:1,overflowY:"auto",padding:"14px 18px",display:"flex",flexDirection:"column",gap:10}}>
+        {comments.length===0&&<div style={{textAlign:"center",padding:"30px 0",color:"var(--t3)",fontSize:13}}>
+          {isAdmin?"No evaluations yet. Be the first to leave feedback.":"No evaluations yet from admin."}
+        </div>}
+        {comments.map(c=>{
+          const author=TEAM.find(m=>m.id===c.author);
+          const isEval=c.type==="evaluation";
+          const isMine=c.author===userId;
+          const canDel=isMine||(isAdmin&&isEval);
+          return <div key={c.id} style={{display:"flex",gap:9,alignItems:"flex-start"}}>
+            <Av member={author} photo={profiles[c.author]} size={28}/>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4,flexWrap:"wrap"}}>
+                <span style={{fontSize:12,fontWeight:700,color:"var(--t1)"}}>{author?.name||c.author}</span>
+                {isEval
+                  ?<span style={{fontSize:10,fontWeight:700,color:"var(--gold)",background:"rgba(201,169,110,0.14)",border:"1px solid rgba(201,169,110,0.25)",borderRadius:20,padding:"1px 7px",display:"flex",alignItems:"center",gap:3}}>{Ic.star} Evaluation</span>
+                  :<span style={{fontSize:10,fontWeight:700,color:"#60a5fa",background:"rgba(96,165,250,0.12)",border:"1px solid rgba(96,165,250,0.25)",borderRadius:20,padding:"1px 7px"}}>↩ Reply</span>
+                }
+                <span style={{fontSize:10,color:"var(--t3)"}}>{new Date(c.createdAt).toLocaleDateString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</span>
+              </div>
+              <div style={{background:isEval?"rgba(201,169,110,0.06)":"rgba(255,255,255,0.04)",border:`1px solid ${isEval?"rgba(201,169,110,0.18)":"var(--border)"}`,borderRadius:10,padding:"9px 12px",fontSize:13,color:"var(--t1)",lineHeight:1.5,wordBreak:"break-word",whiteSpace:"pre-wrap"}}>
+                {c.text}
+              </div>
+            </div>
+            {canDel&&<button onClick={()=>deleteComment(c.id)} style={{background:"none",border:"none",color:"var(--t3)",cursor:"pointer",padding:4,opacity:0.5,display:"flex",alignItems:"center",flexShrink:0}} title="Remove">{Ic.trash}</button>}
+          </div>;
+        })}
+      </div>
+
+      {/* Input */}
+      {canComment
+        ?<div style={{padding:"12px 18px 16px",borderTop:"1px solid var(--border)",flexShrink:0,display:"flex",flexDirection:"column",gap:8}}>
+          {isAdmin&&<div style={{fontSize:11,color:"var(--gold)",fontWeight:600,display:"flex",alignItems:"center",gap:5}}>{Ic.star} Your message will be marked as an Evaluation</div>}
+          {!isAdmin&&isAssigned&&<div style={{fontSize:11,color:"#60a5fa",fontWeight:600}}>↩ Your message will be marked as a Reply</div>}
+          <div style={{display:"flex",gap:8,alignItems:"flex-end"}}>
+            <textarea value={text} onChange={e=>setText(e.target.value)} placeholder={isAdmin?"Write your evaluation…":"Write your reply…"}
+              onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();submit();}}}
+              rows={2} className="inp" style={{flex:1,resize:"none",lineHeight:1.5,fontSize:13,padding:"9px 12px"}}/>
+            <button className="btn" onClick={submit} disabled={saving||!text.trim()}
+              style={{background:"var(--gold)",color:"var(--sidebar)",border:"none",borderRadius:10,width:40,height:40,display:"flex",alignItems:"center",justifyContent:"center",opacity:saving||!text.trim()?0.4:1,flexShrink:0}}>
+              {Ic.send}
+            </button>
+          </div>
+        </div>
+        :<div style={{padding:"12px 18px 14px",borderTop:"1px solid var(--border)",textAlign:"center",fontSize:12,color:"var(--t3)",flexShrink:0}}>Only admins and the assigned member can comment here.</div>
+      }
+    </div>
+  </div>;
+}
+
 // ── TASK DETAIL ──
 function TaskDetail({task,profiles,userId,isAdmin,onClose,onStatusChange,onDelete,onComment,onEditReq,onSign,onEdit,onAttach,onLinks,onSubtasks}){
 const [cmt,setCmt]=useState("");
@@ -408,6 +509,7 @@ const [note,setNote]=useState("");
 const [showAddSubtask,setShowAddSubtask]=useState(false);
 const [newSubtaskTitle,setNewSubtaskTitle]=useState("");
 const [newSubtaskAssignee,setNewSubtaskAssignee]=useState("");
+const [subtaskCommentsOpen,setSubtaskCommentsOpen]=useState(null);
 const [showReq,setShowReq]=useState(false);
 const [editMode,setEditMode]=useState(false);
 const [ef,setEf]=useState({});
@@ -826,22 +928,30 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",backdr
           {subs.map((st,idx)=>{
             const stMember=TEAM.find(m=>m.id===st.assignedTo);
             const canToggle=isAdmin||st.assignedTo===userId;
+            const cmtCount=(st.comments||[]).length;
+            const hasNew=cmtCount>0;
             return<div key={st.id} style={{display:"flex",alignItems:"center",gap:10,background:"var(--elevated)",border:"1px solid var(--border)",borderRadius:10,padding:"10px 12px",opacity:st.completed?0.6:1,transition:"opacity 0.2s"}}>
               <span style={{fontSize:11,color:"var(--t3)",fontWeight:700,minWidth:16,textAlign:"center"}}>{idx+1}</span>
               {canToggle
-  ?<button onClick={()=>{onSubtasks(subs.map(s=>s.id===st.id?{...s,completed:!s.completed}:s));}}
-    style={{background:st.completed?"var(--gold)":"none",border:`2px solid ${st.completed?"var(--gold)":"var(--border)"}`,borderRadius:6,width:20,height:20,flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"var(--sidebar)",padding:0,transition:"all 0.2s"}}>
-    {st.completed&&<svg width="11" height="11" viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3" stroke="currentColor" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-  </button>
-  :<span title="Only the assigned member can complete this" style={{width:20,height:20,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"var(--t3)",opacity:0.5}}>
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-  </span>
-}
+                ?<button onClick={()=>{onSubtasks(subs.map(s=>s.id===st.id?{...s,completed:!s.completed}:s));}}
+                  style={{background:st.completed?"var(--gold)":"none",border:`2px solid ${st.completed?"var(--gold)":"var(--border)"}`,borderRadius:6,width:20,height:20,flexShrink:0,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"var(--sidebar)",padding:0,transition:"all 0.2s"}}>
+                  {st.completed&&<svg width="11" height="11" viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3" stroke="currentColor" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                </button>
+                :<span title="Only the assigned member can complete this" style={{width:20,height:20,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"var(--t3)",opacity:0.5}}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </span>
+              }
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:13,fontWeight:600,color:"var(--t1)",textDecoration:st.completed?"line-through":"none"}}>{st.title}</div>
                 {stMember&&<div style={{display:"flex",alignItems:"center",gap:5,marginTop:3}}><Av member={stMember} photo={profiles[stMember.id]} size={14}/><span style={{fontSize:11,color:"var(--t3)"}}>{stMember.name.split(" ")[0]}</span></div>}
                 {!stMember&&<div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>Unassigned</div>}
               </div>
+              {/* Evaluation comments button */}
+              <button onClick={()=>setSubtaskCommentsOpen(st.id)} title="Evaluation comments"
+                style={{position:"relative",background:hasNew?"rgba(201,169,110,0.12)":"none",border:`1px solid ${hasNew?"rgba(201,169,110,0.3)":"var(--border)"}`,color:hasNew?"var(--gold)":"var(--t3)",cursor:"pointer",padding:"5px 7px",display:"flex",alignItems:"center",gap:4,borderRadius:8,minHeight:30,minWidth:30,flexShrink:0,fontSize:11,fontWeight:700,transition:"all 0.15s"}}>
+                {Ic.msgSm}
+                {cmtCount>0&&<span style={{fontSize:10,fontWeight:700}}>{cmtCount}</span>}
+              </button>
               {isAdmin&&<button onClick={()=>{if(window.confirm("Remove this subtask?"))onSubtasks(subs.filter(s=>s.id!==st.id));}}
                 style={{background:"none",border:"none",color:"var(--t3)",cursor:"pointer",padding:6,display:"flex",alignItems:"center",justifyContent:"center",minHeight:32,minWidth:32}}>{Ic.x}</button>}
             </div>;})}
@@ -849,7 +959,7 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",backdr
         {isAdmin&&(showAddSubtask
           ?<div style={{display:"flex",flexDirection:"column",gap:8,background:"rgba(201,169,110,0.04)",border:"1px solid rgba(201,169,110,0.2)",borderRadius:12,padding:12}}>
             <input placeholder="Subtask title…" value={newSubtaskTitle} onChange={ev=>setNewSubtaskTitle(ev.target.value)} className="inp" autoFocus
-              onKeyDown={ev=>{if(ev.key==="Enter"){ev.preventDefault();if(!newSubtaskTitle.trim())return;onSubtasks([...subs,{id:Date.now().toString(36)+Math.random().toString(36).slice(2),title:newSubtaskTitle.trim(),completed:false,assignedTo:newSubtaskAssignee||null,order:subs.length,createdBy:userId,createdAt:new Date().toISOString()}]);setNewSubtaskTitle("");setNewSubtaskAssignee("");setShowAddSubtask(false);}}}/>
+              onKeyDown={ev=>{if(ev.key==="Enter"){ev.preventDefault();if(!newSubtaskTitle.trim())return;onSubtasks([...subs,{id:Date.now().toString(36)+Math.random().toString(36).slice(2),title:newSubtaskTitle.trim(),completed:false,assignedTo:newSubtaskAssignee||null,order:subs.length,createdBy:userId,createdAt:new Date().toISOString(),comments:[]}]);setNewSubtaskTitle("");setNewSubtaskAssignee("");setShowAddSubtask(false);}}}/>
             <select value={newSubtaskAssignee} onChange={ev=>setNewSubtaskAssignee(ev.target.value)} className="inp" style={{padding:"9px 12px",fontSize:13}}>
               <option value="">Assign to… (optional)</option>
               {TEAM.map(m=><option key={m.id} value={m.id}>{m.name} — {m.title}</option>)}
@@ -858,7 +968,7 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",backdr
               <button className="btn" style={{...btnPrimary,padding:"10px 16px",fontSize:13,flex:1}}
                 onClick={()=>{
                   if(!newSubtaskTitle.trim())return alert("Enter a subtask title");
-                  onSubtasks([...subs,{id:Date.now().toString(36)+Math.random().toString(36).slice(2),title:newSubtaskTitle.trim(),completed:false,assignedTo:newSubtaskAssignee||null,order:subs.length,createdBy:userId,createdAt:new Date().toISOString()}]);
+                  onSubtasks([...subs,{id:Date.now().toString(36)+Math.random().toString(36).slice(2),title:newSubtaskTitle.trim(),completed:false,assignedTo:newSubtaskAssignee||null,order:subs.length,createdBy:userId,createdAt:new Date().toISOString(),comments:[]}]);
                   setNewSubtaskTitle("");setNewSubtaskAssignee("");setShowAddSubtask(false);
                 }}>Add Subtask</button>
               <button className="btn" style={{...btnSec,padding:"10px 14px",fontSize:13}}
@@ -868,6 +978,9 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",backdr
           :<button className="btn" style={{...btnSec,padding:"10px 16px",fontSize:13,display:"flex",alignItems:"center",gap:6,alignSelf:"flex-start"}} onClick={()=>setShowAddSubtask(true)}>{Ic.plus} Add Subtask</button>
         )}
       </FS>;})()}
+
+      {/* Subtask comments popup */}
+      {subtaskCommentsOpen&&(()=>{const st=(task.subtasks||[]).find(s=>s.id===subtaskCommentsOpen);return st?<SubtaskCommentsPopup subtask={st} task={task} userId={userId} isAdmin={isAdmin} profiles={profiles} onClose={()=>setSubtaskCommentsOpen(null)} onSubtasksUpdate={onSubtasks}/>:null;})()}
 
       {/* ── COMMENTS ── */}
       <FS label={`Comments (${task.comments?.length||0})`}>
@@ -1631,7 +1744,6 @@ if("attachments"in upd)row.attachments=upd.attachments;
 if("links"in upd)row.links=upd.links;
 if("instructions"in upd)row.instructions=upd.instructions;
 if("pinned"in upd)row.pinned=upd.pinned;
-if("subtasks" in upd) row.subtasks = upd.subtasks;
 await sb.from("tasks").update(row).eq("id",id);
 refreshTasks();
 const task=tasks.find(t=>t.id===id);
