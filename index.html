@@ -1606,7 +1606,7 @@ return()=>{sb.removeChannel(ch1);sb.removeChannel(ch2);sb.removeChannel(ch3)};
 },[userId]);
 async function refreshTasks(){const{data}=await sb.from("tasks").select("*, comments(*), edit_requests(*)").order("created_at",{ascending:false});if(data){setTasks(data);setSelected(s=>s?data.find(t=>t.id===s.id)||s:null)}}
 async function addTask(form){
-const {data}=await sb.from("tasks").insert([{title:form.title,description:form.description,priority:form.priority,assigned_to:form.assignedTo,created_by:userId,deadline:form.deadline||null,status:"To Do",signed_by:[],attachments:[],links:[],instructions:{text:"",voices:[]}}]).select().single();
+const {data}=await sb.from("tasks").insert([{title:form.title,description:form.description,priority:form.priority,assigned_to:form.assignedTo,created_by:userId,deadline:form.deadline||null,status:"To Do",signed_by:[],attachments:[],links:[],subtasks:[],instructions:{text:"",voices:[]}}]).select().single();
 refreshTasks();
 const assignees=(Array.isArray(form.assignedTo)?form.assignedTo:[form.assignedTo]).filter(id=>id!==userId);
 if(assignees.length>0)sendPush(assignees,"New Task Assigned",`${TEAM.find(m=>m.id===userId)?.name} assigned you: "${form.title}"`,data?.id);
@@ -1624,6 +1624,7 @@ if("assigned_to"in upd)row.assigned_to=upd.assigned_to;
 if("deadline"in upd)row.deadline=upd.deadline||null;
 if("attachments"in upd)row.attachments=upd.attachments;
 if("links"in upd)row.links=upd.links;
+if("subtasks"in upd)row.subtasks=upd.subtasks;
 if("instructions"in upd)row.instructions=upd.instructions;
 if("pinned"in upd)row.pinned=upd.pinned;
 await sb.from("tasks").update(row).eq("id",id);
