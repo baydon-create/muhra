@@ -1626,6 +1626,7 @@ if("attachments"in upd)row.attachments=upd.attachments;
 if("links"in upd)row.links=upd.links;
 if("instructions"in upd)row.instructions=upd.instructions;
 if("pinned"in upd)row.pinned=upd.pinned;
+if("subtasks" in upd) row.subtasks = upd.subtasks;
 await sb.from("tasks").update(row).eq("id",id);
 refreshTasks();
 const task=tasks.find(t=>t.id===id);
