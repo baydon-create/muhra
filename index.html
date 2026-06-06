@@ -404,7 +404,7 @@ style={{background:"none",border:"none",color:task.pinned?"var(--gold)":"var(--t
 }
 
 // ── SUBTASK COMMENTS POPUP ──
-function SubtaskCommentsPopup({subtask,task,userId,isAdmin,profiles,onClose,onSubtasksUpdate}){
+function SubtaskCommentsPopup({subtask,allSubs,task,userId,isAdmin,profiles,onClose,onSubtasksUpdate}){
   const [text,setText]=useState("");
   const [saving,setSaving]=useState(false);
   const assignedIds=(Array.isArray(task.assigned_to)?task.assigned_to:[task.assigned_to]).filter(Boolean);
@@ -417,16 +417,16 @@ function SubtaskCommentsPopup({subtask,task,userId,isAdmin,profiles,onClose,onSu
     if(!text.trim())return;
     setSaving(true);
     const entry={id:Date.now().toString(36)+Math.random().toString(36).slice(2),author:userId,type:msgType,text:text.trim(),createdAt:new Date().toISOString()};
-    const allSubs=(task.subtasks||[]).map(s=>s.id===subtask.id?{...s,comments:[...(s.comments||[]),entry]}:s);
-    await onSubtasksUpdate(allSubs);
+    const updatedSubs=allSubs.map(s=>s.id===subtask.id?{...s,comments:[...(s.comments||[]),entry]}:s);
+    await onSubtasksUpdate(updatedSubs);
     setText("");
     setSaving(false);
   }
 
   async function deleteComment(cid){
     if(!window.confirm("Remove this comment?"))return;
-    const allSubs=(task.subtasks||[]).map(s=>s.id===subtask.id?{...s,comments:(s.comments||[]).filter(c=>c.id!==cid)}:s);
-    await onSubtasksUpdate(allSubs);
+    const updatedSubs=allSubs.map(s=>s.id===subtask.id?{...s,comments:(s.comments||[]).filter(c=>c.id!==cid)}:s);
+    await onSubtasksUpdate(updatedSubs);
   }
 
   const stMember=TEAM.find(m=>m.id===subtask.assignedTo);
@@ -980,7 +980,7 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",backdr
       </FS>;})()}
 
       {/* Subtask comments popup */}
-      {subtaskCommentsOpen&&(()=>{const st=(task.subtasks||[]).find(s=>s.id===subtaskCommentsOpen);return st?<SubtaskCommentsPopup subtask={st} task={task} userId={userId} isAdmin={isAdmin} profiles={profiles} onClose={()=>setSubtaskCommentsOpen(null)} onSubtasksUpdate={onSubtasks}/>:null;})()}
+      {subtaskCommentsOpen&&(()=>{const liveSubs=task.subtasks||[];const st=liveSubs.find(s=>s.id===subtaskCommentsOpen);return st?<SubtaskCommentsPopup subtask={st} allSubs={liveSubs} task={task} userId={userId} isAdmin={isAdmin} profiles={profiles} onClose={()=>setSubtaskCommentsOpen(null)} onSubtasksUpdate={onSubtasks}/>:null;})()}
 
       {/* ── COMMENTS ── */}
       <FS label={`Comments (${task.comments?.length||0})`}>
@@ -1744,6 +1744,7 @@ if("attachments"in upd)row.attachments=upd.attachments;
 if("links"in upd)row.links=upd.links;
 if("instructions"in upd)row.instructions=upd.instructions;
 if("pinned"in upd)row.pinned=upd.pinned;
+if("subtasks"in upd)row.subtasks=upd.subtasks;
 await sb.from("tasks").update(row).eq("id",id);
 refreshTasks();
 const task=tasks.find(t=>t.id===id);
