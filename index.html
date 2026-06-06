@@ -408,6 +408,8 @@ const [note,setNote]=useState("");
 const [showAddSubtask,setShowAddSubtask]=useState(false);
 const [newSubtaskTitle,setNewSubtaskTitle]=useState("");
 const [newSubtaskAssignee,setNewSubtaskAssignee]=useState("");
+const [localSubtasks,setLocalSubtasks]=useState(task.subtasks||[]);
+useEffect(()=>{setLocalSubtasks(task.subtasks||[]);},[task.id,task.subtasks]);
 const [showReq,setShowReq]=useState(false);
 const [editMode,setEditMode]=useState(false);
 const [ef,setEf]=useState({});
@@ -815,54 +817,58 @@ return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",backdr
       </FS>
 
       {/* ── SUBTASKS ── */}
-      {(()=>{const subs=task.subtasks||[];const done=subs.filter(s=>s.completed).length;const pct=subs.length?Math.round((done/subs.length)*100):0;return<FS label={`Subtasks (${done}/${subs.length})`}>
-        {subs.length>0&&<div style={{marginBottom:10}}>
-          <div style={{background:"rgba(255,255,255,0.07)",borderRadius:99,height:6,overflow:"hidden"}}>
-            <div style={{background:"var(--gold)",borderRadius:99,height:"100%",width:`${pct}%`,transition:"width 0.35s"}}/>
-          </div>
-          <div style={{fontSize:11,color:"var(--t3)",marginTop:4,textAlign:"right"}}>{pct}% complete</div>
-        </div>}
-        {subs.length>0&&<div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:10}}>
-          {subs.map((st,idx)=>{
-            const stMember=TEAM.find(m=>m.id===st.assignedTo);
-            const canToggle=isAdmin||st.assignedTo===userId;
-            return<div key={st.id} style={{display:"flex",alignItems:"center",gap:10,background:"var(--elevated)",border:"1px solid var(--border)",borderRadius:10,padding:"10px 12px",opacity:st.completed?0.6:1,transition:"opacity 0.2s"}}>
-              <span style={{fontSize:11,color:"var(--t3)",fontWeight:700,minWidth:16,textAlign:"center"}}>{idx+1}</span>
-              <button onClick={()=>{if(!canToggle)return;onSubtasks(subs.map(s=>s.id===st.id?{...s,completed:!s.completed}:s));}}
-                style={{background:st.completed?"var(--gold)":"none",border:`2px solid ${st.completed?"var(--gold)":"var(--border)"}`,borderRadius:6,width:20,height:20,flexShrink:0,cursor:canToggle?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",color:"var(--sidebar)",padding:0,transition:"all 0.2s"}}>
-                {st.completed&&<svg width="11" height="11" viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3" stroke="currentColor" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-              </button>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:13,fontWeight:600,color:"var(--t1)",textDecoration:st.completed?"line-through":"none"}}>{st.title}</div>
-                {stMember&&<div style={{display:"flex",alignItems:"center",gap:5,marginTop:3}}><Av member={stMember} photo={profiles[stMember.id]} size={14}/><span style={{fontSize:11,color:"var(--t3)"}}>{stMember.name.split(" ")[0]}</span></div>}
-                {!stMember&&<div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>Unassigned</div>}
-              </div>
-              {isAdmin&&<button onClick={()=>{if(window.confirm("Remove this subtask?"))onSubtasks(subs.filter(s=>s.id!==st.id));}}
-                style={{background:"none",border:"none",color:"var(--t3)",cursor:"pointer",padding:6,display:"flex",alignItems:"center",justifyContent:"center",minHeight:32,minWidth:32}}>{Ic.x}</button>}
-            </div>;})}
-        </div>}
-        {isAdmin&&(showAddSubtask
-          ?<div style={{display:"flex",flexDirection:"column",gap:8,background:"rgba(201,169,110,0.04)",border:"1px solid rgba(201,169,110,0.2)",borderRadius:12,padding:12}}>
-            <input placeholder="Subtask title…" value={newSubtaskTitle} onChange={ev=>setNewSubtaskTitle(ev.target.value)} className="inp" autoFocus
-              onKeyDown={ev=>{if(ev.key==="Enter"){ev.preventDefault();if(!newSubtaskTitle.trim())return;onSubtasks([...subs,{id:Date.now().toString(36)+Math.random().toString(36).slice(2),title:newSubtaskTitle.trim(),completed:false,assignedTo:newSubtaskAssignee||null,order:subs.length,createdBy:userId,createdAt:new Date().toISOString()}]);setNewSubtaskTitle("");setNewSubtaskAssignee("");setShowAddSubtask(false);}}}/>
-            <select value={newSubtaskAssignee} onChange={ev=>setNewSubtaskAssignee(ev.target.value)} className="inp" style={{padding:"9px 12px",fontSize:13}}>
-              <option value="">Assign to… (optional)</option>
-              {TEAM.map(m=><option key={m.id} value={m.id}>{m.name} — {m.title}</option>)}
-            </select>
-            <div style={{display:"flex",gap:8}}>
-              <button className="btn" style={{...btnPrimary,padding:"10px 16px",fontSize:13,flex:1}}
-                onClick={()=>{
-                  if(!newSubtaskTitle.trim())return alert("Enter a subtask title");
-                  onSubtasks([...subs,{id:Date.now().toString(36)+Math.random().toString(36).slice(2),title:newSubtaskTitle.trim(),completed:false,assignedTo:newSubtaskAssignee||null,order:subs.length,createdBy:userId,createdAt:new Date().toISOString()}]);
-                  setNewSubtaskTitle("");setNewSubtaskAssignee("");setShowAddSubtask(false);
-                }}>Add Subtask</button>
-              <button className="btn" style={{...btnSec,padding:"10px 14px",fontSize:13}}
-                onClick={()=>{setShowAddSubtask(false);setNewSubtaskTitle("");setNewSubtaskAssignee("");}}>Cancel</button>
+      {(()=>{
+        const done=localSubtasks.filter(s=>s.completed).length;
+        const pct=localSubtasks.length?Math.round((done/localSubtasks.length)*100):0;
+        function saveSubtasks(updated){setLocalSubtasks(updated);onSubtasks(updated);}
+        return<FS label={`Subtasks (${done}/${localSubtasks.length})`}>
+          {localSubtasks.length>0&&<div style={{marginBottom:10}}>
+            <div style={{background:"rgba(255,255,255,0.07)",borderRadius:99,height:6,overflow:"hidden"}}>
+              <div style={{background:"var(--gold)",borderRadius:99,height:"100%",width:`${pct}%`,transition:"width 0.35s"}}/>
             </div>
-          </div>
-          :<button className="btn" style={{...btnSec,padding:"10px 16px",fontSize:13,display:"flex",alignItems:"center",gap:6,alignSelf:"flex-start"}} onClick={()=>setShowAddSubtask(true)}>{Ic.plus} Add Subtask</button>
-        )}
-      </FS>;})()}
+            <div style={{fontSize:11,color:"var(--t3)",marginTop:4,textAlign:"right"}}>{pct}% complete</div>
+          </div>}
+          {localSubtasks.length>0&&<div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:10}}>
+            {localSubtasks.map((st,idx)=>{
+              const stMember=TEAM.find(m=>m.id===st.assignedTo);
+              const canToggle=isAdmin||st.assignedTo===userId;
+              return<div key={st.id} style={{display:"flex",alignItems:"center",gap:10,background:"var(--elevated)",border:"1px solid var(--border)",borderRadius:10,padding:"10px 12px",opacity:st.completed?0.6:1,transition:"opacity 0.2s"}}>
+                <span style={{fontSize:11,color:"var(--t3)",fontWeight:700,minWidth:16,textAlign:"center"}}>{idx+1}</span>
+                <button onClick={()=>{if(!canToggle)return;saveSubtasks(localSubtasks.map(s=>s.id===st.id?{...s,completed:!s.completed}:s));}}
+                  style={{background:st.completed?"var(--gold)":"none",border:`2px solid ${st.completed?"var(--gold)":"var(--border)"}`,borderRadius:6,width:20,height:20,flexShrink:0,cursor:canToggle?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",color:"var(--sidebar)",padding:0,transition:"all 0.2s"}}>
+                  {st.completed&&<svg width="11" height="11" viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3" stroke="currentColor" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                </button>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:13,fontWeight:600,color:"var(--t1)",textDecoration:st.completed?"line-through":"none"}}>{st.title}</div>
+                  {stMember&&<div style={{display:"flex",alignItems:"center",gap:5,marginTop:3}}><Av member={stMember} photo={profiles[stMember.id]} size={14}/><span style={{fontSize:11,color:"var(--t3)"}}>{stMember.name.split(" ")[0]}</span></div>}
+                  {!stMember&&<div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>Unassigned</div>}
+                </div>
+                {isAdmin&&<button onClick={()=>{if(window.confirm("Remove this subtask?"))saveSubtasks(localSubtasks.filter(s=>s.id!==st.id));}}
+                  style={{background:"none",border:"none",color:"var(--t3)",cursor:"pointer",padding:6,display:"flex",alignItems:"center",justifyContent:"center",minHeight:32,minWidth:32}}>{Ic.x}</button>}
+              </div>;})}
+          </div>}
+          {isAdmin&&(showAddSubtask
+            ?<div style={{display:"flex",flexDirection:"column",gap:8,background:"rgba(201,169,110,0.04)",border:"1px solid rgba(201,169,110,0.2)",borderRadius:12,padding:12}}>
+              <input placeholder="Subtask title…" value={newSubtaskTitle} onChange={ev=>setNewSubtaskTitle(ev.target.value)} className="inp" autoFocus
+                onKeyDown={ev=>{if(ev.key==="Enter"){ev.preventDefault();if(!newSubtaskTitle.trim())return;saveSubtasks([...localSubtasks,{id:Date.now().toString(36)+Math.random().toString(36).slice(2),title:newSubtaskTitle.trim(),completed:false,assignedTo:newSubtaskAssignee||null,order:localSubtasks.length,createdBy:userId,createdAt:new Date().toISOString()}]);setNewSubtaskTitle("");setNewSubtaskAssignee("");setShowAddSubtask(false);}}}/>
+              <select value={newSubtaskAssignee} onChange={ev=>setNewSubtaskAssignee(ev.target.value)} className="inp" style={{padding:"9px 12px",fontSize:13}}>
+                <option value="">Assign to… (optional)</option>
+                {TEAM.map(m=><option key={m.id} value={m.id}>{m.name} — {m.title}</option>)}
+              </select>
+              <div style={{display:"flex",gap:8}}>
+                <button className="btn" style={{...btnPrimary,padding:"10px 16px",fontSize:13,flex:1}}
+                  onClick={()=>{
+                    if(!newSubtaskTitle.trim())return alert("Enter a subtask title");
+                    saveSubtasks([...localSubtasks,{id:Date.now().toString(36)+Math.random().toString(36).slice(2),title:newSubtaskTitle.trim(),completed:false,assignedTo:newSubtaskAssignee||null,order:localSubtasks.length,createdBy:userId,createdAt:new Date().toISOString()}]);
+                    setNewSubtaskTitle("");setNewSubtaskAssignee("");setShowAddSubtask(false);
+                  }}>Add Subtask</button>
+                <button className="btn" style={{...btnSec,padding:"10px 14px",fontSize:13}}
+                  onClick={()=>{setShowAddSubtask(false);setNewSubtaskTitle("");setNewSubtaskAssignee("");}}>Cancel</button>
+              </div>
+            </div>
+            :<button className="btn" style={{...btnSec,padding:"10px 16px",fontSize:13,display:"flex",alignItems:"center",gap:6,alignSelf:"flex-start"}} onClick={()=>setShowAddSubtask(true)}>{Ic.plus} Add Subtask</button>
+          )}
+        </FS>;})()}
 
       {/* ── COMMENTS ── */}
       <FS label={`Comments (${task.comments?.length||0})`}>
