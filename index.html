@@ -188,14 +188,27 @@ const { createClient } = supabase;const sb = createClient(
 "https://ltwzmjqrlvqbndmipufm.supabase.co",
 "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0d3ptanFybHZxYm5kbWlwdWZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMDA3NTEsImV4cCI6MjA5MjY3Njc1MX0.pvp5NFr2tOTw_MJHIxHO9kK7cQ75QjL5N8AcewXIVOM"
 );
-const TEAM = [
+// TEAM is loaded dynamically from Supabase team_members table.
+// The seed below is used ONLY on first-ever boot to populate the table.
+const TEAM_SEED = [
 {id:"mohamed",name:"Mohamed Baydon",title:"E-commerce Manager",role:"admin", pin:"8765",color:"#1a1a2e",initials:"MB"},
 {id:"maha",   name:"Dr. Maha Adel", title:"Brand Owner",       role:"admin", pin:"6646",color:"#5c3d2e",initials:"MA"},
 {id:"bassant",name:"Bassant",        title:"Co-ordinator",      role:"admin", pin:"9876",color:"#2d4a3e",initials:"BA"},
 {id:"asmaa",  name:"Asmaa",          title:"Shopify Admin",     role:"member",pin:"4456",color:"#3d3566",initials:"AS"},
 {id:"moussa", name:"Moussa",         title:"Content Creator",   role:"member",pin:"8845",color:"#7c4a1e",initials:"MO"},
 ];
-const PRIO=["Low","Medium","High","Urgent"];
+// Module-level mutable array — gets populated from Supabase before any render
+let TEAM = [...TEAM_SEED];
+// Helper to generate initials from a name
+function makeInitials(name){return name.split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2);}
+// Generate a random 4-digit PIN string
+function genPin(){return String(Math.floor(1000+Math.random()*9000));}
+// Palette pool for new members
+const COLOR_POOL=["#1a1a2e","#5c3d2e","#2d4a3e","#3d3566","#7c4a1e","#1e3a5f","#3d2e40","#1a3a2e","#4a2e1a","#2e3a4a"];
+const DELETED_MEMBER={id:"deleted_member",name:"Deleted Member",title:"Former Team Member",role:"member",pin:"XXXX",color:"#9a8070",initials:"✕"};
+// Wrap TEAM.find to handle deleted_member gracefully
+function teamFind(predicate){return TEAM.find(predicate)||null;}
+function teamFindById(id){if(id==="deleted_member")return DELETED_MEMBER;return TEAM.find(m=>m.id===id)||null;}
 const STAT=["To Do","In Progress","Review","Done"];
 const PM={Low:{bg:"rgba(34,197,94,.1)",text:"#1a7a40",dot:"#2d9e55",border:"rgba(45,158,85,.3)"},Medium:{bg:"rgba(201,169,110,.13)",text:"#8a6820",dot:"#c9a96e",border:"rgba(201,169,110,.4)"},High:{bg:"rgba(234,88,12,.1)",text:"#b94d0a",dot:"#ea580c",border:"rgba(234,88,12,.3)"},Urgent:{bg:"rgba(184,50,50,.1)",text:"#b83232",dot:"#dc2626",border:"rgba(220,38,38,.3)"}};
 const SM={"To Do":{bg:"rgba(107,80,64,.09)",text:"#6b5040",border:"rgba(107,80,64,.25)"},"In Progress":{bg:"rgba(37,99,235,.09)",text:"#1d4ed8",border:"rgba(37,99,235,.25)"},Review:{bg:"rgba(124,58,237,.09)",text:"#6d28d9",border:"rgba(124,58,237,.25)"},Done:{bg:"rgba(22,163,74,.1)",text:"#15803d",border:"rgba(22,163,74,.3)"}};
@@ -221,7 +234,7 @@ body:JSON.stringify({external_ids:cleanIds,title,body,taskId})
 console.log("Push sent to:",toUserIds,"title:",title);
 }catch(e){console.log("Push failed:",e);}
 }
-function othersExcept(userId){ return ["mohamed","maha","bassant","asmaa","moussa"].filter(id=>id!==userId); }
+function othersExcept(userId){ return TEAM.map(m=>m.id).filter(id=>id!==userId); }
 function getAssignees(task){ return (Array.isArray(task.assigned_to)?task.assigned_to:[task.assigned_to]).filter(Boolean); }
 const isArabic=str=>/[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]/.test(str);
 const arabicStyle={fontFamily:"'Alexandria',sans-serif",direction:"rtl",textAlign:"right",unicodeBidi:"embed"};
@@ -1348,10 +1361,214 @@ return <div key={m.id} style={{display:"flex",flexDirection:me?"row-reverse":"ro
 
   </div>;
 }// ── PROFILE MANAGER ──
-function ProfileManager({profiles,onUpdate}){
+// ── TEAM MANAGER (Mohamed-only) ──
+function TeamManager({onTeamChange}){
+const [open,setOpen]=useState(false);
+const [members,setMembers]=useState([...TEAM]);
+const [adding,setAdding]=useState(false);
+const [saving,setSaving]=useState(false);
+const [deleting,setDeleting]=useState(null);
+const [form,setForm]=useState({name:"",title:"",role:"member",pin:""});
+const [generatedPin,setGeneratedPin]=useState("");
+const [editingId,setEditingId]=useState(null);
+const [editForm,setEditForm]=useState({});
+
+async function loadMembers(){
+  const{data}=await sb.from("team_members").select("*").order("created_at");
+  if(data&&data.length>0){
+    TEAM.length=0;
+    data.forEach(m=>TEAM.push(m));
+    setMembers([...TEAM]);
+  }
+}
+
+useEffect(()=>{if(open)loadMembers();},[open]);
+
+function autoPin(){const p=genPin();setGeneratedPin(p);setForm(f=>({...f,pin:p}));}
+
+async function addMember(){
+  if(!form.name.trim()||!form.pin.trim()){alert("Name and PIN are required.");return;}
+  if(form.pin.length!==4||!/^\d{4}$/.test(form.pin)){alert("PIN must be exactly 4 digits.");return;}
+  if(TEAM.some(m=>m.pin===form.pin)){alert("This PIN is already taken. Generate a new one.");return;}
+  setSaving(true);
+  const id=form.name.trim().toLowerCase().replace(/\s+/g,"_").replace(/[^a-z0-9_]/g,"")+"_"+Date.now().toString(36);
+  const color=COLOR_POOL[TEAM.length%COLOR_POOL.length];
+  const newMember={id,name:form.name.trim(),title:form.title.trim()||"Team Member",role:form.role,pin:form.pin,color,initials:makeInitials(form.name.trim()),created_at:new Date().toISOString()};
+  const{error}=await sb.from("team_members").insert([newMember]);
+  if(error){alert("Failed to add member: "+error.message);setSaving(false);return;}
+  TEAM.push(newMember);
+  setMembers([...TEAM]);
+  setForm({name:"",title:"",role:"member",pin:""});
+  setGeneratedPin("");
+  setAdding(false);
+  setSaving(false);
+  onTeamChange?.();
+}
+
+async function saveMemberEdit(id){
+  if(!editForm.name?.trim()||!editForm.pin?.trim()){alert("Name and PIN are required.");return;}
+  if(editForm.pin.length!==4||!/^\d{4}$/.test(editForm.pin)){alert("PIN must be exactly 4 digits.");return;}
+  if(TEAM.some(m=>m.pin===editForm.pin&&m.id!==id)){alert("This PIN is already taken.");return;}
+  setSaving(true);
+  const updates={name:editForm.name.trim(),title:editForm.title?.trim()||"Team Member",role:editForm.role||"member",pin:editForm.pin};
+  const{error}=await sb.from("team_members").update(updates).eq("id",id);
+  if(error){alert("Failed to update: "+error.message);setSaving(false);return;}
+  const idx=TEAM.findIndex(m=>m.id===id);
+  if(idx>=0)Object.assign(TEAM[idx],{...updates,initials:makeInitials(updates.name)});
+  setMembers([...TEAM]);
+  setEditingId(null);
+  setSaving(false);
+  onTeamChange?.();
+}
+
+async function deleteMember(member){
+  if(member.id==="mohamed"){alert("You cannot remove yourself.");return;}
+  const confirmed=window.confirm(
+    `Remove "${member.name}" from the team?\n\nAll their tasks, comments, and reactions will show as "deleted member". This cannot be undone.`
+  );
+  if(!confirmed)return;
+  setDeleting(member.id);
+  try{
+    // 1. Remove from team_members table
+    await sb.from("team_members").delete().eq("id",member.id);
+    // 2. Tasks: remove from assigned_to arrays, replace created_by
+    const{data:allTasks}=await sb.from("tasks").select("id,assigned_to,created_by,signed_by,subtasks");
+    for(const task of(allTasks||[])){
+      const upd={};
+      if(Array.isArray(task.assigned_to)&&task.assigned_to.includes(member.id))
+        upd.assigned_to=task.assigned_to.map(id=>id===member.id?"deleted_member":id);
+      else if(task.assigned_to===member.id)
+        upd.assigned_to="deleted_member";
+      if(task.created_by===member.id) upd.created_by="deleted_member";
+      if(Array.isArray(task.signed_by)&&task.signed_by.includes(member.id))
+        upd.signed_by=task.signed_by.map(id=>id===member.id?"deleted_member":id);
+      if(Array.isArray(task.subtasks)&&task.subtasks.length>0){
+        const updSubs=task.subtasks.map(s=>{
+          const sc={...s};
+          if(s.assignedTo===member.id)sc.assignedTo="deleted_member";
+          if(Array.isArray(s.comments))sc.comments=s.comments.map(c=>c.author===member.id?{...c,author:"deleted_member"}:c);
+          return sc;
+        });
+        upd.subtasks=updSubs;
+      }
+      if(Object.keys(upd).length>0) await sb.from("tasks").update(upd).eq("id",task.id);
+    }
+    // 3. Comments: replace author
+    await sb.from("comments").update({author:"deleted_member"}).eq("author",member.id);
+    // 4. Edit requests: replace author
+    await sb.from("edit_requests").update({author:"deleted_member"}).eq("author",member.id);
+    // 5. Chat: replace author
+    await sb.from("chat").update({author:"deleted_member"}).eq("author",member.id);
+    // 6. Brief comments
+    await sb.from("brief_comments").update({author:"deleted_member"}).eq("author",member.id);
+    // 7. Maha briefs assignees
+    const{data:briefs}=await sb.from("maha_briefs").select("id,assignees,created_by");
+    for(const b of(briefs||[])){
+      const upd={};
+      if(Array.isArray(b.assignees)&&b.assignees.includes(member.id))
+        upd.assignees=b.assignees.map(id=>id===member.id?"deleted_member":id);
+      if(b.created_by===member.id) upd.created_by="deleted_member";
+      if(Object.keys(upd).length>0) await sb.from("maha_briefs").update(upd).eq("id",b.id);
+    }
+    // 8. Remove push token
+    await sb.from("push_tokens").delete().eq("user_id",member.id);
+    // 9. Remove profile photo
+    await sb.from("profiles").delete().eq("user_id",member.id);
+    // 10. Update local TEAM array
+    const idx=TEAM.findIndex(m=>m.id===member.id);
+    if(idx>=0)TEAM.splice(idx,1);
+    setMembers([...TEAM]);
+    onTeamChange?.();
+    alert(`"${member.name}" has been removed. All their data now shows as "deleted member".`);
+  }catch(e){alert("Error during deletion: "+e.message);}
+  setDeleting(null);
+}
+
+const iBtn={background:"none",border:"none",cursor:"pointer",padding:"5px 8px",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center"};
+
+return <div style={{margin:"16px 0"}}>
+  <button className="btn" style={{background:"rgba(184,50,50,0.07)",color:"#b83232",border:"1px solid rgba(248,113,113,0.22)",borderRadius:12,padding:"10px 16px",fontSize:14,fontWeight:600,display:"flex",alignItems:"center",gap:8,minHeight:44,width:"100%"}} onClick={()=>setOpen(!open)}>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    {open?"Hide Team Manager":"Manage Team Members"}
+  </button>
+
+  {open&&<div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:16,padding:16,marginTop:10}}>
+    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+      <div className="lbl">TEAM MEMBERS</div>
+      <button className="btn" onClick={()=>{setAdding(!adding);setGeneratedPin("");setForm({name:"",title:"",role:"member",pin:""});}}
+        style={{background:"var(--gold)",color:"#3d2e23",border:"none",borderRadius:10,padding:"6px 12px",fontSize:12,fontWeight:700,display:"flex",alignItems:"center",gap:5,minHeight:32}}>
+        {adding?<>{Ic.x} Cancel</>:<>{Ic.plus} Add Member</>}
+      </button>
+    </div>
+
+    {/* ADD FORM */}
+    {adding&&<div style={{background:"var(--elevated)",border:"1px solid var(--border)",borderRadius:12,padding:14,marginBottom:14,display:"flex",flexDirection:"column",gap:10}}>
+      <div className="lbl" style={{marginBottom:2}}>NEW MEMBER</div>
+      <input className="inp" placeholder="Full Name *" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} style={{fontSize:13}}/>
+      <input className="inp" placeholder="Job Title (e.g. Graphic Designer)" value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} style={{fontSize:13}}/>
+      <select className="inp" value={form.role} onChange={e=>setForm(f=>({...f,role:e.target.value}))} style={{fontSize:13}}>
+        <option value="member">Member</option>
+        <option value="admin">Admin</option>
+      </select>
+      <div style={{display:"flex",gap:8,alignItems:"center"}}>
+        <input className="inp" placeholder="4-digit PIN *" maxLength={4} value={form.pin} onChange={e=>setForm(f=>({...f,pin:e.target.value.replace(/\D/g,"").slice(0,4)}))} style={{fontSize:15,fontWeight:700,letterSpacing:4,flex:1}}/>
+        <button className="btn" onClick={autoPin} style={{background:"var(--elevated)",border:"1px solid var(--border)",borderRadius:10,padding:"10px 12px",fontSize:12,fontWeight:600,whiteSpace:"nowrap",minHeight:42}}>Generate</button>
+      </div>
+      {generatedPin&&<div style={{fontSize:11,color:"var(--t3)",background:"rgba(201,169,110,0.1)",border:"1px solid rgba(201,169,110,0.25)",borderRadius:8,padding:"6px 10px"}}>Generated PIN: <strong style={{color:"var(--gold)",letterSpacing:2}}>{generatedPin}</strong> — save this for the new member.</div>}
+      <button className="btn" onClick={addMember} disabled={saving} style={{background:"var(--gold)",color:"#3d2e23",border:"none",borderRadius:10,padding:"11px",fontSize:13,fontWeight:700,minHeight:44,opacity:saving?0.6:1}}>
+        {saving?"Adding…":"Add Member"}
+      </button>
+    </div>}
+
+    {/* MEMBER LIST */}
+    {members.map(m=>{
+      const isEditing=editingId===m.id;
+      const isBeingDeleted=deleting===m.id;
+      const isSelf=m.id==="mohamed";
+      return <div key={m.id} style={{display:"flex",flexDirection:"column",gap:0,background:"var(--elevated)",border:"1px solid var(--border)",borderRadius:12,marginBottom:8,overflow:"hidden"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px"}}>
+          <div style={{width:40,height:40,borderRadius:"50%",background:m.color||"#555",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:13,flexShrink:0,border:"2px solid var(--border)"}}>{m.initials}</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:13,fontWeight:700,color:"var(--t1)"}}>{m.name}{isSelf&&<span style={{fontSize:10,background:"rgba(201,169,110,0.15)",color:"var(--gold)",borderRadius:20,padding:"1px 7px",marginLeft:6,fontWeight:700}}>YOU</span>}</div>
+            <div style={{fontSize:11,color:"var(--t3)"}}>{m.title} · <span style={{color:m.role==="admin"?"var(--gold)":"var(--t3)",fontWeight:600}}>{m.role}</span></div>
+          </div>
+          <div style={{display:"flex",gap:4,flexShrink:0}}>
+            <button style={{...iBtn,color:"var(--t2)"}} title="Edit" onClick={()=>{if(isEditing){setEditingId(null);}else{setEditingId(m.id);setEditForm({name:m.name,title:m.title,role:m.role,pin:m.pin});}}}>
+              {Ic.edit}
+            </button>
+            {!isSelf&&<button style={{...iBtn,color:isBeingDeleted?"#f87171":"#b83232",opacity:isBeingDeleted?0.5:1}} title="Remove member" disabled={!!isBeingDeleted} onClick={()=>deleteMember(m)}>
+              {isBeingDeleted?<span style={{fontSize:11}}>…</span>:Ic.trash}
+            </button>}
+          </div>
+        </div>
+        {isEditing&&<div style={{borderTop:"1px solid var(--border)",padding:"12px",display:"flex",flexDirection:"column",gap:8,background:"var(--surface)"}}>
+          <input className="inp" placeholder="Full Name" value={editForm.name||""} onChange={e=>setEditForm(f=>({...f,name:e.target.value}))} style={{fontSize:13}}/>
+          <input className="inp" placeholder="Job Title" value={editForm.title||""} onChange={e=>setEditForm(f=>({...f,title:e.target.value}))} style={{fontSize:13}}/>
+          <select className="inp" value={editForm.role||"member"} onChange={e=>setEditForm(f=>({...f,role:e.target.value}))} style={{fontSize:13}}>
+            <option value="member">Member</option>
+            <option value="admin">Admin</option>
+          </select>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <input className="inp" placeholder="4-digit PIN" maxLength={4} value={editForm.pin||""} onChange={e=>setEditForm(f=>({...f,pin:e.target.value.replace(/\D/g,"").slice(0,4)}))} style={{fontSize:15,fontWeight:700,letterSpacing:4,flex:1}}/>
+            <button className="btn" onClick={()=>{const p=genPin();setEditForm(f=>({...f,pin:p}));}} style={{background:"var(--elevated)",border:"1px solid var(--border)",borderRadius:10,padding:"10px 12px",fontSize:12,fontWeight:600,whiteSpace:"nowrap",minHeight:42}}>Generate</button>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button className="btn" onClick={()=>saveMemberEdit(m.id)} disabled={saving} style={{background:"var(--gold)",color:"#3d2e23",border:"none",borderRadius:10,padding:"9px 16px",fontSize:13,fontWeight:700,flex:1,opacity:saving?0.6:1,minHeight:40}}>Save</button>
+            <button className="btn" onClick={()=>setEditingId(null)} style={{background:"var(--elevated)",color:"var(--t1)",border:"1px solid var(--border)",borderRadius:10,padding:"9px 14px",fontSize:13,fontWeight:600,minHeight:40}}>Cancel</button>
+          </div>
+        </div>}
+      </div>;
+    })}
+  </div>}
+</div>;
+}
+
+function ProfileManager({profiles,onUpdate,userId,onTeamChange}){
 const [open,setOpen]=useState(false);
 const refs=useRef({});
+const isMohamed=userId==="mohamed";
 return <div style={{margin:"4px 0 16px"}}>
+{isMohamed&&<TeamManager onTeamChange={onTeamChange}/>}
 <button className="btn" style={{background:"var(--elevated)",color:"var(--t1)",border:"1px solid var(--border)",borderRadius:12,padding:"10px 16px",fontSize:14,fontWeight:600,display:"flex",alignItems:"center",gap:8,minHeight:44}} onClick={()=>setOpen(!open)}>{open?<>{Ic.x} Hide Profiles</>:<>{Ic.users} Manage Team Photos</>}</button>
 {open&&<div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:16,padding:16,marginTop:10}}>
 <div className="lbl" style={{marginBottom:12}}>TEAM PROFILE PHOTOS</div>
@@ -1363,8 +1580,6 @@ return <div style={{margin:"4px 0 16px"}}>
 {profiles[m.id]&&<button className="btn" style={{background:"rgba(184,50,50,0.08)",color:"#b83232",border:"1px solid rgba(248,113,113,0.25)",borderRadius:10,padding:"8px 10px",fontSize:12,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",minHeight:36,minWidth:36}} onClick={()=>onUpdate(m.id,null)}>{Ic.x}</button>}
 </div>)}
 </div>}
-
-
   </div>;
 }// ── ANNOUNCEMENT BAR (Admin only) ──
 function AnnouncementBar({userId,profiles}){
@@ -1375,7 +1590,7 @@ const [sending,setSending]=useState(false);
 async function sendAnnouncement(){
 if(!msg.trim())return;
 setSending(true);
-const allIds=["mohamed","maha","bassant","asmaa","moussa"];
+const allIds=TEAM.map(m=>m.id);
 const toIds=targets.includes("all")?allIds.filter(id=>id!==userId):targets.filter(id=>id!==userId);
 await sendPush(toIds,"Announcement",msg.trim(),null);
 setMsg("");setShow(false);setSending(false);
@@ -1886,10 +2101,31 @@ const [filterAs,setFilterAs]=useState("All");
 const [sidebarOpen, setSidebarOpen]=useState(false);
 const user=TEAM.find(m=>m.id===userId);
 const isAdmin=user?.role==="admin";
-useEffect(()=>{if(!userId){setLoading(false);return}loadAll()},[userId]);
+useEffect(()=>{
+// Always load team members first (needed for login screen)
+sb.from("team_members").select("*").order("created_at").then(({data,error})=>{
+  if(data&&data.length>0){TEAM.length=0;data.forEach(m=>TEAM.push(m));}
+  else if(!error&&(!data||data.length===0)){
+    // Seed table
+    sb.from("team_members").insert(TEAM_SEED.map(m=>({...m,created_at:new Date().toISOString()})));
+  }
+});
+if(!userId){setLoading(false);return}loadAll()},[userId]);
 async function loadAll(){
 setLoading(true);
 try{
+// Load team members first (before tasks so TEAM is populated)
+const{data:tm,error:tme}=await sb.from("team_members").select("*").order("created_at");
+if(tme&&tme.code!=="42P01"){
+// Table might not exist yet — seed from TEAM_SEED then continue
+await sb.from("team_members").insert(TEAM_SEED.map(m=>({...m,created_at:new Date().toISOString()})));
+}else if(tm&&tm.length>0){
+TEAM.length=0;
+tm.forEach(m=>TEAM.push(m));
+}else if(tm&&tm.length===0){
+// Table exists but empty — seed it
+await sb.from("team_members").insert(TEAM_SEED.map(m=>({...m,created_at:new Date().toISOString()})));
+}
 const [{data:t,error:te},{data:c},{data:p}]=await Promise.all([
 sb.from("tasks").select("*, comments(*), edit_requests(*)").order("created_at",{ascending:false}),
 sb.from("chat").select("*").order("created_at"),
@@ -1944,7 +2180,7 @@ const targets=[...new Set([...assignees,...others])].filter(id=>id!==userId);
 sendPush(targets,"Task Status Updated",`${sender} changed "${task.title}" to ${upd.status}`,id);
 }
 if("signed_by"in upd){
-const admins=["mohamed","maha","bassant"].filter(id=>id!==userId);
+const admins=TEAM.filter(m=>m.role==="admin").map(m=>m.id).filter(id=>id!==userId);
 sendPush(admins,"Task Signed",`${sender} signed off on "${task.title}"`,id);
 }
 }
@@ -1965,7 +2201,7 @@ if(member&&member.id!==userId)mentionedIds.push(member.id);
 }
 if(mentionedIds.length>0)sendPush(mentionedIds,"You were mentioned",`${sender} mentioned you in "${task.title}"`,tid);
 const assignees=getAssignees(task);
-const admins=["mohamed","maha","bassant"];
+const admins=TEAM.filter(m=>m.role==="admin").map(m=>m.id);
 const targets=[...new Set([...assignees,...admins])].filter(id=>id!==userId&&!mentionedIds.includes(id));
 if(targets.length>0)sendPush(targets,"New Comment",`${sender}: "${text.slice(0,60)}${text.length>60?"…":""}"`,tid);
 }
@@ -1974,7 +2210,7 @@ await sb.from("edit_requests").insert([{task_id:tid,author:userId,note}]);
 refreshTasks();
 const task=tasks.find(t=>t.id===tid);
 const sender=TEAM.find(m=>m.id===userId)?.name;
-const admins=["mohamed","maha","bassant"].filter(id=>id!==userId);
+const admins=TEAM.filter(m=>m.role==="admin").map(m=>m.id).filter(id=>id!==userId);
 sendPush(admins,"Edit Request",`${sender} requested an edit on "${task?.title}"`,tid);
 }
 async function signTask(tid){
@@ -1982,11 +2218,12 @@ const task=tasks.find(t=>t.id===tid);
 if(!task||task.signed_by?.includes(userId))return;
 await updateTask(tid,{signed_by:[...(task.signed_by||[]),userId]});
 const sender=TEAM.find(m=>m.id===userId)?.name;
-const admins=["mohamed","maha","bassant"].filter(id=>id!==userId);
+const admins=TEAM.filter(m=>m.role==="admin").map(m=>m.id).filter(id=>id!==userId);
 sendPush(admins,"Task Approved",`${sender} signed off on "${task.title}"`,tid);
 }
 async function sendChat(text){await sb.from("chat").insert([{author:userId,text}])}
 async function updateProfile(mid,dataUrl){await sb.from("profiles").upsert({user_id:mid,photo_url:dataUrl,updated_at:new Date().toISOString()});setProfiles(p=>({...p,[mid]:dataUrl}))}
+async function refreshTeam(){const{data}=await sb.from("team_members").select("*").order("created_at");if(data&&data.length>0){TEAM.length=0;data.forEach(m=>TEAM.push(m));setTasks(t=>[...t]);}}
 function logout(){lsS("muhra_uid_v3",null);setUserId(null);setTasks([]);setChat([]);setSelected(null)}
 const filtered=tasks.filter(t=>(filterSt==="All"||t.status===filterSt)&&(filterAs==="All"||(Array.isArray(t.assigned_to)?t.assigned_to.includes(filterAs):t.assigned_to===filterAs)));
 if(!user)return <Login onLogin={id=>{
@@ -2146,7 +2383,7 @@ return <div style={{display:"flex",flexDirection:"column",height:"100vh",overflo
       </div>
 
       <div id="profile-manager" style={{padding:"0 20px"}}>
-        {isAdmin&&<ProfileManager profiles={profiles} onUpdate={updateProfile}/>}
+        {isAdmin&&<ProfileManager profiles={profiles} onUpdate={updateProfile} userId={userId} onTeamChange={refreshTeam}/>}
       </div>
     </div>}
 
