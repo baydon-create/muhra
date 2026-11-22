@@ -2,7 +2,7 @@
   "name": "Muhra HQ",
   "short_name": "Muhra HQ",
   "description": "Muhra team hub: content pipeline, approvals, research and tasks",
-  "start_url": "/muhra/hq.html",
+  "start_url": "/muhra/",
   "scope": "/muhra/",
   "display": "standalone",
   "background_color": "#3B2A20",
