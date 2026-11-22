@@ -156,8 +156,29 @@ function showFrame(route, arg) {
     postToFrame(fr, { type: 'hq:go', view });
   }
   host.querySelectorAll('iframe').forEach(f => f.classList.toggle('hidden', f !== fr));
+  renderFrameNav();
 }
-function hideFrames() { const host = $('#frames'); if (host) host.classList.add('hidden'); }
+/* Arabic sub-navigation for Competitor Intel / UGC (the module's own menus are hidden inside the hub) */
+const INTEL_TABS = [['overview', 'نظرة عامة'], ['gaps', 'الفجوات'], ['report', 'تقرير AI'], ['manage', 'إدارة الحسابات', 1]];
+const UGC_TABS = [['ugcDiscover', 'اكتشاف'], ['ugc', 'الكريتورز'], ['ugcPipe', 'المتابعة'], ['ugcInbox', 'الطلبات'], ['ugcAdd', 'إضافة باليوزر', 1], ['ugcSettings', 'الإعدادات', 1]];
+function renderFrameNav() {
+  const host = $('#frames'); if (!host) return;
+  let bar = host.querySelector('.fsub');
+  if (!['intel', 'ugc'].includes(S.route)) { if (bar) bar.remove(); return; }
+  if (!bar) { bar = document.createElement('div'); bar.className = 'fsub'; host.prepend(bar); }
+  const m = S.intelMeta || {}, admin = m.role === 'admin';
+  const ugc = S.route === 'ugc', tabs = (ugc ? UGC_TABS : INTEL_TABS).filter(t => !t[2] || admin);
+  const cur = m.view === 'creator' || m.view === 'ugcCompare' ? 'ugc' : m.view;
+  const list = ugc ? (m.creators || []) : (m.comps || []);
+  const selView = ugc ? 'creator' : 'comp';
+  bar.innerHTML = '<div class="fsub-tabs">' + tabs.map(([k, n]) => '<button class="chip' + (cur === k ? ' on' : '') + '" data-fgo="' + k + '">' + n + (k === 'ugcInbox' && m.newApps ? ' <span class="c">' + m.newApps + '</span>' : '') + '</button>').join('') + '</div>' +
+    (list.length ? '<select class="mini fsub-sel" id="fsubSel"><option value="">' + (ugc ? 'افتح كريتور…' : 'افتح حساب…') + '</option>' +
+      list.map(c => '<option value="' + esc(String(c.id)) + '"' + (m.view === selView && String(m.selected) === String(c.id) ? ' selected' : '') + '>@' + esc(c.u) + (c.own ? ' (Muhra)' : '') + '</option>').join('') + '</select>' : '');
+  const fr = host.querySelector('iframe[data-k="intel"]');
+  bar.querySelectorAll('[data-fgo]').forEach(b => b.onclick = () => { if (fr) postToFrame(fr, { type: 'hq:go', view: b.dataset.fgo }); });
+  const sel = $('#fsubSel'); if (sel) sel.onchange = () => { if (sel.value && fr) postToFrame(fr, { type: 'hq:go', view: selView, id: sel.value }); };
+}
+function hideFrames() { const host = $('#frames'); if (host) { host.classList.add('hidden'); const b = host.querySelector('.fsub'); if (b) b.remove(); } }
 function postToFrame(fr, msg) { try { fr.contentWindow.postMessage(msg, location.origin); } catch {} }
 function onModuleMessage(e) {
   if (e.origin !== location.origin || !e.data || typeof e.data.type !== 'string' || !S.me) return;
@@ -170,6 +191,11 @@ function onModuleMessage(e) {
     if (isUgc) S._ugcView = m.view; else S._intelView = m.view;
     const want = isUgc ? 'ugc' : 'intel';
     if (S.route !== want && (S.route === 'intel' || S.route === 'ugc')) { history.replaceState(null, '', '#/' + want); S.route = want; renderNav(); }
+  } else if (m.type === 'hq:meta') {
+    S.intelMeta = m;
+    const isUgc = /^ugc|^creator/.test(m.view || '');
+    if (isUgc) S._ugcView = m.view; else S._intelView = m.view;
+    renderFrameNav();
   } else if (m.type === 'hq:idea') {
     createItem({ title: String(m.title || 'فكرة جديدة').slice(0, 120), type: m.format === 'Reel' ? 'reel' : m.format === 'Carousel' ? 'carousel' : 'post',
       ref_url: safeUrl(m.ref_url) || null, ref_thumb: safeUrl(m.ref_thumb) || null, ref_source: String(m.ref_source || '').slice(0, 80) || null, brief: m.brief ? String(m.brief).slice(0, 2000) : null }, { open: false })

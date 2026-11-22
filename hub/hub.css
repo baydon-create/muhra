@@ -584,3 +584,14 @@ details.cdet>summary span:first-child{flex:1}
 @media(max-width:600px){.slinkadd{grid-template-columns:1fr}}
 details.legacy{margin-top:16px;font-size:13px}
 details.legacy>summary{cursor:pointer;color:var(--muted);font-weight:600}
+
+/* ── Embedded modules: hub sub-navigation ── */
+#frames{display:flex;flex-direction:column}
+#frames iframe{flex:1;height:auto;min-height:0}
+.fsub{display:flex;align-items:center;gap:10px;padding:10px 16px;background:#fff;border-bottom:1px solid var(--line);flex:none}
+.fsub-tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex:1;min-width:0}
+.fsub-tabs::-webkit-scrollbar{display:none}
+.fsub .chip{height:32px;font-size:12.5px;flex:none}
+.fsub-sel{max-width:220px;flex:none}
+@media(min-width:1000px){.fsub{padding:12px 28px}}
+@media(max-width:600px){.fsub{flex-wrap:wrap}.fsub-sel{max-width:none;width:100%}}
