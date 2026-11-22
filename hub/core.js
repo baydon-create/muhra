@@ -217,6 +217,25 @@ async function push(ids, title, body) {
   const { error } = await sb.functions.invoke('send-push', { body: { external_ids: ids, title, body, url: location.origin + location.pathname + (location.hash || '') } });
   if (error) console.warn('push failed', error);
 }
+/* Move a content card to another stage: saves, logs the activity and notifies the right people. */
+async function moveStage(it, to, opts = {}) {
+  const from = it.stage; if (from === to && !opts.force) return;
+  const patch = { stage: to };
+  if (to === 'approved') { patch.approved_by = S.me.id; patch.approved_at = new Date().toISOString(); patch.changes_note = null; }
+  if (opts.changes) { patch.changes_note = opts.changes; }
+  if (to === 'review') patch.changes_note = null;
+  if (opts.post_url !== undefined) patch.post_url = opts.post_url;
+  if (!(await updateItem(it.id, patch, true))) return;
+  await logAct(it.id, opts.changes ? 'changes' : 'stage', from, to, opts.changes || null);
+  const team = [it.owner, ...(it.helpers || [])];
+  if (to === 'review') push(approverIds(), '👀 محتوى للمراجعة', it.title);
+  else if (to === 'approved') push(team, '✅ تمت الموافقة', it.title);
+  else if (opts.changes) push(team, '✏️ مطلوب تعديلات', it.title + ' — ' + opts.changes);
+  else if (to === 'posted') push([...team, ...approverIds()], '📣 تم النشر', it.title);
+  else push(team, SM[to].ic + ' ' + SM[to].n, it.title);
+  toast(opts.changes ? 'تم إرسال طلب التعديل' : 'اتنقل إلى «' + SM[to].n + '»');
+  renderAll();
+}
 async function updateItem(id, patch, silent) {
   const it = S.items.find(x => x.id === id); if (it) Object.assign(it, patch);
   const { error } = await sb.from('hq_content').update(patch).eq('id', id);
