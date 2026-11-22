@@ -100,7 +100,7 @@ const approverIds = () => S.team.filter(m => m.can_approve).map(m => m.id);
 const approverNames = () => S.team.filter(m => m.can_approve).map(m => firstName(m.id)).join(' أو ') || 'المسؤول';
 const isAdmin = () => !!(S.me && S.me.role === 'admin');
 const adminIds = () => S.team.filter(m => m.role === 'admin').map(m => m.id);
-const nameOf = id => (S.teamMap[id] && S.teamMap[id].name) || (id === 'deleted_member' ? 'عضو محذوف' : id) || '—';
+const nameOf = id => (S.teamMap[id] && S.teamMap[id].name) || (id === 'deleted_member' ? 'عضو محذوف' : id === 'n8n' ? 'بوت النشر' : id) || '—';
 const firstName = id => nameOf(id).replace(/^Dr\.\s*/, '').split(' ')[0];
 const weekStart = iso => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() - ((d.getDay() + 1) % 7)); return isoDate(d); }; // weeks start Saturday
 function toast(msg, ms = 2200) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), ms); }

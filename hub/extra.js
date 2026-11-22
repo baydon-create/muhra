@@ -96,6 +96,7 @@ function pubStatus(p) {
   if (done) return ['soon', 'بينشر'];
   return ['', d === 0 ? 'النهارده' : 'مستني'];
 }
+function contentForFolder(p) { return S.items.find(i => i.publish_folder_id === p.folder_id) || contentForProduct(p.product); }
 function contentForProduct(name) {
   const n = String(name || '').toLowerCase().trim(); if (!n) return null;
   return S.items.find(i => (i.product && i.product.toLowerCase().trim() === n) || i.title.toLowerCase().includes(n));
@@ -112,17 +113,17 @@ function viewPublish(v) {
   const days = []; for (let i = -3; i <= 14; i++) days.push(addDays(today(), i));
   const counts = c => c.total ? c.done + '/' + c.total : '—';
   const row = p => {
-    const [cls, st] = pubStatus(p), c = contentForProduct(p.product);
+    const [cls, st] = pubStatus(p), c = contentForFolder(p);
     const chip = (lbl, total, done, all) => total ? '<span class="pill ' + (all || done >= total ? 'okp' : done ? 'soon' : '') + '">' + lbl + ' ' + (all ? '✓' : counts({ total, done })) + '</span>' : '';
     const slot = SLOTS.map(s => s[p.position ? 1 : 0]).join(' · ');
     return '<div class="prow"><div class="grow"><div class="row"><b dir="auto">' + esc(p.product) + '</b><span class="pill ' + cls + '">' + st + '</span></div>' +
       '<div class="meta" style="margin-top:5px">' + chip('🖼 صور', p.images_total, p.images_posted ? p.images_total : 0, p.images_posted) + chip('⭕ ستوري', p.stories_total, p.stories_posted) + chip('🎬 ريلز', p.reels_total, p.reels_posted) +
       (p.has_caption ? '<span class="pill">✍️ caption.txt</span>' : '<span class="pill" title="هيتكتب كابشن تلقائي">🤖 كابشن تلقائي</span>') + '</div>' +
       '<div class="muted small" style="margin-top:4px">مواعيده: ' + slot + (p.position > 1 ? ' · ⚠️ المنتج التالت وما بعده مش هيتنشر في نفس اليوم' : '') + '</div></div>' +
-      '<div class="pact">' + (c ? '<button class="btn sm" data-open="' + c.id + '">🎬 الكارت</button>' : '') + '<a class="btn sm" href="' + driveFolder(p.folder_id) + '" target="_blank" rel="noopener">📁 Drive</a></div></div>';
+      '<div class="pact">' + (c ? stageTag(c.stage) + '<button class="btn sm" data-open="' + c.id + '">🎬 الكارت</button>' : '') + '<a class="btn sm" href="' + driveFolder(p.folder_id) + '" target="_blank" rel="noopener">📁 Drive</a></div></div>';
   };
   v.innerHTML = '<h1 class="ptitle">📤 النشر التلقائي</h1>' +
-    '<div class="card pad"><div class="row wrap"><div class="grow"><b>إزاي بيشتغل</b><div class="muted small">ارفع المنتج في <b>MUHRA SOCIAL ← فولدر اليوم (يوم-شهر-سنة) ← فولدر باسم المنتج</b> وجواه images / stories / reels. البوت بينشر أول منتجين في اليوم:</div></div>' +
+    '<div class="card pad"><div class="row wrap"><div class="grow"><b>إزاي بيشتغل</b><div class="muted small">ارفع المنتج في <b>MUHRA SOCIAL ← فولدر اليوم (يوم-شهر-سنة) ← فولدر باسم المنتج</b> وجواه images / stories / reels. البوت بينشر أول منتجين في اليوم:</div><div class="muted small" style="margin-top:4px">أي منتج في الفولدر بيتعامل إنه <b>معتمد ومستني النشر</b> وكارته بيتنقل لـ «مجدول» لوحده، ولما البوت يكتب <b>[POSTED]</b> الكارت بيتنقل لـ «منشور». لو مفيش كارت، بيتعمل كارت جديد.</div></div>' +
     (meta && meta.root_folder_id ? '<a class="btn sm pri" href="' + driveFolder(meta.root_folder_id) + '" target="_blank" rel="noopener">📁 فتح فولدر النشر</a>' : '') + '</div>' +
     '<div class="slots">' + SLOTS.map(s => '<div class="slot"><b>' + s[0] + ' / ' + s[1] + '</b><span>' + s[2] + '</span></div>').join('') + '</div>' +
     '<div class="muted small">بتوقيت القاهرة · المنتج الأول في المواعيد الأولى والتاني بعدها بساعة · آخر تحديث: ' + (meta && meta.synced_at ? fmtTime(meta.synced_at) : 'لسه') + ' (كل 20 دقيقة)</div></div>' +

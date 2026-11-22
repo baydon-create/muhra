@@ -251,6 +251,8 @@ function renderSheet(it) {
   if (it.changes_note && it.stage !== 'approved') alert = '<div class="alert warn">✏️ <b>تعديلات مطلوبة:</b> ' + esc(it.changes_note) + '</div>';
   if (it.stage === 'approved' && it.approved_by) alert = '<div class="alert ok">✅ اعتمده ' + esc(firstName(it.approved_by)) + (it.approved_at ? ' · ' + fmtTime(it.approved_at) : '') + ' — ارفعه على Drive للنشر التلقائي أو جدوله.</div>';
   if (isLate(it)) alert += '<div class="alert bad">⏱ متأخر عن الموعد</div>';
+  if (it.publish_folder_id) alert += '<div class="alert ' + (it.stage === 'posted' ? 'ok' : 'warn') + '">📁 ' + (it.stage === 'posted' ? 'اتنشر من طابور النشر التلقائي' : 'في طابور النشر التلقائي' + (it.publish_date ? ' ليوم ' + esc(fmtDay(it.publish_date)) : '') + ' — معتمد ومستني النشر') +
+    ' · <a href="https://drive.google.com/drive/folders/' + encodeURIComponent(it.publish_folder_id) + '" target="_blank" rel="noopener">فتح الفولدر</a></div>';
   root.innerHTML = '<div class="overlay" id="ov"><div class="sheet"><div class="sh">' + stageTag(it.stage) + '<span class="pill">' + TYPE_IC[it.type] + ' ' + TYPES[it.type] + '</span><span class="grow"></span>' +
     '<button class="btn ghost sm" id="copyLink" title="نسخ الرابط">🔗</button><button class="btn ghost sm" id="x">✕</button></div><div class="sb">' +
     '<input dir="auto" class="titleinp" data-f="title" value="' + esc(it.title) + '">' +
@@ -395,6 +397,7 @@ function actText(a) {
   if (a.action === 'owner') return 'غيّر المسؤول إلى ' + esc(a.note || '');
   if (a.action === 'files') return 'رفع ' + esc(a.note || 'ملفات');
   if (a.action === 'archived') return 'أرشفه';
+  if (a.action === 'publish') return '📁 ' + esc(a.note || 'تحديث من طابور النشر');
   return esc(a.action);
 }
 async function sendComment(it) {
