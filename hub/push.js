@@ -147,7 +147,7 @@ function tgLinked(id) { return !!(S.tg && S.tg[id || S.me.id] && S.tg[id || S.me
 async function tgPrepareLink() {
   if (_tgCode && Date.now() - _tgCodeAt < 10 * 60e3) return _tgCode;
   const { data, error } = await sb.rpc('hq_telegram_code');
-  if (error || !data) return null;
+  if (error || !data) { console.warn('telegram code', error); return null; }
   _tgCode = data; _tgCodeAt = Date.now();
   document.querySelectorAll('a[data-tglink]').forEach(a => a.href = 'https://t.me/' + TG_BOT + '?start=' + _tgCode);
   return _tgCode;
@@ -174,7 +174,15 @@ function pushBanner(force) {
 }
 function bindPushBanner(v) {
   v.querySelectorAll('a[data-tglink]').forEach(a => a.addEventListener('click', e => {
-    if (!_tgCode) { e.preventDefault(); toast('ثانية واحدة… جرّب تاني'); tgPrepareLink(); return; }
+    if (!_tgCode) {
+      e.preventDefault(); toast('بنجهّز الربط…');
+      tgPrepareLink().then(c => {
+        if (!c) return toast('تعذّر تجهيز الربط. تأكد من النت وجرّب تاني', 3500);
+        _tgCode = null; tgStartPolling();
+        location.href = 'https://t.me/' + TG_BOT + '?start=' + c;
+      });
+      return;
+    }
     _tgCode = null; tgStartPolling(); // code is single-use
   }));
   v.querySelectorAll('[data-pushtest]').forEach(b => b.onclick = sendTestPush);
