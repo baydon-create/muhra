@@ -732,7 +732,7 @@ async function loadData(){
   const [c, s, p, r, rl, u, o, ap, st] = await Promise.all([
     sb.from('ci_competitors').select('*').order('created_at'),
     fetchAll(() => sb.from('ci_snapshots').select('*').order('snap_date').order('competitor_id')),
-    fetchAll(() => sb.from('ci_posts').select('id,competitor_id,caption,format,permalink,media_url,thumbnail_url,posted_at,like_count,comments_count,engagement_rate,hashtags,view_count,reach,saved,shares,total_interactions,avg_watch_ms,total_watch_ms,insights_at,reposts').order('posted_at',{ascending:false}).order('id')),
+    fetchAll(() => sb.from('ci_posts').select('id,competitor_id,caption,format,permalink,media_url,thumbnail_url,thumb_url,posted_at,like_count,comments_count,engagement_rate,hashtags,view_count,reach,saved,shares,total_interactions,avg_watch_ms,total_watch_ms,insights_at,reposts').order('posted_at',{ascending:false}).order('id')),
     sb.from('ci_reports').select('*').order('created_at',{ascending:false}).limit(1),
     sb.from('ci_reports').select('id,created_at').neq('content','__NO_KEY__').order('created_at',{ascending:false}).limit(60),
     sb.from('ugc_creators').select('*'),
@@ -748,7 +748,8 @@ async function loadData(){
   S.creators = c.data.filter(a=>a.kind==='creator').sort((a,b)=> new Date(b.created_at)-new Date(a.created_at));
   const creatorIds = new Set(S.creators.map(a=>a.id));
   const snaps = s.map(x=>({...x, followers:toNum(x.followers), engagement_rate:toNum(x.engagement_rate), avg_likes:toNum(x.avg_likes), avg_comments:toNum(x.avg_comments)}));
-  S.allPosts = p.map(x=>{ const q = {...x, engagement_rate:toNum(x.engagement_rate)}; q.er = perView(publicInteractions(q), q); q.full = hasInsights(q); q.fullEr = q.full ? perView(fullInteractions(q), q) : null; q.fer = erFollowers(q); return q; });
+  // thumb_url = our permanent copy of the thumbnail; Instagram's own links expire after a few days.
+  S.allPosts = p.map(x=>{ const q = {...x, engagement_rate:toNum(x.engagement_rate)}; if(q.thumb_url){ q.thumbnail_url = q.thumb_url; q.media_url = q.thumb_url; } q.er = perView(publicInteractions(q), q); q.full = hasInsights(q); q.fullEr = q.full ? perView(fullInteractions(q), q) : null; q.fer = erFollowers(q); return q; });
   S.snaps = snaps.filter(x=>!creatorIds.has(x.competitor_id));
   S.posts = S.allPosts.filter(x=>!creatorIds.has(x.competitor_id));
   S.ugcReady = !u.error;

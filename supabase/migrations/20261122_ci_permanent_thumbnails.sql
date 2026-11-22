@@ -1,0 +1,8 @@
+-- Permanent competitor thumbnails (applied 2026-11-22).
+--   * ci_posts.thumb_url (+ thumb_tries, thumb_error, thumb_tried_at); public storage bucket 'ci-thumbs'.
+--   * Edge function ci-thumbs: downloads a still-valid Instagram link, shrinks to 420px JPEG (q65),
+--     stores it, sets thumb_url and repoints hq_content.ref_thumb that used the old link.
+--   * ci_thumb_todo(limit): picks fresh links first; failed posts retry after the daily fetch refreshes them.
+--   * ci_thumbs_kick(calls) + pg_cron job 'ci-thumbs-archive' every 30 seconds (no calls when nothing is left).
+--   * hq_top_competitor_posts returns coalesce(thumb_url, thumbnail_url, media_url).
+--   * One-time: ci_competitors.backfilled = false so the n8n fetch re-reads ~400 days and refreshes old links.
