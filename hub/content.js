@@ -250,6 +250,7 @@ function renderSheet(it) {
     '<button class="btn ghost sm" id="copyLink" title="نسخ الرابط">🔗</button><button class="btn ghost sm" id="x">✕</button></div><div class="sb">' +
     '<input dir="auto" class="titleinp" data-f="title" value="' + esc(it.title) + '">' +
     '<div class="stepper">' + STAGES.map((s, i) => '<button data-step="' + s.k + '" class="' + (i < idx ? 'done' : i === idx ? 'cur' : '') + '">' + s.ic + ' ' + s.n + '</button>').join('') + '</div>' + alert +
+    '<details class="cdet"' + (it.stage === 'idea' ? ' open' : '') + '><summary><span>تفاصيل الكارت</span><span class="muted small">' + esc(firstName(it.owner)) + (it.publish_date ? ' · نشر ' + fmtDay(it.publish_date) : '') + '</span></summary>' +
     '<div class="g2"><div><label class="lb">المسؤول</label><select class="inp" data-f="owner">' + S.team.map(m => '<option value="' + m.id + '"' + (m.id === it.owner ? ' selected' : '') + '>' + esc(m.name) + '</option>').join('') + '</select></div>' +
     '<div><label class="lb">النوع</label><select class="inp" data-f="type">' + Object.entries(TYPES).map(([k, n]) => '<option value="' + k + '"' + (k === it.type ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></div>' +
     '<div><label class="lb">التسليم قبل</label><input type="date" class="inp" data-f="due_date" value="' + esc(it.due_date || '') + '"></div>' +
@@ -258,14 +259,8 @@ function renderSheet(it) {
     '<label class="lb">المنصات</label><div class="toggles" id="plats">' + Object.entries(PLATFORMS).map(([k, n]) => '<button class="tg ' + ((it.platforms || []).includes(k) ? 'on' : '') + '" data-p="' + k + '">' + n + '</button>').join('') + '</div>' +
     '<div class="g2"><div><label class="lb">المحور</label><select class="inp" data-f="pillar"><option value="">—</option>' + PILLARS.map(p => '<option' + (p === it.pillar ? ' selected' : '') + '>' + esc(p) + '</option>').join('') + '</select></div>' +
     '<div><label class="lb">المنتج / الكوليكشن</label><input class="inp" data-f="product" value="' + esc(it.product || '') + '" placeholder="مثال: Formal"></div></div>' +
-    fld('البريف / الفكرة', 'brief', 'الهدف، الجمهور، الإحساس المطلوب', 3) +
-    (it.ref_url || it.ref_thumb ? '<label class="lb">المرجع' + (it.ref_source ? ' · ' + esc(it.ref_source) : '') + '</label><div class="row">' + (it.ref_thumb ? '<div class="thumb" style="background-image:url(\'' + esc(it.ref_thumb) + '\')"></div>' : '') + (safeUrl(it.ref_url) ? '<a class="btn" href="' + esc(safeUrl(it.ref_url)) + '" target="_blank" rel="noopener">فتح المرجع ↗</a>' : '') + '</div>' : link('رابط مرجع (اختياري)', 'ref_url', 'https://instagram.com/p/…')) +
-    fld('السكريبت / الشوت ليست', 'script', 'المشهد 1: … \nالمشهد 2: …', 5) +
-    fld('الكابشن', 'caption', 'الكابشن + الهاشتاجات (إنجليزي)', 4) + '<div class="muted small lat" id="capCount" style="text-align:left">' + (it.caption || '').length + ' / 2200</div>' +
-    '<div class="sectitle">📎 الملفات</div><div class="files" id="files">' + (it.files || []).map((f, i) => fileTile(f, i)).join('') + '<label class="file add" id="addFile">+</label></div>' +
-    '<div class="muted small" style="margin-top:6px">صور/فيديو قصير للمراجعة. الفيديوهات الكبيرة: اضغطها بأداة الضغط أو حط رابط Drive.</div>' +
-    link('رابط Google Drive', 'drive_link', 'https://drive.google.com/…') +
-    (SI[it.stage] >= SI.scheduled ? link('رابط البوست بعد النشر', 'post_url', 'https://instagram.com/p/…') : '') +
+    '</details>' +
+    stageWorkspace(it) +
     linkedTasksBlock(it) +
     '<div class="sectitle">💬 التعليقات</div><div id="thread"><div class="muted small">…</div></div>' +
     '<div class="linkrow" style="margin-top:8px"><textarea dir="auto" class="inp" id="cText" rows="1" placeholder="اكتب تعليق… (اذكر الشخص بـ @)" style="min-height:44px"></textarea><button class="btn pri" id="cSend">إرسال</button></div>' +
@@ -305,7 +300,8 @@ function renderSheet(it) {
     const p = new Set(it.platforms || []); p.has(b.dataset.p) ? p.delete(b.dataset.p) : p.add(b.dataset.p);
     b.classList.toggle('on'); await updateItem(it.id, { platforms: [...p] }, true);
   });
-  $('#addFile').onclick = () => { const fp = $('#filePick'); fp.value = ''; fp.onchange = () => uploadFiles(it, [...fp.files]); fp.click(); };
+  bindStageWorkspace(it);
+  if ($('#addFile')) $('#addFile').onclick = () => { const fp = $('#filePick'); fp.value = ''; fp.onchange = () => uploadFiles(it, [...fp.files]); fp.click(); };
   root.querySelectorAll('[data-rmfile]').forEach(b => b.onclick = async e => {
     e.preventDefault(); e.stopPropagation(); if (!confirm('حذف الملف؟')) return;
     const files = [...(it.files || [])]; files.splice(+b.dataset.rmfile, 1);
@@ -360,7 +356,7 @@ function bindActions(it) {
   });
 }
 async function sendToReview(it) {
-  const hasMedia = (it.files || []).length || it.drive_link;
+  const sd = it.stage_data || {}, hasMedia = (it.files || []).length || it.drive_link || Object.values(sd).some(x => (x.files || []).length || (x.links || []).length);
   if (SI[it.stage] >= SI.edit && !hasMedia && !confirm('مفيش ملف أو رابط Drive مرفق. ترسل للمراجعة برضه؟')) return;
   if (it.type !== 'story' && SI[it.stage] >= SI.edit && !it.caption && !confirm('الكابشن فاضي. ترسل برضه؟')) return;
   await moveStage(it, 'review');
@@ -433,3 +429,99 @@ document.addEventListener('click', e => {
   const tk = e.target.closest('#sheetRoot [data-task]'); if (tk && !e.target.closest('button:not([data-task]),a')) { openTask(tk.dataset.task); }
 });
 VIEWS.home = viewHome; VIEWS.content = viewBoard; VIEWS.calendar = viewCal; VIEWS.ideas = viewResearch; VIEWS.stats = viewStats;
+
+
+/* ───────── STAGE WORKSPACE: each stage keeps its own notes, links and files ───────── */
+const STAGE_WS = {
+  idea: { main: [['brief', 'البريف / الفكرة', 'الهدف، الجمهور، الإحساس المطلوب', 4]], ref: true, notes: 'أفكار أو مراجع إضافية', link: 'رابط مرجع أو فكرة' },
+  script: { main: [['script', 'السكريبت / الشوت ليست', 'المشهد 1: …\nالمشهد 2: …', 7]], notes: 'ملاحظات على السكريبت', link: 'رابط مستند السكريبت أو مرجع' },
+  shoot: { notes: 'مكان التصوير، الموديل، القطع، الإضاءة، المعدات…', link: 'رابط فولدر الخام على Drive' },
+  edit: { main: [['caption', 'الكابشن', 'الكابشن + الهاشتاجات', 5]], cap: true, notes: 'ملاحظات المونتاج، الموسيقى، النسخ', link: 'رابط النسخة النهائية على Drive' },
+  review: { notes: 'ملاحظات المراجعة', link: 'رابط للمراجعة' },
+  approved: { notes: 'تعليمات الرفع أو الجدولة', link: 'رابط فولدر النشر على Drive' },
+  scheduled: { notes: 'تفاصيل الجدولة', link: 'رابط الجدولة' },
+  posted: { post: true, notes: 'نتائج وملاحظات بعد النشر', link: 'رابط البوست أو الإحصائيات' }
+};
+S.stageTab = S.stageTab || {};
+function stageCount(it, k) { const d = (it.stage_data || {})[k] || {}; return (d.links || []).length + (d.files || []).length + (d.notes ? 1 : 0); }
+function stageWorkspace(it) {
+  const idx = SI[it.stage] ?? 0;
+  let last = idx; STAGES.forEach((s, i) => { if (stageCount(it, s.k)) last = Math.max(last, i); });
+  const tab = S.stageTab[it.id] && SI[S.stageTab[it.id]] <= last ? S.stageTab[it.id] : it.stage;
+  const cfg = STAGE_WS[tab] || {}, d = (it.stage_data || {})[tab] || {};
+  const fld = (key, label, ph, rows) => '<label class="lb">' + label + '</label><textarea dir="auto" class="inp" data-f="' + key + '" rows="' + rows + '" placeholder="' + esc(ph) + '">' + esc(it[key] || '') + '</textarea>';
+  const who = (by, at) => '<span class="muted small">' + esc(firstName(by)) + (at ? ' · ' + fmtTime(at) : '') + '</span>';
+  const canRm = by => by === S.me.id || isAdmin();
+  let h = '<div class="sectitle">شغل كل مرحلة</div><div class="stabs">' + STAGES.slice(0, last + 1).map(s => {
+    const n = stageCount(it, s.k);
+    return '<button class="stab' + (s.k === tab ? ' on' : '') + (s.k === it.stage ? ' cur' : '') + '" data-stab="' + s.k + '">' + s.n + (n ? '<i>' + n + '</i>' : '') + '</button>';
+  }).join('') + '</div><div class="spanel">';
+  if (tab !== it.stage) h += '<div class="muted small" style="margin-bottom:6px">بتشوف مرحلة «' + SM[tab].n + '» — الكارت حاليًا في «' + SM[it.stage].n + '». تقدر تضيف هنا برضه.</div>';
+  (cfg.main || []).forEach(m => { h += fld(m[0], m[1], m[2], m[3]); });
+  if (cfg.cap) h += '<div class="muted small lat" id="capCount" style="text-align:left">' + (it.caption || '').length + ' / 2200</div>';
+  if (cfg.ref) h += (it.ref_url || it.ref_thumb) ? '<label class="lb">المرجع' + (it.ref_source ? ' · ' + esc(it.ref_source) : '') + '</label><div class="row">' + (it.ref_thumb ? '<div class="thumb" style="background-image:url(\'' + esc(it.ref_thumb) + '\')"></div>' : '') + (safeUrl(it.ref_url) ? '<a class="btn sm" href="' + esc(safeUrl(it.ref_url)) + '" target="_blank" rel="noopener">فتح المرجع ↗</a>' : '') + '</div>' : '';
+  if (cfg.post) h += '<label class="lb">رابط البوست بعد النشر</label><div class="linkrow"><input class="inp" data-f="post_url" value="' + esc(it.post_url || '') + '" placeholder="https://instagram.com/p/…">' + (safeUrl(it.post_url) ? '<a class="btn" href="' + esc(safeUrl(it.post_url)) + '" target="_blank" rel="noopener">فتح</a>' : '') + '</div>';
+  h += '<label class="lb">ملاحظات المرحلة</label><textarea dir="auto" class="inp" data-snote="' + tab + '" rows="3" placeholder="' + esc(cfg.notes || '') + '">' + esc(d.notes || '') + '</textarea>' + (d.notes_by ? '<div style="margin-top:4px">' + who(d.notes_by, d.notes_at) + '</div>' : '');
+  h += '<label class="lb">روابط المرحلة <span class="muted small">(' + (d.links || []).length + ')</span></label>' +
+    (d.links || []).map(l => '<div class="lrow"><a href="' + esc(safeUrl(l.url) || '#') + '" target="_blank" rel="noopener"><b>' + esc(l.label || 'رابط') + '</b><span dir="ltr">' + esc(l.url) + '</span></a>' + who(l.by, l.at) + (canRm(l.by) ? '<button class="xbtn" data-srm="links" data-sid="' + esc(l.id) + '" title="حذف">✕</button>' : '') + '</div>').join('') +
+    '<div class="slinkadd"><input class="inp" id="slLabel" placeholder="اسم الرابط (مثال: فولدر الخام)"><input class="inp" id="slUrl" dir="ltr" placeholder="' + esc(cfg.link ? 'https://… ' : 'https://') + '"><button class="btn" id="slAdd">+ إضافة رابط</button></div>' +
+    '<div class="muted small" style="margin-top:4px">' + esc(cfg.link || '') + ' — كل رابط بيتضاف، مفيش حاجة بتتمسح.</div>';
+  h += '<label class="lb">ملفات المرحلة <span class="muted small">(' + (d.files || []).length + ')</span></label><div class="files">' +
+    (d.files || []).map(f => { const u = safeUrl(f.url), img = /\.(jpe?g|png|webp|gif)$/i.test(f.name || u), vid = /\.(mp4|mov|webm|m4v)$/i.test(f.name || u);
+      return '<a class="file" href="' + esc(u) + '" target="_blank" rel="noopener" title="' + esc(f.name + ' · ' + firstName(f.by)) + '" style="' + (img ? 'background-image:url(\'' + esc(u) + '\')' : '') + '">' + (img ? '' : (vid ? '🎬<br>' : '📄<br>') + esc((f.name || '').slice(0, 22))) + (canRm(f.by) ? '<button class="x" data-srm="files" data-sid="' + esc(f.id) + '">×</button>' : '') + '</a>'; }).join('') +
+    '<label class="file add" id="sfAdd">+</label></div><div class="muted small" style="margin-top:6px">صور أو فيديو لحد 50MB. الفيديوهات الكبيرة: اضغطها من «ضغط الملفات» أو حط رابط Drive.</div>';
+  // older single fields from before stages had their own space
+  const legacy = (it.files || []).length || it.drive_link;
+  if (legacy && (tab === 'edit' || tab === it.stage)) h += '<details class="legacy"><summary>ملفات وروابط من قبل التحديث</summary>' +
+    (it.drive_link ? '<div class="lrow"><a href="' + esc(safeUrl(it.drive_link) || '#') + '" target="_blank" rel="noopener"><b>رابط Google Drive</b><span dir="ltr">' + esc(it.drive_link) + '</span></a></div>' : '') +
+    ((it.files || []).length ? '<div class="files" id="files" style="margin-top:8px">' + it.files.map((f, i) => fileTile(f, i)).join('') + '</div>' : '') + '</details>';
+  return h + '</div>';
+}
+async function stagePatch(it, args) {
+  const { data, error } = await sb.rpc('hq_stage_patch', Object.assign({ p_item: it.id }, args));
+  if (error) { console.error(error); toast('لم يتم الحفظ — حاول مرة أخرى'); return false; }
+  it.stage_data = data || it.stage_data;
+  return true;
+}
+function bindStageWorkspace(it) {
+  const root = $('#sheetRoot'), tab = (root.querySelector('.stab.on') || {}).dataset?.stab || it.stage;
+  const rerender = () => { const sc = $('#sheetRoot .sb'), top = sc ? sc.scrollTop : 0; renderSheet(it); loadThread(it.id); const s2 = $('#sheetRoot .sb'); if (s2) s2.scrollTop = top; };
+  root.querySelectorAll('[data-stab]').forEach(b => b.onclick = () => { S.stageTab[it.id] = b.dataset.stab; rerender(); });
+  const cap = root.querySelector('[data-f="caption"]'); if (cap) cap.addEventListener('input', () => { const c = $('#capCount'); if (c) c.textContent = cap.value.length + ' / 2200'; });
+  const note = root.querySelector('[data-snote]');
+  if (note) note.addEventListener('change', async () => {
+    const t = note.value.trim(), prev = ((it.stage_data || {})[tab] || {}).notes || '';
+    if (t === prev) return;
+    if (await stagePatch(it, { p_stage: tab, p_op: 'note', p_kind: 'notes', p_text: t })) toast('تم حفظ ملاحظات «' + SM[tab].n + '»', 1300);
+  });
+  const add = $('#slAdd');
+  if (add) add.onclick = async () => {
+    const label = $('#slLabel').value.trim(), raw = $('#slUrl').value.trim(), url = safeUrl(raw);
+    if (!url) return toast('حط رابط صحيح يبدأ بـ https://');
+    add.disabled = true;
+    if (await stagePatch(it, { p_stage: tab, p_op: 'add', p_kind: 'links', p_entry: { label: label || 'رابط', url } })) {
+      logAct(it.id, 'files', null, null, 'رابط في «' + SM[tab].n + '»: ' + (label || url));
+      push([it.owner, ...(it.helpers || [])], '🔗 رابط جديد في «' + SM[tab].n + '»', it.title + ' — ' + (label || url));
+      toast('اتضاف الرابط'); rerender();
+    } else add.disabled = false;
+  };
+  const sf = $('#sfAdd');
+  if (sf) sf.onclick = async () => {
+    const files = await pickFiles('image/*,video/*,application/pdf', true);
+    if (!files.length) return;
+    const big = files.find(f => f.size > 50 * 1024 * 1024);
+    if (big) return toast('الملف «' + big.name + '» أكبر من 50MB — اضغطه أو حط رابط Drive', 4000);
+    toast('جاري الرفع…', 1500);
+    let n = 0;
+    for (const f of files) {
+      try { const r = await uploadFile(f, 'hq/' + it.id + '/' + tab); if (await stagePatch(it, { p_stage: tab, p_op: 'add', p_kind: 'files', p_entry: { name: r.name, url: r.url, type: r.type } })) n++; }
+      catch (e) { console.error(e); toast('فشل رفع ' + f.name); }
+    }
+    if (n) { logAct(it.id, 'files', null, null, n + ' ملف في «' + SM[tab].n + '»'); toast('اترفع ' + n + ' ملف'); rerender(); }
+  };
+  root.querySelectorAll('[data-srm]').forEach(b => b.onclick = async e => {
+    e.preventDefault(); e.stopPropagation();
+    if (!confirm('حذف؟')) return;
+    if (await stagePatch(it, { p_stage: tab, p_op: 'remove', p_kind: b.dataset.srm, p_id: b.dataset.sid })) rerender();
+  });
+}

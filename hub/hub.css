@@ -562,3 +562,25 @@ nav.bottom button.on::before{display:none}
   .kpis.k4 .kpi .l{font-size:11px;line-height:1.35}
 }
 .login{flex:1;width:100%}
+
+/* ── Content card: details + stage workspace ── */
+details.cdet{margin-top:14px;border:1px solid var(--line);border-radius:12px;background:var(--beige-l);padding:0 14px}
+details.cdet>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 0;font-weight:600;font-size:13.5px}
+details.cdet>summary::-webkit-details-marker{display:none}
+details.cdet>summary::after{content:"";width:8px;height:8px;border-inline-start:1.6px solid var(--muted);border-bottom:1.6px solid var(--muted);transform:rotate(-45deg);margin-inline-start:6px;transition:transform .15s}
+details.cdet[open]>summary::after{transform:rotate(135deg)}
+details.cdet[open]{padding-bottom:14px}
+details.cdet>summary span:first-child{flex:1}
+.stabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 0 10px}
+.stabs::-webkit-scrollbar{display:none}
+.stab{flex:none;height:34px;padding:0 13px;border:1px solid var(--line);background:#fff;border-radius:999px;font-size:13px;font-weight:500;color:var(--ink-2);display:inline-flex;align-items:center;gap:6px}
+.stab i{font-style:normal;font-size:11px;font-weight:700;background:var(--surface-2);color:var(--ink-2);border-radius:999px;min-width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;padding:0 5px}
+.stab.cur{border-color:var(--brand-l,#9C7C63)}
+.stab.on{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:600}
+.stab.on i{background:rgba(255,255,255,.2);color:#fff}
+.spanel{border:1px solid var(--line);border-radius:14px;padding:4px 14px 16px;background:#fff}
+.spanel .lrow{background:var(--beige-l)}
+.slinkadd{display:grid;grid-template-columns:1fr 1.4fr auto;gap:8px;margin-top:8px}
+@media(max-width:600px){.slinkadd{grid-template-columns:1fr}}
+details.legacy{margin-top:16px;font-size:13px}
+details.legacy>summary{cursor:pointer;color:var(--muted);font-weight:600}
