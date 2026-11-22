@@ -322,17 +322,80 @@ function badges() {
 }
 const assigneesOf = t => (Array.isArray(t.assigned_to) ? t.assigned_to : [t.assigned_to]).filter(Boolean);
 
+const SUBS = {
+  home: '', content: 'كل الكروت من الفكرة للنشر', calendar: 'خطة النشر والأيام الفاضية', tasks: 'مهام الفريق بالحالة والأولوية',
+  briefs: 'تعليمات صاحبة البراند والإدارة للفريق', chat: 'شات الفريق', intel: 'رصد المنافسين وأفضل بوستاتهم', ugc: 'متابعة صنّاع المحتوى',
+  ads: 'إعلانات المنافسين من إضافة Adlumi', ideas: 'أفكار سريعة من أبحاث المنافسين', publish: 'طابور النشر التلقائي من Google Drive',
+  tools: 'ضغط الصور والفيديو وإرفاقها بالكروت', stats: 'أرقام الأسبوع وأداء الفريق', team: 'الحساب، الإشعارات، والأعضاء'
+};
+const NEW_LBL = { content: 'محتوى جديد', task: 'مهمة جديدة', brief: 'بريف جديد' };
 function renderShell() {
   $('#app').innerHTML =
-    '<header class="top"><a class="logo" href="#/home" aria-label="Muhra HQ"><img src="assets/muhra-logo-light.png" alt="Muhra"></a><span class="hq">HQ</span>' +
-    '<div class="sp"></div><button class="hbtn" id="searchBtn" aria-label="بحث">' + icon('search', 19) + '</button>' +
-    '<button class="hbtn" id="meBtn" aria-label="حسابي">' + av(S.me.id) + '</button></header>' +
-    '<div class="layout"><aside class="side" id="side"></aside><main id="view"></main><div id="frames" class="hidden"></div></div>' +
-    '<button class="fab" id="fab" aria-label="جديد">+</button><nav class="bottom" id="nav"></nav>';
+    '<aside class="side" id="side"></aside>' +
+    '<div class="shell">' +
+      '<header class="top">' +
+        '<a class="logo" href="#/home" aria-label="Muhra HQ"><img src="assets/muhra-logo.png" alt="Muhra"><span class="hq">HQ</span></a>' +
+        '<div class="pgt"><h1 id="pgTitle"></h1><p id="pgSub"></p></div>' +
+        '<div class="sp"></div>' +
+        '<button class="searchbox" id="searchBtn" aria-label="بحث">' + icon('search', 17) + '<span>ابحث في كل حاجة…</span><kbd>/</kbd></button>' +
+        '<button class="btn pri newbtn" id="newBtn"><b>+</b> <span id="newLbl"></span></button>' +
+        '<button class="hbtn me" id="meBtn" aria-label="حسابي">' + av(S.me.id) + '</button>' +
+      '</header>' +
+      '<div class="phead" id="phead"><h1 id="pgTitleM"></h1><p id="pgSubM"></p></div>' +
+      '<main id="view"></main><div id="frames" class="hidden"></div>' +
+    '</div>' +
+    '<button class="fab" id="fab" aria-label="جديد">' + '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>' + '</button><nav class="bottom" id="nav"></nav>';
   $('#fab').onclick = () => fabAction();
+  $('#newBtn').onclick = () => fabAction();
   $('#meBtn').onclick = () => go('team');
   $('#searchBtn').onclick = () => openSearch();
+  if (!window._hqKeys) {
+    window._hqKeys = true;
+    document.addEventListener('keydown', e => {
+      if ((e.key === '/' || (e.key === 'k' && (e.metaKey || e.ctrlKey))) && !e.target.closest('input,textarea,select,[contenteditable]') && S.me) { e.preventDefault(); openSearch(); }
+      if (e.key === 'Escape' && $('#sheetRoot').innerHTML) closeSheet();
+    });
+  }
   renderNav();
+}
+function setPageHeader() {
+  const r = RM[S.route] || RM.home;
+  const t = S.route === 'home' ? (new Date().getHours() < 12 ? 'صباح الخير' : 'مساء الخير') + '، ' + firstName(S.me.id) : r.n;
+  const sub = S.route === 'home' ? fmtDay(today()) : (SUBS[S.route] || '');
+  ['#pgTitle', '#pgTitleM'].forEach(q => { const el = $(q); if (el) el.textContent = t; });
+  ['#pgSub', '#pgSubM'].forEach(q => { const el = $(q); if (el) el.textContent = sub; });
+  const f = fabFor(), nb = $('#newBtn');
+  if (nb) { nb.classList.toggle('hidden', !f); if (f) $('#newLbl').textContent = NEW_LBL[f]; }
+  document.title = (S.route === 'home' ? '' : r.n + ' · ') + 'Muhra HQ';
+}
+/* Visual polish for everything rendered: no emoji in headings/labels, page title lives in the header. */
+const LEAD_EMOJI = /^[\s\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{20E3}]+/u;
+function stripLeadEmoji(el) {
+  const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  let n;
+  while ((n = w.nextNode())) {
+    if (!n.nodeValue.trim()) continue;
+    if (n.parentElement && n.parentElement.closest('.av,.thumb,.sic,kbd')) return;
+    const r = n.nodeValue.replace(LEAD_EMOJI, '');
+    if (r === n.nodeValue) return;
+    if (!r.trim()) { // whole node was an icon: drop it only if real text follows inside the same element
+      if ((el.textContent || '').replace(LEAD_EMOJI, '').trim()) { n.nodeValue = ''; continue; }
+      return;
+    }
+    n.nodeValue = r; return;
+  }
+}
+const POLISH_SEL = 'h2.sec, .sectitle, .kcol h3, .btn, .chip, .stage-tag, .tg, .pill, .mg-label, label.lb, .slot b, .calday .hd b, .stepper button';
+function polish(root) {
+  root = root || document;
+  root.querySelectorAll('h1.ptitle').forEach(h => { const nx = h.nextElementSibling; if (nx && nx.matches('.muted.small') && /-6px/.test(nx.getAttribute('style') || '')) nx.remove(); h.remove(); });
+  root.querySelectorAll(POLISH_SEL).forEach(el => { if (el._p) return; el._p = 1; stripLeadEmoji(el); });
+}
+if (!window._hqPolishObs) {
+  window._hqPolishObs = true;
+  let pend = false;
+  new MutationObserver(() => { if (pend) return; pend = true; requestAnimationFrame(() => { pend = false; polish(document); }); })
+    .observe(document.documentElement, { childList: true, subtree: true });
 }
 function navItem(r, b, cls) {
   const n = b[r.k] ? '<span class="dot">' + (b[r.k] > 99 ? '99+' : b[r.k]) + '</span>' : '';
@@ -341,8 +404,11 @@ function navItem(r, b, cls) {
 function renderNav() {
   if (!$('#nav')) return;
   const b = badges();
-  $('#side').innerHTML = Object.entries(GROUPS).map(([g, gn]) => '<div class="sgroup"><div class="sglabel">' + gn + '</div>' + ROUTES.filter(r => r.g === g).map(r => navItem(r, b, 'sitem')).join('') + '</div>').join('') +
-    '<div class="sfoot">' + av(S.me.id) + '<span class="grow">' + esc(S.me.name) + '</span></div>';
+  $('#side').innerHTML = '<a class="sbrand" href="#/home"><img src="assets/muhra-logo.png" alt="Muhra"><span>HQ</span></a>' +
+    '<button class="sfind" data-sfind="1">' + icon('search', 16) + '<span>بحث</span><kbd>/</kbd></button>' +
+    '<div class="snav">' + Object.entries(GROUPS).map(([g, gn]) => '<div class="sgroup"><div class="sglabel">' + gn + '</div>' + ROUTES.filter(r => r.g === g).map(r => navItem(r, b, 'sitem')).join('') + '</div>').join('') + '</div>' +
+    '<button class="sfoot" data-go="team">' + av(S.me.id) + '<span class="grow"><b>' + esc(S.me.name) + '</b><small>' + (S.me.role === 'admin' ? 'مدير' : 'عضو') + (S.me.title ? ' · ' + esc(S.me.title) : '') + '</small></span></button>';
+  const sf = $('[data-sfind]'); if (sf) sf.onclick = () => openSearch();
   const inMore = !MOBILE_TABS.includes(S.route);
   const moreCount = ROUTES.filter(r => !MOBILE_TABS.includes(r.k)).reduce((a, r) => a + (b[r.k] || 0), 0);
   $('#nav').innerHTML = MOBILE_TABS.map(k => navItem(RM[k], b, 'tab')).join('') +
@@ -403,6 +469,7 @@ function renderAll() {
     $$('[data-task]', v).forEach(el => el.onclick = e => { if (e.target.closest('button,a,input,select,textarea')) return; openTask(el.dataset.task); });
   }
   const fab = $('#fab'); if (fab) fab.classList.toggle('hidden', !fabFor());
+  setPageHeader();
   if (S.openId && typeof refreshSheetLive === 'function') refreshSheetLive();
   if (S.openTaskId && typeof refreshTaskLive === 'function') refreshTaskLive();
 }

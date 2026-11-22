@@ -12,8 +12,12 @@ function viewHome(v) {
   const waitingMine = S.items.filter(i => i.stage === 'review' && i.owner === me);
   const shown = new Set([...mine, ...(isApprover() ? review : []), ...waitingMine].map(i => i.id));
   const notReady = S.items.filter(i => !shown.has(i.id) && i.publish_date && dayDiff(i.publish_date) >= 0 && dayDiff(i.publish_date) <= 2 && !DONE_STAGES.includes(i.stage));
-  let html = '<div style="margin:4px 2px 12px"><div style="font-size:21px;font-weight:800">' + (h < 12 ? 'صباح الخير' : 'مساء الخير') + ' ' + esc(firstName(me)) + ' 👋</div>' +
-    '<div class="muted small">' + fmtDay(today()) + ' · ' + (mine.length + openTasksN ? 'عندك ' + mine.length + ' محتوى و' + openTasksN + ' مهمة مفتوحة' : 'مفيش شغل مفتوح عليك') + '</div></div>';
+  const kpi = (v, l, cls, href) => '<a class="card kpi hk' + (cls ? ' ' + cls : '') + '" href="' + href + '"><div class="l">' + l + '</div><div class="v">' + v + '</div></a>';
+  let html = '<div class="kpis k4 homek">' +
+    kpi(mine.length, 'محتوى عليك', '', '#/content') +
+    kpi(openTasksN, 'مهام مفتوحة', '', '#/tasks') +
+    (isApprover() ? kpi(review.length, 'بانتظار موافقتك', review.length ? 'warnk' : '', '#/content') : kpi(waitingMine.length, 'مستني الموافقة', '', '#/content')) +
+    kpi(notReady.length, 'نشر قريب ومش جاهز', notReady.length ? 'badk' : '', '#/calendar') + '</div>';
   html += (typeof pushBanner === 'function' ? pushBanner() : '');
   html += weekStrip();
   if (isApprover()) {
