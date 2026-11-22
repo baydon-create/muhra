@@ -179,13 +179,6 @@ table.tb td.num{font-family:Montserrat;font-weight:600}
 .login h1{font-family:Montserrat;letter-spacing:.25em;font-size:24px;margin:0;color:var(--brown-d)}
 .login .people{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:22px}
 .login .person{padding:14px 6px;border:1px solid var(--line);border-radius:14px;background:#fff;display:flex;flex-direction:column;align-items:center;gap:6px;font-weight:700;font-size:13px}
-.pinpad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px;direction:ltr}
-.pinpad button{height:58px;border-radius:14px;border:1px solid var(--line);background:#fff;font-size:22px;font-family:Montserrat;font-weight:600}
-.pindots{display:flex;gap:12px;justify-content:center;margin-top:16px;direction:ltr}
-.pindots i{width:14px;height:14px;border-radius:7px;border:2px solid var(--brown);display:block}
-.pindots i.f{background:var(--brown)}
-.shake{animation:sh .4s}
-@keyframes sh{0%,100%{transform:none}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
 @media(min-width:900px){main{padding-left:24px;padding-right:24px}.fab{left:32px}}
 </style>
 </head>
@@ -198,10 +191,10 @@ table.tb td.num{font-family:Montserrat;font-weight:600}
 /* ───────── CONFIG ───────── */
 const SB_URL = 'https://ltwzmjqrlvqbndmipufm.supabase.co';
 const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0d3ptanFybHZxYm5kbWlwdWZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMDA3NTEsImV4cCI6MjA5MjY3Njc1MX0.pvp5NFr2tOTw_MJHIxHO9kK7cQ75QjL5N8AcewXIVOM';
-const NOTIFY_HOOK = 'https://vmi3437039.contaboserver.net/webhook/muhra-hq-notify';
-const APPROVERS = ['mohamed', 'maha'];           // either of them can approve
 const BUCKET = 'task-attachments';
-const UID_KEY = 'muhra_uid_v3';                    // shared with the Tasks app login
+const UID_KEY = 'muhra_uid_v3';                    // cache of the signed-in member id (Tasks app reads it too)
+const AUTH_KEY = 'muhra-team-auth';                 // shared login session for HQ + Tasks app
+const LOGIN_DOMAIN = 'team.muhrastore.com';         // usernames sign in as username@this-domain
 const LINKS = {
   tasks: 'index.html',
   intel: 'https://baydon-create.github.io/muhra-social-tracking/',
@@ -211,7 +204,8 @@ const LINKS = {
   instagram: 'https://www.instagram.com/muhra.egy/',
   business: 'https://business.facebook.com/latest/content_calendar'
 };
-const sb = supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: false } });
+// SB_KEY is Supabase's publishable key: it opens nothing on its own. Every table requires a signed-in team member (row level security).
+const sb = supabase.createClient(SB_URL, SB_KEY, { auth: { storageKey: AUTH_KEY, persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } });
 
 const STAGES = [
   { k: 'idea', n: 'فكرة', ic: '💡', bg: '#F1ECE6', fg: '#6B5A4D' },
@@ -255,7 +249,9 @@ const fmtShort = iso => { const d = new Date(iso + 'T12:00:00'); return d.getDat
 const fmtTime = ts => { const d = new Date(ts); return d.getDate() + '/' + (d.getMonth() + 1) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); };
 const num = n => n == null ? '—' : n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e4 ? Math.round(n / 1e3) + 'K' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : String(n);
 const safeUrl = u => { try { const x = new URL(u); return /^https?:$/.test(x.protocol) ? x.href : ''; } catch { return ''; } };
-const isApprover = () => S.me && APPROVERS.includes(S.me.id);
+const isApprover = () => !!(S.me && S.me.can_approve);
+const approverIds = () => S.team.filter(m => m.can_approve).map(m => m.id);
+const approverNames = () => S.team.filter(m => m.can_approve).map(m => firstName(m.id)).join(' أو ') || 'المسؤول';
 const isAdmin = () => S.me && S.me.role === 'admin';
 const nameOf = id => (S.teamMap[id] && S.teamMap[id].name) || id || '—';
 const firstName = id => nameOf(id).replace(/^Dr\.\s*/, '').split(' ')[0];
@@ -292,7 +288,7 @@ function ccard(it, opts = {}) {
 /* ───────── DATA ───────── */
 async function loadTeam() {
   const [{ data: t, error }, { data: p }] = await Promise.all([
-    sb.from('team_members').select('id,name,title,role,pin,color,initials').order('created_at'),
+    sb.from('team_members').select('id,name,title,role,color,initials,user_id,can_approve').eq('active', true).order('created_at'),
     sb.from('profiles').select('user_id,photo_url')
   ]);
   if (error) throw error;
@@ -312,14 +308,10 @@ async function logAct(item_id, action, from_stage, to_stage, note) {
   await sb.from('hq_activity').insert({ item_id, actor: S.me.id, action, from_stage: from_stage || null, to_stage: to_stage || null, note: note || null });
 }
 async function push(ids, title, body) {
-  ids = [...new Set((ids || []).filter(id => id && id !== S.me.id))].map(id => id.replace(/[^a-zA-Z0-9_-]/g, ''));
+  ids = [...new Set((ids || []).filter(id => id && id !== S.me.id))];
   if (!ids.length) return;
-  try {
-    await fetch(SB_URL + '/functions/v1/send-push', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + SB_KEY }, body: JSON.stringify({ external_ids: ids, title, body, taskId: null }) });
-  } catch (e) { console.warn('push failed', e); }
-}
-function telegram(event, item_id) {
-  fetch(NOTIFY_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ event, item_id, actor: S.me.id }) }).catch(e => console.warn('telegram hook', e));
+  const { error } = await sb.functions.invoke('send-push', { body: { external_ids: ids, title, body } });
+  if (error) console.warn('push failed', error);
 }
 async function updateItem(id, patch, silent) {
   const it = S.items.find(x => x.id === id); if (it) Object.assign(it, patch);
@@ -340,43 +332,72 @@ async function moveStage(it, to, opts = {}) {
   if (!(await updateItem(it.id, patch, true))) return;
   await logAct(it.id, opts.changes ? 'changes' : 'stage', from, to, opts.changes || null);
   const team = [it.owner, ...(it.helpers || [])];
-  if (to === 'review') { push(APPROVERS, '👀 محتوى للمراجعة', it.title); telegram('review', it.id); }
-  else if (to === 'approved') { push(team, '✅ تمت الموافقة', it.title); telegram('approved', it.id); }
-  else if (opts.changes) { push(team, '✏️ مطلوب تعديلات', it.title + ' — ' + opts.changes); telegram('changes', it.id); }
-  else if (to === 'posted') { push([...team, ...APPROVERS], '📣 تم النشر', it.title); telegram('posted', it.id); }
+  if (to === 'review') { push(approverIds(), '👀 محتوى للمراجعة', it.title); }
+  else if (to === 'approved') { push(team, '✅ تمت الموافقة', it.title); }
+  else if (opts.changes) { push(team, '✏️ مطلوب تعديلات', it.title + ' — ' + opts.changes); }
+  else if (to === 'posted') { push([...team, ...approverIds()], '📣 تم النشر', it.title); }
   else push(team, SM[to].ic + ' ' + SM[to].n, it.title);
   toast(opts.changes ? 'تم إرسال طلب التعديل' : SM[to].ic + ' ' + SM[to].n);
   renderAll();
 }
 
 /* ───────── LOGIN ───────── */
-function renderLogin(err) {
-  let who = null, pin = '';
-  const app = $('#app');
-  function people() {
-    app.innerHTML = '<div class="login"><div class="box"><h1>MUHRA</h1><div class="muted lat" style="letter-spacing:.35em;font-size:11px;margin-top:4px">HQ</div>' +
-      '<p style="margin-top:20px;font-weight:700">مين بيدخل؟</p><div class="people">' +
-      S.team.map(m => '<button class="person" data-who="' + esc(m.id) + '">' + av(m.id, true) + esc(m.name.replace(/^Dr\.\s*/, '').split(' ')[0]) + '</button>').join('') +
-      '</div>' + (err ? '<div class="alert bad">' + esc(err) + '</div>' : '') + '</div></div>';
-    app.querySelectorAll('[data-who]').forEach(b => b.onclick = () => { who = S.teamMap[b.dataset.who]; pin = ''; pad_(); });
-  }
-  function pad_(bad) {
-    app.innerHTML = '<div class="login"><div class="box"><div style="display:flex;justify-content:center">' + av(who.id, true) + '</div><p style="font-weight:800;margin:8px 0 0">' + esc(who.name) + '</p><p class="muted small">ادخل الرقم السري (نفس رقم تطبيق المهام)</p>' +
-      '<div class="pindots ' + (bad ? 'shake' : '') + '">' + [0, 1, 2, 3].map(i => '<i class="' + (i < pin.length ? 'f' : '') + '"></i>').join('') + '</div>' +
-      (bad ? '<div class="alert bad">الرقم غير صحيح</div>' : '') +
-      '<div class="pinpad">' + [1, 2, 3, 4, 5, 6, 7, 8, 9].map(d => '<button data-d="' + d + '">' + d + '</button>').join('') + '<button data-back="1">→</button><button data-d="0">0</button><button data-del="1">⌫</button></div></div></div>';
-    app.querySelectorAll('[data-d]').forEach(b => b.onclick = () => {
-      if (pin.length >= 4) return; pin += b.dataset.d; pad_();
-      if (pin.length === 4) setTimeout(() => {
-        if (pin === String(who.pin)) { lsS(UID_KEY, who.id); S.me = who; boot2(); }
-        else { pin = ''; pad_(true); }
-      }, 150);
-    });
-    app.querySelector('[data-del]').onclick = () => { pin = pin.slice(0, -1); pad_(); };
-    app.querySelector('[data-back]').onclick = people;
-  }
-  people();
+function loginShell(inner) {
+  $('#app').innerHTML = '<div class="login"><div class="box"><h1>MUHRA</h1><div class="muted lat" style="letter-spacing:.35em;font-size:11px;margin:4px 0 22px">HQ</div>' + inner + '</div></div>';
 }
+function renderLogin(err) {
+  loginShell('<form id="lf" class="card pad" style="text-align:right" autocomplete="on">' +
+    '<label class="lb" style="margin-top:0">اسم المستخدم</label><input class="inp lat" id="lu" name="username" autocomplete="username" dir="ltr" autocapitalize="none" spellcheck="false" required>' +
+    '<label class="lb">كلمة المرور</label><input class="inp lat" id="lp" name="password" type="password" autocomplete="current-password" dir="ltr" required>' +
+    (err ? '<div class="alert bad">' + esc(err) + '</div>' : '') +
+    '<button class="btn pri" id="lb" style="width:100%;margin-top:16px">دخول</button>' +
+    '<div class="muted small" style="margin-top:12px;text-align:center">نسيت كلمة المرور؟ اطلب من المدير إعادة تعيينها.</div></form>');
+  $('#lu').focus();
+  $('#lf').onsubmit = async e => {
+    e.preventDefault();
+    const u = $('#lu').value.trim().toLowerCase(), pw = $('#lp').value;
+    if (!u || !pw) return;
+    $('#lb').disabled = true; $('#lb').textContent = '...';
+    const email = u.includes('@') ? u : u + '@' + LOGIN_DOMAIN;
+    const { error } = await sb.auth.signInWithPassword({ email, password: pw });
+    if (error) return renderLogin(/rate|many/i.test(error.message) ? 'محاولات كثيرة، استنى دقيقة وجرب تاني' : 'اسم المستخدم أو كلمة المرور غير صحيحة');
+    afterSignIn();
+  };
+}
+function renderChangePassword(forced, err) {
+  loginShell('<form id="cf" class="card pad" style="text-align:right">' +
+    '<div style="font-weight:800;margin-bottom:4px">' + (forced ? 'اختار كلمة مرور جديدة' : 'تغيير كلمة المرور') + '</div>' +
+    '<div class="muted small">' + (forced ? 'دي أول مرة تدخل — غيّر كلمة المرور المؤقتة.' : '') + ' 8 حروف على الأقل.</div>' +
+    '<label class="lb">كلمة المرور الجديدة</label><input class="inp lat" id="np1" type="password" autocomplete="new-password" dir="ltr" minlength="8" required>' +
+    '<label class="lb">تأكيد كلمة المرور</label><input class="inp lat" id="np2" type="password" autocomplete="new-password" dir="ltr" minlength="8" required>' +
+    (err ? '<div class="alert bad">' + esc(err) + '</div>' : '') +
+    '<button class="btn pri" id="cb" style="width:100%;margin-top:16px">حفظ</button>' +
+    (forced ? '' : '<button type="button" class="btn ghost" id="cc" style="width:100%;margin-top:6px">إلغاء</button>') + '</form>');
+  $('#np1').focus();
+  if (!forced) $('#cc').onclick = () => boot2();
+  $('#cf').onsubmit = async e => {
+    e.preventDefault();
+    const a = $('#np1').value, b = $('#np2').value;
+    if (a.length < 8) return renderChangePassword(forced, 'كلمة المرور لازم 8 حروف على الأقل');
+    if (a !== b) return renderChangePassword(forced, 'كلمتين المرور مش متطابقين');
+    $('#cb').disabled = true;
+    const { error } = await sb.auth.updateUser({ password: a, data: { must_change_password: false } });
+    if (error) return renderChangePassword(forced, /same|different/i.test(error.message) ? 'اختار كلمة مرور مختلفة عن القديمة' : 'تعذر الحفظ، حاول تاني');
+    toast('تم تغيير كلمة المرور ✓');
+    afterSignIn();
+  };
+}
+async function afterSignIn() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return renderLogin();
+  try { await loadTeam(); } catch (e) { return renderLogin('تعذر الاتصال، حاول تاني'); }
+  const me = S.team.find(m => m.user_id === session.user.id);
+  if (!me) { await sb.auth.signOut(); localStorage.removeItem(UID_KEY); return renderLogin('الحساب ده مش عضو في الفريق'); }
+  if (session.user.user_metadata && session.user.user_metadata.must_change_password) return renderChangePassword(true);
+  S.me = me; lsS(UID_KEY, me.id);
+  boot2();
+}
+async function signOut() { await sb.auth.signOut(); localStorage.removeItem(UID_KEY); location.replace(location.pathname); }
 
 /* ───────── SHELL ───────── */
 const ICONS = {
@@ -393,7 +414,7 @@ function renderShell() {
     '<button id="meBtn" style="border:0;background:none;padding:0">' + av(S.me.id) + '</button></header>' +
     '<main id="view"></main><button class="fab" id="fab" aria-label="محتوى جديد">+</button><nav class="bottom" id="nav"></nav>';
   $('#fab').onclick = () => newItem();
-  $('#meBtn').onclick = () => { if (confirm('تسجيل الخروج من ' + S.me.name + '؟')) { localStorage.removeItem(UID_KEY); location.reload(); } };
+  $('#meBtn').onclick = () => openTeam();
   renderNav();
 }
 function renderNav() {
@@ -561,7 +582,8 @@ function viewMore(v) {
   const late = S.items.filter(isLate);
   const review = S.items.filter(i => i.stage === 'review');
   const st = S.stats;
-  let html = '<h2 class="sec" style="margin-top:4px">📊 هذا الأسبوع (من السبت)</h2><div class="kpis">' +
+  let html = '<button class="card pad row" id="openTeam" style="width:100%;border:1px solid var(--line);text-align:right;margin-bottom:6px"><span style="font-size:22px">👥</span><span class="grow"><b>الفريق والحساب</b><div class="muted small">' + (isAdmin() ? 'إضافة وحذف الأعضاء، الصلاحيات، كلمات المرور' : 'صورتك وكلمة المرور') + '</div></span><span class="row" style="gap:0">' + S.team.slice(0, 5).map(m => av(m.id)).join('') + '</span></button>';
+  html += '<h2 class="sec" style="margin-top:14px">📊 هذا الأسبوع (من السبت)</h2><div class="kpis">' +
     kpi(postedWeek.length + ' / ' + planned.length, 'منشور / مخطط') + kpi(review.length, 'بانتظار موافقة') + kpi(late.length, 'متأخر', late.length ? 'var(--bad)' : '') +
     kpi(S.items.filter(i => i.stage === 'idea').length, 'أفكار في البنك') + '</div>';
   html += '<h2 class="sec">📱 إنستجرام @muhra.egy — آخر 7 أيام</h2>';
@@ -585,7 +607,8 @@ function viewMore(v) {
     tool(LINKS.instagram, '📸', '@muhra.egy', 'حساب إنستجرام') + '</div>';
   html += '<div class="muted small" style="text-align:center;margin-top:24px">مسجل باسم ' + esc(S.me.name) + ' · <a href="#" id="logout">خروج</a></div>';
   v.innerHTML = html;
-  $('#logout').onclick = e => { e.preventDefault(); localStorage.removeItem(UID_KEY); location.reload(); };
+  $('#logout').onclick = e => { e.preventDefault(); signOut(); };
+  $('#openTeam').onclick = () => openTeam();
 }
 const kpi = (val, label, color) => '<div class="card kpi"><div class="v" style="' + (color ? 'color:' + color : '') + '">' + esc(val) + '</div><div class="l">' + esc(label) + '</div></div>';
 const tool = (href, ic, t, d, blank = true) => '<a class="card tool" href="' + href + '"' + (blank ? ' target="_blank" rel="noopener"' : '') + '><span class="ic">' + ic + '</span><b>' + t + '</b><span>' + d + '</span></a>';
@@ -693,7 +716,7 @@ function renderSheet(it) {
   const cap = root.querySelector('[data-f="caption"]'); if (cap) cap.addEventListener('input', () => { $('#capCount').textContent = cap.value.length + ' / 2200'; });
   root.querySelectorAll('[data-step]').forEach(b => b.onclick = () => {
     const to = b.dataset.step; if (to === it.stage) return;
-    if (to === 'approved' && !isApprover()) return toast('الموافقة لمحمد أو د. مها فقط');
+    if (to === 'approved' && !isApprover()) return toast('الموافقة لـ ' + approverNames() + ' فقط');
     if (SI[to] > SI.review && SI[it.stage] < SI.approved && !isApprover()) return toast('لازم يتعمل موافقة الأول');
     if (to === 'review') return sendToReview(it);
     moveStage(it, to).then(() => { renderSheet(it); loadThread(it.id); });
@@ -740,7 +763,7 @@ async function uploadFiles(it, files) {
 }
 function actionButtons(it) {
   const s = it.stage, appr = isApprover();
-  if (s === 'review') return appr ? '<button class="btn ok" data-act="approve">✅ موافقة</button><button class="btn bad" data-act="changes">✏️ طلب تعديل</button>' : '<div class="muted small grow" style="text-align:center;padding:8px">⏳ مستني موافقة محمد أو د. مها</div>';
+  if (s === 'review') return appr ? '<button class="btn ok" data-act="approve">✅ موافقة</button><button class="btn bad" data-act="changes">✏️ طلب تعديل</button>' : '<div class="muted small grow" style="text-align:center;padding:8px">⏳ مستني موافقة ' + esc(approverNames()) + '</div>';
   if (s === 'idea') return '<button class="btn pri" data-act="next">✍️ ابدأ السكريبت</button>';
   if (s === 'script') return '<button class="btn pri" data-act="next">🎥 جاهز للتصوير</button><button class="btn" data-act="review">👀 مراجعة السكريبت</button>';
   if (s === 'shoot') return '<button class="btn pri" data-act="next">✂️ اتصور — للمونتاج</button>';
@@ -816,9 +839,139 @@ function refreshSheetLive() {
 }
 function renderAllBg() { const id = S.openId; S.openId = null; renderAll(); S.openId = id; }
 
+/* ───────── TEAM & ACCOUNT ───────── */
+const TEAM_ERRORS = {
+  bad_username: 'اسم المستخدم: حروف إنجليزي صغيرة وأرقام فقط (3–20)، ويبدأ بحرف',
+  name_required: 'اكتب الاسم', weak_password: 'كلمة المرور 8 حروف على الأقل', username_taken: 'اسم المستخدم مستخدم قبل كده',
+  last_admin: 'لازم يفضل مدير واحد على الأقل', last_approver: 'لازم يفضل شخص واحد على الأقل يقدر يوافق',
+  cannot_delete_self: 'مينفعش تحذف حسابك', admins_only: 'الصلاحية دي للمديرين فقط', not_signed_in: 'انتهت الجلسة، سجل الدخول تاني'
+};
+async function teamAdmin(body) {
+  const { data, error } = await sb.functions.invoke('team-admin', { body });
+  if (error) { let code = 'server_error'; try { code = (await error.context.json()).error || code; } catch {} throw new Error(TEAM_ERRORS[code] || 'حصل خطأ، حاول تاني'); }
+  return data;
+}
+function genPassword() {
+  const a = 'abcdefghjkmnpqrstuvwxyz23456789', r = crypto.getRandomValues(new Uint32Array(10));
+  const pick = (from, n) => Array.from(r.slice(from, from + n)).map(x => a[x % a.length]).join('');
+  return 'Muhra-' + pick(0, 6) + '-' + pick(6, 4);
+}
+function credCard(username, password) {
+  const txt = 'Muhra HQ\n' + location.origin + location.pathname + '\nاسم المستخدم: ' + username + '\nكلمة المرور المؤقتة: ' + password;
+  return '<div class="alert ok" style="text-align:right"><b>ابعت البيانات دي للعضو:</b><div class="lat" dir="ltr" style="text-align:left;margin:8px 0;background:#fff;border-radius:8px;padding:8px;font-weight:600">' + esc(username) + '<br>' + esc(password) + '</div>' +
+    '<button class="btn sm" data-copy="' + esc(txt) + '">📋 نسخ الرسالة</button> <span class="small">هيُطلب منه تغييرها أول ما يدخل.</span></div>';
+}
+function bindCopy(root) { root.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => { const t = b.dataset.copy; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast('تم النسخ'), () => prompt('انسخ:', t)); }); }
+
+async function openTeam(note) {
+  S.openId = null;
+  if (location.hash !== '#team') history.replaceState(null, '', '#team');
+  try { await loadTeam(); } catch {}
+  const admin = isAdmin(), root = $('#sheetRoot');
+  const row = m => '<div class="row" style="padding:10px 12px;border-bottom:1px solid var(--line)">' + av(m.id, true) +
+    '<div class="grow"><div style="font-weight:800">' + esc(m.name) + (m.id === S.me.id ? ' <span class="muted small">(أنت)</span>' : '') + '</div>' +
+    '<div class="muted small"><span class="lat" dir="ltr">' + esc(m.id) + '</span>' + (m.title ? ' · ' + esc(m.title) : '') + '</div>' +
+    '<div class="row" style="gap:4px;margin-top:3px">' + (m.role === 'admin' ? '<span class="pill">مدير</span>' : '<span class="pill" style="opacity:.7">عضو</span>') + (m.can_approve ? '<span class="pill okp">يوافق على المحتوى</span>' : '') + '</div></div>' +
+    (admin ? '<button class="btn sm" data-edit="' + esc(m.id) + '">تعديل</button>' : '') + '</div>';
+  root.innerHTML = '<div class="overlay" id="ov"><div class="sheet"><div class="sh"><b class="grow">👥 الفريق والحساب</b><button class="btn ghost sm" id="x">✕</button></div><div class="sb">' +
+    (note || '') +
+    '<div class="sectitle" style="margin-top:12px">حسابي</div><div class="card pad"><div class="row">' + av(S.me.id, true) + '<div class="grow"><b>' + esc(S.me.name) + '</b><div class="muted small lat" dir="ltr" style="text-align:right">' + esc(S.me.id) + '</div></div></div>' +
+    '<div class="row wrap" style="margin-top:12px"><button class="btn sm" id="myPhoto">📷 تغيير الصورة</button><button class="btn sm" id="myPw">🔑 تغيير كلمة المرور</button><button class="btn sm bad" id="myOut">خروج</button></div></div>' +
+    '<div class="sectitle">الأعضاء <span class="muted small">(' + S.team.length + ')</span></div><div class="card">' + S.team.map(row).join('') + '</div>' +
+    (admin ? '<button class="btn pri" id="addM" style="width:100%;margin-top:14px">+ إضافة عضو جديد</button>' : '<div class="muted small" style="margin-top:10px">إضافة وحذف الأعضاء للمديرين فقط.</div>') +
+    '</div></div></div>';
+  bindCopy(root);
+  $('#x').onclick = closeSheet; $('#ov').onclick = e => { if (e.target.id === 'ov') closeSheet(); };
+  $('#myPw').onclick = () => { closeSheet(); renderChangePassword(false); };
+  $('#myOut').onclick = () => { if (confirm('تسجيل الخروج؟')) signOut(); };
+  $('#myPhoto').onclick = () => pickPhoto(S.me.id);
+  root.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => editMember(b.dataset.edit));
+  const add = $('#addM'); if (add) add.onclick = () => editMember(null);
+}
+function pickPhoto(memberId) {
+  const fp = $('#filePick'); fp.value = ''; fp.accept = 'image/*';
+  fp.onchange = async () => {
+    const f = fp.files[0]; fp.accept = 'image/*,video/*,application/pdf'; if (!f) return;
+    if (f.size > 5 * 1024 * 1024) return toast('الصورة أكبر من 5MB');
+    const path = 'profiles/' + memberId + '/' + Date.now() + '.' + ((f.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg');
+    const { error } = await sb.storage.from(BUCKET).upload(path, f, { contentType: f.type || 'image/jpeg' });
+    if (error) return toast('فشل رفع الصورة');
+    const url = sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+    const { error: e2 } = await sb.from('profiles').upsert({ user_id: memberId, photo_url: url, updated_at: new Date().toISOString() });
+    if (e2) return toast('تعذر حفظ الصورة');
+    S.photos[memberId] = url; toast('تم تحديث الصورة ✓'); renderShell(); renderAll(); openTeam();
+  };
+  fp.click();
+}
+function editMember(id) {
+  const m = id ? S.teamMap[id] : null, root = $('#sheetRoot');
+  const others = S.team.filter(x => x.id !== id);
+  const pw = genPassword();
+  root.innerHTML = '<div class="overlay" id="ov"><div class="sheet"><div class="sh"><button class="btn ghost sm" id="back">→ رجوع</button><b class="grow">' + (m ? 'تعديل ' + esc(m.name) : 'عضو جديد') + '</b></div><div class="sb">' +
+    '<label class="lb">الاسم</label><input class="inp" id="mName" value="' + esc(m ? m.name : '') + '" placeholder="مثال: Sara Ali">' +
+    (m ? '' : '<label class="lb">اسم المستخدم (للدخول)</label><input class="inp lat" id="mUser" dir="ltr" autocapitalize="none" spellcheck="false" placeholder="sara">' +
+      '<div class="muted small" style="margin-top:4px">حروف إنجليزي صغيرة وأرقام. مينفعش يتغير بعدين.</div>') +
+    '<label class="lb">المسمى الوظيفي</label><input class="inp" id="mTitle" value="' + esc(m ? (m.title || '') : '') + '" placeholder="Content Creator">' +
+    '<div class="g2"><div><label class="lb">الصلاحية</label><select class="inp" id="mRole"><option value="member">عضو</option><option value="admin"' + (m && m.role === 'admin' ? ' selected' : '') + '>مدير (يدير الفريق)</option></select></div>' +
+    '<div><label class="lb">اللون</label><input type="color" class="inp" id="mColor" value="' + esc(m && /^#[0-9a-f]{6}$/i.test(m.color || '') ? m.color : '#5c3d2e') + '" style="height:44px;padding:4px"></div></div>' +
+    '<label class="lb">الموافقة على المحتوى</label><div class="toggles"><button class="tg' + (m && m.can_approve ? ' on' : '') + '" id="mAppr">✅ يقدر يوافق أو يطلب تعديل</button></div>' +
+    (m ? '' : '<label class="lb">كلمة مرور مؤقتة</label><div class="linkrow"><input class="inp lat" id="mPw" dir="ltr" value="' + pw + '"><button class="btn" id="regen">↻</button></div>') +
+    '<div id="mMsg"></div>' +
+    (m ? '<div class="sectitle">🔑 كلمة المرور</div><div class="card pad"><div class="muted small">ينشئ كلمة مرور مؤقتة جديدة، والعضو يغيرها أول ما يدخل.</div><button class="btn sm" id="mReset" style="margin-top:8px">إعادة تعيين كلمة المرور</button><div id="resetOut"></div></div>' +
+      '<div class="sectitle">📷 الصورة</div><button class="btn sm" id="mPhoto">تغيير صورة ' + esc(firstName(m.id)) + '</button>' +
+      (m.id !== S.me.id ? '<div class="sectitle" style="color:var(--bad)">🗑 حذف نهائي</div><div class="card pad" style="border-color:#EFC7C1">' +
+        '<div class="small">يحذف الحساب نهائيًا ويمنع الدخول فورًا. المحتوى المنشور والتعليقات القديمة تفضل في السجل.</div>' +
+        '<label class="lb">نقل شغله المفتوح (المحتوى والمهام) إلى</label><select class="inp" id="mTo"><option value="">— بدون نقل —</option>' + others.map(o => '<option value="' + esc(o.id) + '"' + (o.id === S.me.id ? ' selected' : '') + '>' + esc(o.name) + '</option>').join('') + '</select>' +
+        '<label class="lb">للتأكيد اكتب اسم المستخدم: <span class="lat" dir="ltr">' + esc(m.id) + '</span></label><input class="inp lat" id="mConfirm" dir="ltr" autocapitalize="none">' +
+        '<button class="btn bad" id="mDel" style="width:100%;margin-top:10px" disabled>حذف نهائي</button></div>' : '') : '') +
+    '</div><div class="sf"><button class="btn pri" id="mSave">' + (m ? 'حفظ التعديلات' : 'إنشاء الحساب') + '</button></div></div></div>';
+  const msg = (t, cls) => { $('#mMsg').innerHTML = '<div class="alert ' + (cls || 'bad') + '">' + t + '</div>'; };
+  $('#back').onclick = () => openTeam();
+  $('#ov').onclick = e => { if (e.target.id === 'ov') closeSheet(); };
+  $('#mAppr').onclick = () => $('#mAppr').classList.toggle('on');
+  const rg = $('#regen'); if (rg) rg.onclick = () => { $('#mPw').value = genPassword(); };
+  $('#mSave').onclick = async () => {
+    const b = $('#mSave'); b.disabled = true;
+    const payload = { name: $('#mName').value.trim(), title: $('#mTitle').value.trim(), role: $('#mRole').value, color: $('#mColor').value, can_approve: $('#mAppr').classList.contains('on') };
+    try {
+      if (m) { await teamAdmin({ action: 'update', id: m.id, ...payload }); await loadTeam(); if (m.id === S.me.id) S.me = S.teamMap[m.id] || S.me; renderShell(); renderAll(); openTeam('<div class="alert ok">تم حفظ بيانات ' + esc(payload.name) + ' ✓</div>'); }
+      else {
+        const username = $('#mUser').value.trim().toLowerCase(), password = $('#mPw').value.trim();
+        await teamAdmin({ action: 'create', username, password, ...payload });
+        await loadTeam(); renderAll();
+        openTeam('<div class="alert ok" style="margin-top:12px">تم إنشاء حساب ' + esc(payload.name) + ' ✓</div>' + credCard(username, password));
+      }
+    } catch (e) { b.disabled = false; msg(esc(e.message)); }
+  };
+  if (m) {
+    $('#mPhoto').onclick = () => pickPhoto(m.id);
+    $('#mReset').onclick = async () => {
+      if (!confirm('إعادة تعيين كلمة مرور ' + m.name + '؟ القديمة هتتوقف.')) return;
+      const np = genPassword(); $('#mReset').disabled = true;
+      try { await teamAdmin({ action: 'reset_password', id: m.id, password: np }); $('#resetOut').innerHTML = credCard(m.id, np); bindCopy($('#resetOut')); }
+      catch (e) { $('#resetOut').innerHTML = '<div class="alert bad">' + esc(e.message) + '</div>'; }
+      $('#mReset').disabled = false;
+    };
+    const del = $('#mDel');
+    if (del) {
+      $('#mConfirm').oninput = () => { del.disabled = $('#mConfirm').value.trim().toLowerCase() !== m.id; };
+      del.onclick = async () => {
+        del.disabled = true; del.textContent = '...';
+        try {
+          const r = await teamAdmin({ action: 'delete', id: m.id, transfer_to: $('#mTo').value || null });
+          await Promise.all([loadTeam(), loadItems()]); renderAll();
+          const mv = r && r.moved ? ' — اتنقل ' + (r.moved.content || 0) + ' محتوى و' + (r.moved.tasks || 0) + ' مهمة' : '';
+          openTeam('<div class="alert ok" style="margin-top:12px">تم حذف ' + esc(m.name) + ' نهائيًا' + mv + '</div>');
+        } catch (e) { del.disabled = false; del.textContent = 'حذف نهائي'; msg(esc(e.message)); }
+      };
+    }
+  }
+}
+
 /* ───────── REALTIME ───────── */
 let rtTimer = null;
 function subscribe() {
+  if (S._sub) return; S._sub = true;
   sb.channel('hq-live')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'hq_content' }, () => { clearTimeout(rtTimer); rtTimer = setTimeout(async () => { await loadItems(); renderAll(); }, 600); })
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'hq_comments' }, p => { if (p.new && p.new.item_id === S.openId) loadThread(S.openId); })
@@ -828,18 +981,20 @@ function subscribe() {
 
 /* ───────── BOOT ───────── */
 async function boot() {
-  $('#app').innerHTML = '<div class="login"><div class="box"><h1>MUHRA</h1><p class="muted">جاري التحميل…</p></div></div>';
-  try { await loadTeam(); } catch (e) { $('#app').innerHTML = '<div class="login"><div class="box"><h1>MUHRA</h1><div class="alert bad">تعذر الاتصال. تأكد من الإنترنت وحدّث الصفحة.</div></div></div>'; return; }
-  const uid = lsG(UID_KEY, null);
-  if (uid && S.teamMap[uid]) { S.me = S.teamMap[uid]; boot2(); } else renderLogin();
+  loginShell('<p class="muted">جاري التحميل…</p>');
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return renderLogin();
+  afterSignIn();
 }
+sb.auth.onAuthStateChange(ev => { if (ev === 'SIGNED_OUT' && S.me) { S.me = null; localStorage.removeItem(UID_KEY); renderLogin('انتهت الجلسة، سجل الدخول تاني'); } });
 async function boot2() {
   renderShell();
   $('#view').innerHTML = '<div class="empty">جاري التحميل…</div>';
   await Promise.all([loadItems(), loadMyTasks()]);
   renderAll(); subscribe();
-  const m = location.hash.match(/item=([0-9a-f-]{36})/); if (m) openItem(m[1]);
-  window.addEventListener('hashchange', () => { const mm = location.hash.match(/item=([0-9a-f-]{36})/); if (mm && mm[1] !== S.openId) openItem(mm[1]); });
+  const m = location.hash.match(/item=([0-9a-f-]{36})/); if (m) openItem(m[1]); else if (location.hash === '#team') openTeam();
+  if (S._listeners) return; S._listeners = true;
+  window.addEventListener('hashchange', () => { const mm = location.hash.match(/item=([0-9a-f-]{36})/); if (mm && mm[1] !== S.openId) openItem(mm[1]); else if (location.hash === '#team') openTeam(); });
   let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (S.tab === 'board') renderAll(); }, 250); });
 }
 boot();

@@ -95,7 +95,7 @@ const SUPA_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIs
     headers: {
       "Content-Type": "application/json",
       "apikey": SUPA_ANON,
-      "Authorization": "Bearer " + SUPA_ANON,
+      "Authorization": "Bearer " + ((JSON.parse(localStorage.getItem("muhra-team-auth") || "{}") || {}).access_token || SUPA_ANON),
       "Prefer": "resolution=merge-duplicates"
     },
     body: JSON.stringify({
@@ -736,19 +736,15 @@ select.inp option{background:#fff;color:var(--t1)}
 <div id="root"><div style="min-height:100vh;background:#F4F4F6;display:flex;align-items:center;justify-content:center;color:#6366F1;font-family:sans-serif;font-size:11px;letter-spacing:4px;font-weight:600">LOADING</div></div>
 <script type="text/x-babel-source">
 const { useState, useEffect, useRef } = React;
+// Publishable key only: every table requires a signed-in team member (row level security).
 const { createClient } = supabase;const sb = createClient(
 "https://ltwzmjqrlvqbndmipufm.supabase.co",
-"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0d3ptanFybHZxYm5kbWlwdWZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMDA3NTEsImV4cCI6MjA5MjY3Njc1MX0.pvp5NFr2tOTw_MJHIxHO9kK7cQ75QjL5N8AcewXIVOM"
+"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0d3ptanFybHZxYm5kbWlwdWZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMDA3NTEsImV4cCI6MjA5MjY3Njc1MX0.pvp5NFr2tOTw_MJHIxHO9kK7cQ75QjL5N8AcewXIVOM",
+{auth:{storageKey:"muhra-team-auth",persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}}
 );
 // TEAM is loaded dynamically from Supabase team_members table.
 // The seed below is used ONLY on first-ever boot to populate the table.
-const TEAM_SEED = [
-{id:"mohamed",name:"Mohamed Baydon",title:"E-commerce Manager",role:"admin", pin:"8765",color:"#1a1a2e",initials:"MB"},
-{id:"maha",   name:"Dr. Maha Adel", title:"Brand Owner",       role:"admin", pin:"6646",color:"#5c3d2e",initials:"MA"},
-{id:"bassant",name:"Bassant",        title:"Co-ordinator",      role:"admin", pin:"9876",color:"#2d4a3e",initials:"BA"},
-{id:"asmaa",  name:"Asmaa",          title:"Shopify Admin",     role:"member",pin:"4456",color:"#3d3566",initials:"AS"},
-{id:"moussa", name:"Moussa",         title:"Content Creator",   role:"member",pin:"8845",color:"#7c4a1e",initials:"MO"},
-];
+const TEAM_SEED = []; // members are managed in Muhra HQ → الفريق
 // Module-level mutable array — gets populated from Supabase before any render
 let TEAM = [...TEAM_SEED];
 // Helper to generate initials from a name
@@ -757,7 +753,7 @@ function makeInitials(name){return name.split(" ").map(w=>w[0]).join("").toUpper
 function genPin(){return String(Math.floor(1000+Math.random()*9000));}
 // Palette pool for new members
 const COLOR_POOL=["#1a1a2e","#5c3d2e","#2d4a3e","#3d3566","#7c4a1e","#1e3a5f","#3d2e40","#1a3a2e","#4a2e1a","#2e3a4a"];
-const DELETED_MEMBER={id:"deleted_member",name:"Deleted Member",title:"Former Team Member",role:"member",pin:"XXXX",color:"#9C9C9C",initials:"✕"};
+const DELETED_MEMBER={id:"deleted_member",name:"Deleted Member",title:"Former Team Member",role:"member",color:"#9C9C9C",initials:"✕"};
 // Wrap TEAM.find to handle deleted_member gracefully
 function teamFind(predicate){return TEAM.find(predicate)||null;}
 function teamFindById(id){if(id==="deleted_member")return DELETED_MEMBER;return TEAM.find(m=>m.id===id)||null;}
@@ -776,11 +772,13 @@ try{
 if(!toUserIds||toUserIds.length===0)return;
 const cleanIds=toUserIds.map(id=>id.replace(/[^a-zA-Z0-9_-]/g,"")).filter(Boolean);
 if(!cleanIds.length)return;
+const{data:{session:ps}}=await sb.auth.getSession();if(!ps)return;
 await fetch("https://ltwzmjqrlvqbndmipufm.supabase.co/functions/v1/send-push",{
 method:"POST",
 headers:{
 "Content-Type":"application/json",
-"Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0d3ptanFybHZxYm5kbWlwdWZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMDA3NTEsImV4cCI6MjA5MjY3Njc1MX0.pvp5NFr2tOTw_MJHIxHO9kK7cQ75QjL5N8AcewXIVOM"
+"apikey":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0d3ptanFybHZxYm5kbWlwdWZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxMDA3NTEsImV4cCI6MjA5MjY3Njc1MX0.pvp5NFr2tOTw_MJHIxHO9kK7cQ75QjL5N8AcewXIVOM",
+"Authorization":"Bearer "+ps.access_token
 },
 body:JSON.stringify({external_ids:cleanIds,title,body,taskId})
 });
@@ -887,63 +885,56 @@ function FS({label,children}){return <div style={{display:"flex",flexDirection:"
 
 // ── LOGIN ──
 function Login({onLogin}){
-const [step,setStep]=useState("pick");
-const [who,setWho]=useState(null);
-const [pin,setPin]=useState("");
+const [u,setU]=useState("");
+const [p,setP]=useState("");
+const [busy,setBusy]=useState(false);
 const [err,setErr]=useState("");
-const [shake,setShake]=useState(false);
-function pick(m){setWho(m);setPin("");setErr("");setStep("pin")}
-function digit(d){
-if(pin.length>=4)return;
-const next=pin+d;setPin(next);
-if(next.length===4){
-setTimeout(()=>{
-if(next===who.pin){onLogin(who.id)}
-else{setErr("Incorrect PIN. Try again.");setShake(true);setPin("");setTimeout(()=>setShake(false),500)}
-},180);
+const [mustChange,setMustChange]=useState(false);
+const [n1,setN1]=useState("");const [n2,setN2]=useState("");
+async function finish(){
+const{data:{session}}=await sb.auth.getSession();
+if(!session){setBusy(false);return}
+const{data:tm}=await sb.from("team_members").select("*").eq("active",true).order("created_at");
+const me=(tm||[]).find(m=>m.user_id===session.user.id);
+if(!me){await sb.auth.signOut();setErr("This account is not a team member.");setBusy(false);return}
+if(session.user.user_metadata?.must_change_password){setMustChange(true);setBusy(false);return}
+TEAM.length=0;(tm||[]).forEach(m=>TEAM.push(m));
+onLogin(me.id);
 }
+async function signIn(e){
+e.preventDefault();if(!u.trim()||!p)return;setBusy(true);setErr("");
+const id=u.trim().toLowerCase();
+const{error}=await sb.auth.signInWithPassword({email:id.includes("@")?id:id+"@team.muhrastore.com",password:p});
+if(error){setErr(/rate|many/i.test(error.message)?"Too many attempts. Wait a minute and try again.":"Wrong username or password.");setBusy(false);return}
+finish();
 }
-return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"radial-gradient(circle at 30% 20%,rgba(99,102,241,0.06),transparent 55%),var(--bg)",padding:20}}>
-<div style={{background:"var(--surface)",border:"1.5px solid var(--border)",borderRadius:12,padding:"32px 24px",boxShadow:"0 8px 40px rgba(10,10,10,0.1)",width:"100%",maxWidth:360,boxShadow:"0 16px 48px rgba(0,0,0,0.08)"}}>
-<div style={{marginBottom:24,textAlign:"center"}}>
-<img src={window.__resources?.muhraLogo||"https://cdn.shopify.com/s/files/1/0679/6984/3251/files/MUHRA_APP_LOGO_1.png?v=1777552159"} alt="Muhra" style={{height:64,width:64,objectFit:"contain",borderRadius:18,boxShadow:"0 0 32px rgba(99,102,241,0.25)"}}/>
-</div>
-<div style={{fontFamily:"'General Sans',ui-sans-serif,system-ui,sans-serif",letterSpacing:"-0.03em",fontSize:24,fontWeight:700,color:"var(--t1)",marginBottom:4,textAlign:"center"}}>Team Workspace</div>
-
-  {step==="pick"?<>
-    <div style={{fontSize:13,color:"var(--t2)",marginBottom:22,textAlign:"center"}}>Select your profile to continue</div>
-    {TEAM.map(m=><button key={m.id} className="btn" onClick={()=>pick(m)}
-      style={{display:"flex",alignItems:"center",gap:14,background:"var(--elevated)",border:"1.5px solid var(--border)",borderRadius:14,padding:"12px 14px",width:"100%",marginBottom:8,textAlign:"left",minHeight:64,boxShadow:"0 2px 8px rgba(10,10,10,0.06)"}}>
-      <div style={{width:44,height:44,borderRadius:"50%",background:m.color,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:15,flexShrink:0,border:"2px solid var(--border)"}}>{m.initials}</div>
-      <div style={{flex:1}}>
-        <div style={{fontWeight:700,fontSize:15,color:"var(--t1)"}}>{m.name}</div>
-        <div style={{fontSize:12,color:"var(--t2)"}}>{m.title}</div>
-      </div>
-      <span style={{color:"var(--t3)",display:"flex"}}>{Ic.chev}</span>
-    </button>)}
-  </>:<div style={{animation:"slideUp 0.2s ease"}}>
-    <button onClick={()=>{setStep("pick");setErr("");setPin("")}}
-      style={{background:"none",border:"none",color:"var(--t2)",fontSize:13,padding:"2px 0 18px",display:"flex",alignItems:"center",gap:6,minHeight:32}}>{Ic.back} Back</button>
-    <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:22}}>
-      <div style={{width:50,height:50,borderRadius:"50%",background:who.color,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:700,fontSize:17,border:"2px solid var(--border)"}}>{who.initials}</div>
-      <div>
-        <div style={{fontWeight:700,fontSize:16,color:"var(--t1)"}}>{who.name}</div>
-        <div style={{fontSize:12,color:"var(--t2)"}}>{who.title}</div>
-      </div>
-    </div>
-    <div style={{fontSize:13,color:"var(--t2)",marginBottom:4}}>Enter your 4-digit PIN</div>
-    <div className={shake?"shake":""} style={{display:"flex",gap:14,justifyContent:"center",margin:"18px 0 6px"}}>
-      {[0,1,2,3].map(i=><div key={i} style={{width:14,height:14,borderRadius:"50%",background:i<pin.length?"var(--gold)":"var(--border)",transition:"background 0.15s",boxShadow:i<pin.length?"0 0 12px rgba(99,102,241,0.5)":"none"}}/>)}
-    </div>
-    {err&&<div style={{color:"#f87171",fontSize:13,textAlign:"center",marginBottom:6,fontWeight:500}}>{err}</div>}
-    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginTop:16}}>
-      {[1,2,3,4,5,6,7,8,9,"",0,"⌫"].map((d,i)=><button key={i} className="btn"
-        style={{height:58,borderRadius:14,border:d===""?"none":"1px solid var(--border)",background:d===""?"transparent":"var(--elevated)",fontSize:d==="⌫"?18:22,fontWeight:600,color:"var(--t1)",cursor:d===""?"default":"pointer"}}
-        onClick={()=>{if(d==="⌫"){setPin(p=>p.slice(0,-1));setErr("")}else if(d!=="")digit(String(d))}}>{d}</button>)}
-    </div>
-  </div>}
-</div>
-  </div>;
+async function changePw(e){
+e.preventDefault();
+if(n1.length<8){setErr("Password must be at least 8 characters.");return}
+if(n1!==n2){setErr("Passwords do not match.");return}
+setBusy(true);setErr("");
+const{error}=await sb.auth.updateUser({password:n1,data:{must_change_password:false}});
+if(error){setErr("Could not save. Choose a different password.");setBusy(false);return}
+finish();
+}
+const inp={width:"100%",padding:"12px 14px",borderRadius:12,border:"1px solid var(--border)",background:"var(--surface)",color:"var(--t1)",fontSize:15,marginTop:6,boxSizing:"border-box"};
+const lab={display:"block",fontSize:12,fontWeight:700,color:"var(--t3)",marginTop:14,textAlign:"left"};
+return <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:20,background:"var(--bg)"}}>
+<form onSubmit={mustChange?changePw:signIn} style={{width:"100%",maxWidth:360,background:"var(--surface)",border:"1px solid var(--border)",borderRadius:20,padding:24}}>
+<div style={{textAlign:"center",fontWeight:800,letterSpacing:".2em",fontSize:20,color:"var(--t1)"}}>MUHRA</div>
+<div style={{textAlign:"center",fontSize:13,color:"var(--t3)",marginTop:4}}>{mustChange?"First sign-in: choose a new password":"Team Workspace"}</div>
+{!mustChange?<>
+<label style={lab}>Username</label><input style={inp} value={u} onChange={e=>setU(e.target.value)} autoComplete="username" autoCapitalize="none" spellCheck={false} autoFocus/>
+<label style={lab}>Password</label><input style={inp} type="password" value={p} onChange={e=>setP(e.target.value)} autoComplete="current-password"/>
+</>:<>
+<label style={lab}>New password (8+ characters)</label><input style={inp} type="password" value={n1} onChange={e=>setN1(e.target.value)} autoComplete="new-password" autoFocus/>
+<label style={lab}>Confirm password</label><input style={inp} type="password" value={n2} onChange={e=>setN2(e.target.value)} autoComplete="new-password"/>
+</>}
+{err&&<div style={{marginTop:12,padding:"10px 12px",borderRadius:10,background:"rgba(239,68,68,.1)",color:"#dc2626",fontSize:13,fontWeight:600}}>{err}</div>}
+<button disabled={busy} style={{width:"100%",marginTop:18,padding:"13px",borderRadius:12,border:0,background:"#5C3D2E",color:"#fff",fontWeight:700,fontSize:15,opacity:busy?.6:1,cursor:"pointer"}}>{busy?"...":mustChange?"Save password":"Sign in"}</button>
+{!mustChange&&<div style={{marginTop:12,fontSize:12,color:"var(--t3)",textAlign:"center"}}>Forgot your password? Ask an admin to reset it in Muhra HQ.</div>}
+</form>
+</div>;
 }
 
 // ── TASK CARD ──
@@ -2652,33 +2643,29 @@ const [showNew,setShowNew]=useState(false);
 const [filterSt,setFilterSt]=useState("All");
 const [filterAs,setFilterAs]=useState("All");
 const [sidebarOpen, setSidebarOpen]=useState(false);
+const [authChecked,setAuthChecked]=useState(false);
 const user=TEAM.find(m=>m.id===userId);
 const isAdmin=user?.role==="admin";
-useEffect(()=>{
-// Always load team members first (needed for login screen)
-sb.from("team_members").select("*").order("created_at").then(({data,error})=>{
-  if(data&&data.length>0){TEAM.length=0;data.forEach(m=>TEAM.push(m));}
-  else if(!error&&(!data||data.length===0)){
-    // Seed table
-    sb.from("team_members").insert(TEAM_SEED.map(m=>({...m,created_at:new Date().toISOString()})));
-  }
-});
-if(!userId){setLoading(false);return}loadAll()},[userId]);
+useEffect(()=>{(async()=>{
+// Signed-in session decides who you are (no PINs, no public team list)
+const{data:{session}}=await sb.auth.getSession();
+if(session){
+const{data:tm}=await sb.from("team_members").select("*").eq("active",true).order("created_at");
+const me=(tm||[]).find(m=>m.user_id===session.user.id);
+if(me&&!session.user.user_metadata?.must_change_password){TEAM.length=0;tm.forEach(m=>TEAM.push(m));lsS("muhra_uid_v3",me.id);setUserId(me.id);setAuthChecked(true);return}
+}
+lsS("muhra_uid_v3",null);setUserId(null);setAuthChecked(true);
+})();
+const{data:sub}=sb.auth.onAuthStateChange(ev=>{if(ev==="SIGNED_OUT"){lsS("muhra_uid_v3",null);setUserId(null)}});
+return()=>sub?.subscription?.unsubscribe();
+},[]);
+useEffect(()=>{if(!authChecked)return;if(!userId){setLoading(false);return}loadAll()},[userId,authChecked]);
 async function loadAll(){
 setLoading(true);
 try{
 // Load team members first (before tasks so TEAM is populated)
-const{data:tm,error:tme}=await sb.from("team_members").select("*").order("created_at");
-if(tme&&tme.code!=="42P01"){
-// Table might not exist yet — seed from TEAM_SEED then continue
-await sb.from("team_members").insert(TEAM_SEED.map(m=>({...m,created_at:new Date().toISOString()})));
-}else if(tm&&tm.length>0){
-TEAM.length=0;
-tm.forEach(m=>TEAM.push(m));
-}else if(tm&&tm.length===0){
-// Table exists but empty — seed it
-await sb.from("team_members").insert(TEAM_SEED.map(m=>({...m,created_at:new Date().toISOString()})));
-}
+const{data:tm}=await sb.from("team_members").select("*").eq("active",true).order("created_at");
+if(tm&&tm.length>0){TEAM.length=0;tm.forEach(m=>TEAM.push(m));}
 const [{data:t,error:te},{data:c},{data:p}]=await Promise.all([
 sb.from("tasks").select("*, comments(*), edit_requests(*)").order("created_at",{ascending:false}),
 sb.from("chat").select("*").order("created_at"),
@@ -2777,8 +2764,9 @@ sendPush(admins,"Task Approved",`${sender} signed off on "${task.title}"`,tid);
 async function sendChat(text){await sb.from("chat").insert([{author:userId,text}])}
 async function updateProfile(mid,dataUrl){await sb.from("profiles").upsert({user_id:mid,photo_url:dataUrl,updated_at:new Date().toISOString()});setProfiles(p=>({...p,[mid]:dataUrl}))}
 async function refreshTeam(){const{data}=await sb.from("team_members").select("*").order("created_at");if(data&&data.length>0){TEAM.length=0;data.forEach(m=>TEAM.push(m));setTasks(t=>[...t]);}}
-function logout(){lsS("muhra_uid_v3",null);setUserId(null);setTasks([]);setChat([]);setSelected(null)}
+function logout(){sb.auth.signOut();lsS("muhra_uid_v3",null);setUserId(null);setTasks([]);setChat([]);setSelected(null)}
 const filtered=tasks.filter(t=>(filterSt==="All"||t.status===filterSt)&&(filterAs==="All"||(Array.isArray(t.assigned_to)?t.assigned_to.includes(filterAs):t.assigned_to===filterAs)));
+if(!authChecked)return <div style={{minHeight:"100vh",background:"var(--bg)"}}/>;
 if(!user)return <Login onLogin={id=>{
 lsS("muhra_uid_v3",id);
 setUserId(id);
@@ -2896,10 +2884,10 @@ return <div style={{display:"flex",flexDirection:"column",height:"100vh",overflo
           {Ic.plus}
           <span>New Task</span>
         </button>
-        <button className="sitem" onClick={()=>{setTab("tasks");setSidebarOpen(false);setTimeout(()=>document.getElementById("profile-manager")?.scrollIntoView(),100);}}>
+        <a className="sitem" href="hq.html#team" style={{textDecoration:"none"}}>
           {Ic.users}
-          <span>Team Profiles</span>
-        </button>
+          <span>Team & Members</span>
+        </a>
       </div>}
     </div>
 
@@ -2941,7 +2929,7 @@ return <div style={{display:"flex",flexDirection:"column",height:"100vh",overflo
       </div>
 
       <div id="profile-manager" style={{padding:"0 20px"}}>
-        {isAdmin&&<ProfileManager profiles={profiles} onUpdate={updateProfile} userId={userId} onTeamChange={refreshTeam}/>}
+        {isAdmin&&<a href="hq.html#team" style={{display:"block",margin:"4px 0 16px",padding:"12px 16px",borderRadius:12,border:"1px solid var(--border)",background:"var(--surface)",color:"var(--t1)",fontWeight:700,fontSize:13,textDecoration:"none"}}>👥 Manage team members, roles & passwords in Muhra HQ →</a>}
       </div>
     </div>}
 
