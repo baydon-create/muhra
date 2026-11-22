@@ -204,21 +204,26 @@ async function createItem(fields, opts = { open: true }) {
 function newItem(pre = {}) {
   const root = $('#sheetRoot');
   root.innerHTML = '<div class="overlay" id="ov"><div class="sheet"><div class="sh"><b class="grow">محتوى جديد</b><button class="btn ghost sm" id="x">✕</button></div><div class="sb">' +
-    '<label class="lb">العنوان</label><input class="inp" id="nTitle" placeholder="مثال: ريل تنسيق فستان السهرة البيج" autofocus>' +
+    '<label class="lb">العنوان</label><input class="inp" id="nTitle" value="' + esc(pre.title || '') + '" placeholder="مثال: ريل تنسيق فستان السهرة البيج" autofocus>' +
+    '<label class="lb">المنتجات (من Shopify)</label><div id="nProds" class="plinks"></div><button class="btn sm" id="nProdBtn" type="button" style="margin-top:6px">+ اختار منتج</button>' +
     '<label class="lb">النوع</label><div class="toggles" id="nType">' + Object.entries(TYPES).map(([k, n], i) => '<button class="tg ' + ((pre.type || 'reel') === k ? 'on' : '') + '" data-v="' + k + '">' + TYPE_IC[k] + ' ' + n + '</button>').join('') + '</div>' +
     '<div class="g2"><div><label class="lb">المسؤول</label><select class="inp" id="nOwner">' + S.team.map(m => '<option value="' + m.id + '"' + (m.id === S.me.id ? ' selected' : '') + '>' + esc(m.name) + '</option>').join('') + '</select></div>' +
     '<div><label class="lb">المرحلة</label><select class="inp" id="nStage">' + STAGES.slice(0, 5).map(s => '<option value="' + s.k + '">' + s.ic + ' ' + s.n + '</option>').join('') + '</select></div>' +
     '<div><label class="lb">التسليم قبل</label><input type="date" class="inp" id="nDue"></div><div><label class="lb">موعد النشر</label><input type="date" class="inp" id="nPub" value="' + esc(pre.publish_date || '') + '"></div></div>' +
     '<label class="lb">البريف / الفكرة (اختياري)</label><textarea class="inp" id="nBrief" placeholder="إيه الهدف؟ مين الجمهور؟ أي منتج؟"></textarea>' +
     '</div><div class="sf"><button class="btn pri" id="nSave">إنشاء</button></div></div></div>';
-  let type = pre.type || 'reel';
+  let type = pre.type || 'reel', prodIds = [...(pre.product_ids || [])];
+  const drawProds = () => { $('#nProds').innerHTML = prodIds.map(id => { const p = prod(id); return p ? '<div class="plink"><span class="pth" style="background-image:url(\'' + esc(shopImg(p.image, 160) || '') + '\')"></span><span class="grow plt"><b dir="auto">' + esc(p.title) + '</b><span class="muted small">' + esc(prodPrice(p)) + '</span></span></div>' : ''; }).join(''); };
+  drawProds();
+  $('#nProdBtn').onclick = async () => { const ids = await pickProducts(prodIds, 'المحتوى ده عن أي منتج؟'); if (ids === null) return; prodIds = ids; drawProds(); const t = $('#nTitle'); if (t && !t.value.trim() && ids[0] && prod(ids[0])) t.value = prod(ids[0]).title; };
   root.querySelectorAll('#nType .tg').forEach(b => b.onclick = () => { type = b.dataset.v; root.querySelectorAll('#nType .tg').forEach(x => x.classList.toggle('on', x === b)); });
   const close = () => root.innerHTML = '';
   $('#x').onclick = close; $('#ov').onclick = e => { if (e.target.id === 'ov') close(); };
   $('#nSave').onclick = async () => {
     const title = $('#nTitle').value.trim(); if (!title) { $('#nTitle').focus(); return toast('اكتب عنوان'); }
     $('#nSave').disabled = true;
-    const f = { title, type, owner: $('#nOwner').value, stage: $('#nStage').value, due_date: $('#nDue').value || null, publish_date: $('#nPub').value || null, brief: $('#nBrief').value.trim() || null };
+    const f = { title, type, owner: $('#nOwner').value, stage: $('#nStage').value, due_date: $('#nDue').value || null, publish_date: $('#nPub').value || null, brief: $('#nBrief').value.trim() || null, product_ids: prodIds };
+    if (prodIds.length && prod(prodIds[0])) f.product = prod(prodIds[0]).title;
     if (type === 'tiktok') f.platforms = ['tiktok'];
     close(); await createItem(f, { open: false }); toast('تم الإنشاء ✓');
   };
@@ -260,6 +265,7 @@ function renderSheet(it) {
     '<div class="g2"><div><label class="lb">المحور</label><select class="inp" data-f="pillar"><option value="">—</option>' + PILLARS.map(p => '<option' + (p === it.pillar ? ' selected' : '') + '>' + esc(p) + '</option>').join('') + '</select></div>' +
     '<div><label class="lb">المنتج / الكوليكشن</label><input class="inp" data-f="product" value="' + esc(it.product || '') + '" placeholder="مثال: Formal"></div></div>' +
     '</details>' +
+    productsBlock(it.product_ids, 'item:' + it.id) +
     stageWorkspace(it) +
     linkedTasksBlock(it) +
     '<div class="sectitle">💬 التعليقات</div><div id="thread"><div class="muted small">…</div></div>' +
@@ -301,6 +307,7 @@ function renderSheet(it) {
     b.classList.toggle('on'); await updateItem(it.id, { platforms: [...p] }, true);
   });
   bindStageWorkspace(it);
+  bindProductsBlock(root, () => { const sc = $('#sheetRoot .sb'), top = sc ? sc.scrollTop : 0; renderSheet(it); loadThread(it.id); const s2 = $('#sheetRoot .sb'); if (s2) s2.scrollTop = top; });
   if ($('#addFile')) $('#addFile').onclick = () => { const fp = $('#filePick'); fp.value = ''; fp.onchange = () => uploadFiles(it, [...fp.files]); fp.click(); };
   root.querySelectorAll('[data-rmfile]').forEach(b => b.onclick = async e => {
     e.preventDefault(); e.stopPropagation(); if (!confirm('حذف الملف؟')) return;
@@ -313,7 +320,7 @@ function renderSheet(it) {
   const ar = $('#archive'); if (ar) ar.onclick = async () => { if (!confirm('أرشفة «' + it.title + '»؟')) return; await updateItem(it.id, { stage: 'archived' }, true); logAct(it.id, 'archived', it.stage, 'archived'); S.items = S.items.filter(x => x.id !== it.id); closeSheet(); renderAll(); toast('تمت الأرشفة'); };
 }
 function fileTile(f, i) {
-  const u = safeUrl(f.url), img = /\.(jpe?g|png|webp|gif)$/i.test(f.name || u), vid = /\.(mp4|mov|webm|m4v)$/i.test(f.name || u);
+  const u = safeUrl(f.url), img = /\.(jpe?g|png|webp|gif)$/i.test(f.name || u.split('?')[0]), vid = /\.(mp4|mov|webm|m4v)$/i.test(f.name || u);
   return '<a class="file" href="' + esc(u) + '" target="_blank" rel="noopener" style="' + (img ? 'background-image:url(\'' + esc(u) + '\')' : '') + '">' + (img ? '' : (vid ? '🎬<br>' : '📄<br>') + esc((f.name || '').slice(0, 22))) + '<button class="x" data-rmfile="' + i + '">×</button></a>';
 }
 async function uploadFiles(it, files) {
@@ -402,7 +409,7 @@ async function sendComment(it) {
   loadThread(it.id);
 }
 function refreshSheetLive() {
-  const it = S.items.find(x => x.id === S.openId); if (!it) return;
+  const it = S.items.find(x => x.id === S.openId); if (!it || document.querySelector('.overlay.stack')) return;
   const ae = document.activeElement;
   if (ae && $('#sheetRoot').contains(ae) && /INPUT|TEXTAREA|SELECT/.test(ae.tagName)) return; // never clobber typing
   const scroller = $('#sheetRoot .sb'), top = scroller ? scroller.scrollTop : 0;
@@ -467,9 +474,9 @@ function stageWorkspace(it) {
     '<div class="slinkadd"><input class="inp" id="slLabel" placeholder="اسم الرابط (مثال: فولدر الخام)"><input class="inp" id="slUrl" dir="ltr" placeholder="' + esc(cfg.link ? 'https://… ' : 'https://') + '"><button class="btn" id="slAdd">+ إضافة رابط</button></div>' +
     '<div class="muted small" style="margin-top:4px">' + esc(cfg.link || '') + ' — كل رابط بيتضاف، مفيش حاجة بتتمسح.</div>';
   h += '<label class="lb">ملفات المرحلة <span class="muted small">(' + (d.files || []).length + ')</span></label><div class="files">' +
-    (d.files || []).map(f => { const u = safeUrl(f.url), img = /\.(jpe?g|png|webp|gif)$/i.test(f.name || u), vid = /\.(mp4|mov|webm|m4v)$/i.test(f.name || u);
+    (d.files || []).map(f => { const u = safeUrl(f.url), img = /\.(jpe?g|png|webp|gif)$/i.test(f.name || u.split('?')[0]), vid = /\.(mp4|mov|webm|m4v)$/i.test(f.name || u);
       return '<a class="file" href="' + esc(u) + '" target="_blank" rel="noopener" title="' + esc(f.name + ' · ' + firstName(f.by)) + '" style="' + (img ? 'background-image:url(\'' + esc(u) + '\')' : '') + '">' + (img ? '' : (vid ? '🎬<br>' : '📄<br>') + esc((f.name || '').slice(0, 22))) + (canRm(f.by) ? '<button class="x" data-srm="files" data-sid="' + esc(f.id) + '">×</button>' : '') + '</a>'; }).join('') +
-    '<label class="file add" id="sfAdd">+</label></div><div class="muted small" style="margin-top:6px">صور أو فيديو لحد 50MB. الفيديوهات الكبيرة: اضغطها من «ضغط الملفات» أو حط رابط Drive.</div>';
+    '<label class="file add" id="sfAdd">+</label><label class="file add shop" id="sfProd" title="صور من منتجات Shopify">🛍<br><small>Shopify</small></label></div><div class="muted small" style="margin-top:6px">صور أو فيديو لحد 50MB. الفيديوهات الكبيرة: اضغطها من «ضغط الملفات» أو حط رابط Drive.</div>';
   // older single fields from before stages had their own space
   const legacy = (it.files || []).length || it.drive_link;
   if (legacy && (tab === 'edit' || tab === it.stage)) h += '<details class="legacy"><summary>ملفات وروابط من قبل التحديث</summary>' +
@@ -518,6 +525,11 @@ function bindStageWorkspace(it) {
       catch (e) { console.error(e); toast('فشل رفع ' + f.name); }
     }
     if (n) { logAct(it.id, 'files', null, null, n + ' ملف في «' + SM[tab].n + '»'); toast('اترفع ' + n + ' ملف'); rerender(); }
+  };
+  const sp = $('#sfProd');
+  if (sp) sp.onclick = async () => {
+    const files = await pickProductImages(it.product_ids || [], 'صور منتج لمرحلة «' + SM[tab].n + '»');
+    if (files && files.length && await addProductImagesToItem(it, null, files, tab)) rerender();
   };
   root.querySelectorAll('[data-srm]').forEach(b => b.onclick = async e => {
     e.preventDefault(); e.stopPropagation();

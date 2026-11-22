@@ -43,6 +43,7 @@ const ROUTES = [
   { k: 'home', n: 'اليوم', ic: 'home', g: 'work' },
   { k: 'content', n: 'المحتوى', ic: 'board', g: 'work' },
   { k: 'calendar', n: 'التقويم', ic: 'cal', g: 'work' },
+  { k: 'products', n: 'المنتجات', ic: 'bag', g: 'work' },
   { k: 'tasks', n: 'المهام', ic: 'tasks', g: 'work' },
   { k: 'briefs', n: 'البريفات', ic: 'crown', g: 'work' },
   { k: 'chat', n: 'الشات', ic: 'chat', g: 'work' },
@@ -137,7 +138,7 @@ function dueInfo(it) {
 const isLate = it => !DONE_STAGES.includes(it.stage) && ((it.due_date && dayDiff(it.due_date) < 0) || (it.publish_date && dayDiff(it.publish_date) < 0));
 function itemThumb(it) {
   const img = (it.files || []).find(f => /\.(jpe?g|png|webp|gif|heic)$/i.test(f.name || f.url || ''));
-  const u = (img && img.url) || it.ref_thumb;
+  const u = (img && img.url) || it.ref_thumb || (typeof productThumb === 'function' && productThumb(it));
   return u ? '<div class="thumb" style="background-image:url(\'' + esc(u) + '\')"></div>' : '<div class="thumb">' + (TYPE_IC[it.type] || '📄') + '</div>';
 }
 function ccard(it, opts = {}) {
@@ -322,6 +323,7 @@ const ICONS = {
   team: '<circle cx="9" cy="7" r="4"/><path d="M1 21v-2a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v2"/><path d="M17 3.13a4 4 0 0 1 0 7.75M23 21v-2a4 4 0 0 0-3-3.87"/>',
   more: '<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
+  bag: '<path d="M5 8h14l-1.2 12.1a1 1 0 0 1-1 .9H7.2a1 1 0 0 1-1-.9z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>',
   bell: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>'
 };
 const icon = (k, s = 20) => '<svg width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + (ICONS[k] || '') + '</svg>';
@@ -342,7 +344,7 @@ function badges() {
 const assigneesOf = t => (Array.isArray(t.assigned_to) ? t.assigned_to : [t.assigned_to]).filter(Boolean);
 
 const SUBS = {
-  home: '', content: 'كل الكروت من الفكرة للنشر', calendar: 'خطة النشر والأيام الفاضية', tasks: 'مهام الفريق بالحالة والأولوية',
+  home: '', content: 'كل الكروت من الفكرة للنشر', calendar: 'خطة النشر والأيام الفاضية', products: 'منتجات Shopify وصورها، مربوطة بالمحتوى والمهام', tasks: 'مهام الفريق بالحالة والأولوية',
   briefs: 'تعليمات صاحبة البراند والإدارة للفريق', chat: 'شات الفريق', intel: 'رصد المنافسين وأفضل بوستاتهم', ugc: 'متابعة صنّاع المحتوى',
   ads: 'إعلانات المنافسين من إضافة Adlumi', ideas: 'أفكار سريعة من أبحاث المنافسين', publish: 'طابور النشر التلقائي من Google Drive',
   tools: 'ضغط الصور والفيديو وإرفاقها بالكروت', stats: 'أرقام الأسبوع وأداء الفريق', team: 'الحساب، الإشعارات، والأعضاء'
@@ -493,7 +495,7 @@ function renderAll() {
   if (S.openTaskId && typeof refreshTaskLive === 'function') refreshTaskLive();
 }
 function fabFor() {
-  if (['home', 'content', 'calendar', 'ideas'].includes(S.route)) return 'content';
+  if (['home', 'content', 'calendar', 'ideas', 'products'].includes(S.route)) return 'content';
   if (S.route === 'tasks' && isAdmin()) return 'task';
   if (S.route === 'briefs' && canBrief()) return 'brief';
   return null;
@@ -508,7 +510,7 @@ const canBrief = () => isApprover() || isAdmin();
 
 /* ───────── GLOBAL SEARCH ───────── */
 function openSearch() {
-  const root = sheet('<div class="sh"><input class="inp" id="gq" placeholder="ابحث في المحتوى، المهام، البريفات، الإعلانات، الشات…" autocomplete="off"><button class="btn ghost sm" id="x">✕</button></div><div class="sb" id="gres"><div class="muted small" style="padding:14px">اكتب كلمتين على الأقل</div></div>');
+  const root = sheet('<div class="sh"><input class="inp" id="gq" placeholder="ابحث في المحتوى، المنتجات، المهام، البريفات، الإعلانات، الشات…" autocomplete="off"><button class="btn ghost sm" id="x">✕</button></div><div class="sb" id="gres"><div class="muted small" style="padding:14px">اكتب كلمتين على الأقل</div></div>');
   $('#x').onclick = closeSheet;
   const q = $('#gq'); q.focus();
   q.oninput = () => {
@@ -519,6 +521,7 @@ function openSearch() {
     const row = (attr, ic, title, sub) => '<button class="srow" ' + attr + '><span class="sic">' + ic + '</span><span class="grow"><b>' + esc(title) + '</b>' + (sub ? '<div class="muted small">' + esc(sub) + '</div>' : '') + '</span></button>';
     const html =
       sec('المحتوى', S.items.filter(i => has(i.title, i.brief, i.caption, i.script, i.product)).map(i => row('data-sitem="' + i.id + '"', TYPE_IC[i.type] || '📄', i.title, SM[i.stage].n + (i.owner ? ' · ' + firstName(i.owner) : '')))) +
+      sec('المنتجات', (S.products || []).filter(p => has(p.title, p.handle, ...(p.collections || []), ...(p.variants || []).map(x => x.sku))).map(p => row('data-sprod="' + esc(p.id) + '"', '🛍', p.title, prodPrice(p) + ((p.collections || [])[0] ? ' · ' + p.collections[0] : '')))) +
       sec('المهام', S.tasks.filter(x => has(x.title, x.description)).map(x => row('data-stask="' + x.id + '"', '☑️', x.title, statusAr(x.status) + ' · ' + assigneesOf(x).map(firstName).join('، ')))) +
       sec('البريفات', S.briefs.filter(x => has(x.text, x.notes)).map(x => row('data-sbrief="' + x.id + '"', '👑', (x.text || 'بريف صوتي').slice(0, 70), fmtTime(x.created_at)))) +
       sec('الإعلانات', (S.ads || []).filter(a => has(a.advertiser, a.headline, a.body)).map(a => row('data-sad="' + a.id + '"', '📢', a.advertiser || a.landing_domain || 'إعلان', (a.headline || a.body || '').slice(0, 60)))) +
@@ -526,6 +529,7 @@ function openSearch() {
     out.innerHTML = html || '<div class="empty" style="margin:14px">مفيش نتائج</div>';
     $$('[data-sitem]', out).forEach(b => b.onclick = () => openItem(b.dataset.sitem));
     $$('[data-stask]', out).forEach(b => b.onclick = () => openTask(b.dataset.stask));
+    $$('[data-sprod]', out).forEach(b => b.onclick = () => openProduct(b.dataset.sprod));
     $$('[data-sbrief]', out).forEach(b => b.onclick = () => { closeSheet(); go('briefs', b.dataset.sbrief); });
     $$('[data-sad]', out).forEach(b => b.onclick = () => openAd(b.dataset.sad));
     $$('[data-schat]', out).forEach(b => b.onclick = () => { closeSheet(); go('chat'); });
@@ -547,6 +551,7 @@ function subscribe() {
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'brief_comments' }, p => { if (p.new) { delete S.briefCmts[p.new.brief_id]; if (S.route === 'briefs') debounce('bc', () => renderAll(), 300); } })
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat' }, p => { if (p.new && !S.chat.find(m => m.id === p.new.id)) { S.chat.push(p.new); if (S.route === 'chat') markChatSeen(); renderAll(); } })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'hq_ads' }, () => debounce('a', async () => { await loadAds(); renderAll(); }, 800))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'hq_products' }, () => debounce('pr', async () => { if (S._prodSyncing) return; await loadProducts(); renderAll(); }, 2500))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => debounce('p', async () => { await loadTeam(); renderAll(); }, 800))
     .subscribe();
   document.addEventListener('visibilitychange', async () => { if (!document.hidden && S.me) { await Promise.all([loadItems(), loadTasks(), loadBriefs(), loadChat()]); renderAll(); } });
@@ -563,7 +568,7 @@ sb.auth.onAuthStateChange(ev => { if (ev === 'SIGNED_OUT' && S.me) { S.me = null
 async function boot2() {
   renderShell();
   $('#view').innerHTML = '<div class="empty">جاري التحميل…</div>';
-  await Promise.all([loadItems(), loadTasks(), loadBriefs(), loadChat(), loadAds()]);
+  await Promise.all([loadItems(), loadTasks(), loadBriefs(), loadChat(), loadAds(), loadProducts()]);
   subscribe();
   if (!S._listeners) {
     S._listeners = true;

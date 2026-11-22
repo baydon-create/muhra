@@ -52,6 +52,7 @@ function taskCard(t, opts = {}) {
     '<div class="meta" style="margin-top:7px"><span class="pill ' + STAT_CLS[t.status] + '">' + statusAr(t.status) + '</span>' +
     (t.deadline ? '<span class="pill ' + (isOD(t) ? 'late' : '') + '">' + (isOD(t) ? '⚠️ ' : '📅 ') + fmtShort(t.deadline) + '</span>' : '') +
     (content ? '<span class="pill">🎬 ' + esc(content.title.slice(0, 24)) + '</span>' : '') +
+    ((t.product_ids || []).length ? '<span class="pill">🛍 ' + esc(((prod(t.product_ids[0]) || {}).title || 'منتج').slice(0, 22)) + (t.product_ids.length > 1 ? ' +' + (t.product_ids.length - 1) : '') + '</span>' : '') +
     counts.map(c => '<span class="cnt">' + c + '</span>').join('') +
     '<span class="grow"></span><span class="avs">' + asg.slice(0, 4).map(id => av(id, false, true)).join('') + '</span></div></div>';
 }
@@ -99,17 +100,24 @@ function newTask(pre = {}) {
     '<div class="g2"><div><label class="lb">الأولوية</label><select class="inp" id="ntP">' + PRIO.map(p => '<option value="' + p + '"' + (p === (pre.priority || 'Medium') ? ' selected' : '') + '>' + PRIO_AR[p] + '</option>').join('') + '</select></div>' +
     '<div><label class="lb">الموعد</label><input type="date" class="inp" id="ntDl" value="' + esc(pre.deadline || '') + '"></div></div>' +
     '<label class="lb">المحتوى المرتبط (اختياري)</label><select class="inp" id="ntC"><option value="">— بدون —</option>' + S.items.filter(i => !['posted'].includes(i.stage)).map(i => '<option value="' + i.id + '"' + (pre.content_id === i.id ? ' selected' : '') + '>' + esc(i.title) + '</option>').join('') + '</select>' +
+    '<label class="lb">المنتجات (من Shopify)</label><div id="ntProds" class="plinks"></div><button class="btn sm" id="ntProdBtn" type="button" style="margin-top:6px">+ اختار منتج</button>' +
+    (pre._images && pre._images.length ? '<div class="files" style="margin-top:8px">' + pre._images.map(f => '<span class="file" style="background-image:url(\'' + esc(shopImg(f.url, 200)) + '\')"></span>').join('') + '</div><div class="muted small">الصور دي هتتضاف للمهمة</div>' : '') +
     '<label class="lb">مسؤول عنها * (واحد أو أكتر)</label><div class="toggles" id="ntA">' + S.team.map(m => '<button class="tg' + (sel.has(m.id) ? ' on' : '') + '" data-a="' + esc(m.id) + '">' + av(m.id, false, true) + esc(firstName(m.id)) + '</button>').join('') + '</div>' +
     '</div><div class="sf"><button class="btn pri" id="ntSave">إنشاء المهمة</button></div>');
   $('#x').onclick = closeSheet;
   $$('[data-a]', root).forEach(b => b.onclick = () => { b.classList.toggle('on'); sel.has(b.dataset.a) ? sel.delete(b.dataset.a) : sel.add(b.dataset.a); });
+  let prodIds = [...(pre.product_ids || [])];
+  const drawProds = () => { $('#ntProds').innerHTML = prodIds.map(id => { const p = prod(id); return p ? '<div class="plink"><span class="pth" style="background-image:url(\'' + esc(shopImg(p.image, 160) || '') + '\')"></span><span class="grow plt"><b dir="auto">' + esc(p.title) + '</b><span class="muted small">' + esc(prodPrice(p)) + '</span></span></div>' : ''; }).join(''); };
+  drawProds();
+  $('#ntProdBtn').onclick = async () => { const ids = await pickProducts(prodIds, 'المهمة دي عن أي منتج؟'); if (ids === null) return; prodIds = ids; drawProds(); };
   $('#ntSave').onclick = async () => {
     const title = $('#ntT').value.trim();
     if (!title) return toast('اكتب عنوان المهمة');
     if (!sel.size) return toast('اختار شخص واحد على الأقل');
     $('#ntSave').disabled = true;
     const row = { title, description: $('#ntD').value.trim() || null, priority: $('#ntP').value, deadline: $('#ntDl').value || null, assigned_to: [...sel],
-      created_by: S.me.id, status: 'To Do', signed_by: [], attachments: [], links: [], instructions: { text: '', voices: [] }, subtasks: [], content_id: $('#ntC').value || null };
+      created_by: S.me.id, status: 'To Do', signed_by: [], attachments: [], links: [], instructions: { text: '', voices: [] }, subtasks: [], content_id: $('#ntC').value || null, product_ids: prodIds };
+    if (pre._images && pre._images.length) row.attachments = pre._images.map(f => ({ id: uid(), url: f.url, name: f.name, product_id: f.product_id, uploadedBy: S.me.id, uploadedAt: new Date().toISOString(), note: ((prod(f.product_id) || {}).title) || '' }));
     const { data, error } = await sb.from('tasks').insert(row).select('*, comments(*), edit_requests(*)').single();
     if (error) { $('#ntSave').disabled = false; console.error(error); return toast('تعذر إنشاء المهمة'); }
     S.tasks.unshift(data);
@@ -132,7 +140,7 @@ function openTask(id) {
   renderTaskSheet(t);
 }
 function refreshTaskLive() {
-  const t = S.tasks.find(x => x.id === S.openTaskId); if (!t || S._subOpen) return;
+  const t = S.tasks.find(x => x.id === S.openTaskId); if (!t || S._subOpen || document.querySelector('.overlay.stack')) return;
   const ae = document.activeElement;
   if (S._taskEdit || (ae && $('#sheetRoot').contains(ae) && /INPUT|TEXTAREA|SELECT/.test(ae.tagName)) || Rec.mr) return;
   const sc = $('#sheetRoot .sb'), top = sc ? sc.scrollTop : 0;
@@ -160,6 +168,7 @@ function renderTaskSheet(t) {
       '<div class="meta" style="margin:10px 0"><span class="pill ' + PRIO_CLS[t.priority] + '">أولوية ' + (PRIO_AR[t.priority] || '') + '</span>' + (t.deadline ? '<span class="pill ' + (isOD(t) ? 'late' : '') + '">📅 ' + fmtShort(t.deadline) + (isOD(t) ? ' · متأخرة' : '') + '</span>' : '') +
       (content ? '<button class="pill" data-gocontent="' + content.id + '">🎬 ' + esc(content.title) + '</button>' : '') + '</div>' +
       (t.description ? '<div class="desc" dir="auto">' + richText(t.description) + '</div>' : '') +
+      productsBlock(t.product_ids, 'task:' + t.id) +
       '<div class="sectitle">المسؤولين</div><div class="row wrap">' + asg.map(id => '<span class="person">' + av(id, false, true) + esc(nameOf(id)) + '</span>').join('') + '</div>' +
       '<div class="sectitle">الحالة</div><div class="stepper">' + STAT.map(s => '<button data-status="' + s + '" class="' + (t.status === s ? 'cur' : '') + '"' + (canStatus ? '' : ' disabled') + '>' + statusAr(s) + '</button>').join('') + '</div>' +
       ((t.signed_by || []).length ? '<div class="sectitle">وقّع عليها</div><div class="row wrap">' + t.signed_by.map(id => '<span class="person">' + av(id, false, true) + esc(firstName(id)) + ' ✓</span>').join('') + '</div>' : '') +
@@ -177,7 +186,7 @@ function renderTaskSheet(t) {
       '<div class="sectitle">🖼 الصور (' + (t.attachments || []).length + ')</div><div class="files">' + (t.attachments || []).map(a =>
         '<div class="att"><a class="file" href="' + esc(a.url || a.dataUrl) + '" target="_blank" rel="noopener" style="background-image:url(\'' + esc(a.url || a.dataUrl) + '\')">' + ((admin || a.uploadedBy === me) ? '<button class="x" data-delatt="' + esc(a.id) + '">×</button>' : '') + '</a>' +
         '<div class="note" dir="auto">' + (a.note ? esc(a.note) : '') + ((admin || a.uploadedBy === me) ? ' <button class="linkbtn" data-attnote="' + esc(a.id) + '">' + (a.note ? '✎' : '+ ملاحظة') + '</button>' : '') + '</div></div>').join('') +
-      '<label class="file add" id="tAddImg">+</label></div>' +
+      '<label class="file add" id="tAddImg">+</label><label class="file add shop" id="tAddProdImg" title="صور من منتجات Shopify">🛍<br><small>Shopify</small></label></div>' +
       // links
       '<div class="sectitle">🔗 روابط ومصادر (' + (t.links || []).length + ')</div>' + (t.links || []).map(l => '<div class="lrow"><a href="' + esc(safeUrl(l.url)) + '" target="_blank" rel="noopener"><b>' + esc(l.name) + '</b><span dir="ltr">' + esc(l.url) + '</span></a>' + ((admin || l.addedBy === me) ? '<button class="xbtn" data-dellink="' + esc(l.id) + '">✕</button>' : '') + '</div>').join('') +
       '<div class="linkrow" style="margin-top:6px"><input class="inp" id="lkN" placeholder="اسم الرابط" style="max-width:40%"><input class="inp" id="lkU" placeholder="https://…" dir="ltr"><button class="btn" id="lkAdd">إضافة</button></div>' +
@@ -205,7 +214,7 @@ function renderTaskSheet(t) {
   bindTaskSheet(t, root);
 }
 function composer(key, ph) {
-  return '<div class="composer"><button class="btn ghost sm" data-cattach="' + key + '" title="إرفاق">📎</button><textarea class="inp" id="' + key + 'Text" dir="auto" rows="1" placeholder="' + esc(ph) + '"></textarea><button class="btn pri" data-csend="' + key + '">إرسال</button></div>' +
+  return '<div class="composer"><button class="btn ghost sm" data-cattach="' + key + '" title="إرفاق">📎</button><button class="btn ghost sm" data-cprod="' + key + '" title="صورة منتج من Shopify">🛍</button><textarea class="inp" id="' + key + 'Text" dir="auto" rows="1" placeholder="' + esc(ph) + '"></textarea><button class="btn pri" data-csend="' + key + '">إرسال</button></div>' +
     '<div class="mentions">' + S.team.filter(m => m.id !== S.me.id).map(m => '<button class="mchip" data-mention="' + key + '" data-name="' + esc(firstName(m.id)) + '">@' + esc(firstName(m.id)) + '</button>').join('') + '</div>';
 }
 function bindComposer(root, key, onSend) {
@@ -218,6 +227,8 @@ function bindComposer(root, key, onSend) {
     toast('جاري الرفع…');
     try { const f = await uploadFile(files[0], 'comments'); ta.value = (ta.value ? ta.value + '\n' : '') + f.url + ' '; ta.focus(); } catch (e) { toast('فشل الرفع'); }
   };
+  const cp = $('[data-cprod="' + key + '"]', root);
+  if (cp) cp.onclick = () => { const t = S.tasks.find(x => x.id === S.openTaskId); insertProductImages(ta, t ? t.product_ids : []); };
   $$('[data-mention="' + key + '"]', root).forEach(b => b.onclick = () => { ta.value += (ta.value && !/\s$/.test(ta.value) ? ' ' : '') + '@' + b.dataset.name + ' '; ta.focus(); });
 }
 function bindTaskSheet(t, root) {
@@ -278,6 +289,11 @@ function bindTaskSheet(t, root) {
     if (v && v.path) sb.storage.from(BUCKET).remove([v.path]);
     await updateTask(t.id, { instructions: { text: (t.instructions && t.instructions.text) || '', voices: vs.filter(x => x.id !== b.dataset.delvoice) } });
   });
+  bindProductsBlock(root, () => renderTaskSheet(S.tasks.find(x => x.id === t.id) || t));
+  $('#tAddProdImg').onclick = async () => {
+    const files = await pickProductImages(t.product_ids || [], 'صور منتج للمهمة');
+    if (files && files.length && await addProductImagesToTask(t, null, files)) renderTaskSheet(S.tasks.find(x => x.id === t.id) || t);
+  };
   // images
   $('#tAddImg').onclick = async () => {
     const files = (await pickFiles('image/*', true)).filter(f => f.size <= 10 * 1024 * 1024);
@@ -315,7 +331,7 @@ function bindTaskSheet(t, root) {
     if (who) push([who], '☑ مهمة فرعية عليك', title + ' — ' + t.title);
   };
   const tc = $('#tToContent'); if (tc) tc.onclick = async () => {
-    const it = await createItem({ title: t.title, brief: t.description || null, due_date: t.deadline ? String(t.deadline).slice(0, 10) : null, owner: assigneesOf(t)[0] || me }, { open: false });
+    const it = await createItem({ title: t.title, product_ids: t.product_ids || [], brief: t.description || null, due_date: t.deadline ? String(t.deadline).slice(0, 10) : null, owner: assigneesOf(t)[0] || me }, { open: false });
     if (it) { await updateTask(t.id, { content_id: it.id }); toast('اتعمل كارت محتوى ✓'); }
   };
   $$('[data-gocontent]', root).forEach(b => b.onclick = () => openItem(b.dataset.gocontent));
@@ -505,7 +521,7 @@ function viewChat(v) {
       '<div class="mb">' + (!mine && !cont ? '<div class="who">' + esc(firstName(m.author)) + '</div>' : '') + '<div dir="auto">' + richText(m.text) + '</div><div class="tm">' + fmtClock(m.created_at) + '</div></div></div>';
   }).join('');
   v.innerHTML = '<div class="chat"><div class="chat-h"><b>💬 شات الفريق</b><span class="muted small">' + S.team.length + ' أعضاء · مباشر</span></div><div class="chat-body" id="chatBody">' + (rows || '<div class="empty">مفيش رسائل لسه</div>') + '</div>' +
-    '<div class="chat-in"><button class="btn ghost" id="chAtt">📎</button><textarea class="inp" id="chText" dir="auto" rows="1" placeholder="اكتب رسالة…"></textarea><button class="btn pri" id="chSend">إرسال</button></div></div>';
+    '<div class="chat-in"><button class="btn ghost" id="chAtt">📎</button><button class="btn ghost" id="chProd" title="صورة منتج من Shopify">🛍</button><textarea class="inp" id="chText" dir="auto" rows="1" placeholder="اكتب رسالة…"></textarea><button class="btn pri" id="chSend">إرسال</button></div></div>';
   const body = $('#chatBody'); body.scrollTop = body.scrollHeight;
   const ta = $('#chText');
   if (S._chatDraft) { ta.value = S._chatDraft; }
@@ -522,6 +538,7 @@ function viewChat(v) {
   };
   $('#chSend').onclick = send;
   ta.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && window.innerWidth > 700) { e.preventDefault(); send(); } });
+  $('#chProd').onclick = () => insertProductImages(ta, []);
   $('#chAtt').onclick = async () => {
     const files = await pickFiles('*/*', false); if (!files.length) return; toast('جاري الرفع…');
     try { const f = await uploadFile(files[0], 'chat'); ta.value = (ta.value ? ta.value + '\n' : '') + f.url + ' '; S._chatDraft = ta.value; ta.focus(); } catch { toast('فشل الرفع'); }
