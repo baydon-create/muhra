@@ -37,7 +37,8 @@ function viewTeam(v) {
   v.innerHTML = '<h1 class="ptitle">👥 الفريق والحساب</h1>' + note +
     '<div class="sectitle">حسابي</div><div class="card pad"><div class="row">' + av(S.me.id, true) + '<div class="grow"><b>' + esc(S.me.name) + '</b><div class="muted small" dir="ltr" style="text-align:right">' + esc(S.me.id) + '</div></div></div>' +
     '<div class="row wrap" style="margin-top:12px"><button class="btn sm" id="myPhoto">📷 تغيير الصورة</button><button class="btn sm" id="myPw">🔑 تغيير كلمة المرور</button><button class="btn sm bad" id="myOut">خروج</button></div></div>' +
-    '<div class="sectitle">الإشعارات على الجهاز ده</div>' + pushBanner(true) +
+    '<div class="sectitle">الإشعارات</div>' + pushBanner(true) +
+    '<details class="muted small" style="margin:6px 2px 0"><summary>إشعارات المتصفح (اختياري)</summary><div style="margin-top:8px">' + webPushBanner(true) + '</div></details>' +
     '<div class="sectitle">الأعضاء <span class="muted small">(' + S.team.length + ')</span></div><div class="card">' + S.team.map(row).join('') + '</div>' +
     (admin ? '<button class="btn pri" id="addM" style="width:100%;margin-top:14px">+ إضافة عضو جديد</button>' + announceBlock() : '<div class="muted small" style="margin-top:10px">إضافة وحذف الأعضاء للمديرين فقط.</div>');
   bindCopy(v);
@@ -45,7 +46,7 @@ function viewTeam(v) {
   $('#myOut').onclick = () => { if (confirm('تسجيل الخروج؟')) signOut(); };
   $('#myPhoto').onclick = () => pickPhoto(S.me.id);
   bindPushBanner(v);
-  if (!S._pushLoaded) { S._pushLoaded = true; loadPushStatus(); }
+  if (!S._pushLoaded) { S._pushLoaded = true; loadTgStatus(); }
   v.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => editMember(b.dataset.edit));
   const add = $('#addM'); if (add) add.onclick = () => editMember(null);
   bindAnnounce(v);
