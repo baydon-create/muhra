@@ -120,7 +120,7 @@ function viewPublish(v) {
       '<div class="meta" style="margin-top:5px">' + chip('🖼 صور', p.images_total, p.images_posted ? p.images_total : 0, p.images_posted) + chip('⭕ ستوري', p.stories_total, p.stories_posted) + chip('🎬 ريلز', p.reels_total, p.reels_posted) +
       (p.has_caption ? '<span class="pill">✍️ caption.txt</span>' : '<span class="pill" title="هيتكتب كابشن تلقائي">🤖 كابشن تلقائي</span>') + '</div>' +
       '<div class="muted small" style="margin-top:4px">مواعيده: ' + slot + (p.position > 1 ? ' · ⚠️ المنتج التالت وما بعده مش هيتنشر في نفس اليوم' : '') + '</div></div>' +
-      '<div class="pact">' + (c ? stageTag(c.stage) + '<button class="btn sm" data-open="' + c.id + '">🎬 الكارت</button>' : '') + '<a class="btn sm" href="' + driveFolder(p.folder_id) + '" target="_blank" rel="noopener">📁 Drive</a></div></div>';
+      '<div class="pact">' + (c ? stageTag(c.stage) + '<button class="btn sm pri" data-pubopen="' + c.id + '" title="افتح كارت المحتوى بتاع المنتج ده في الهب">🎬 فتح كارت المحتوى</button>' : '') + '<a class="btn sm" href="' + driveFolder(p.folder_id) + '" target="_blank" rel="noopener">📁 Drive</a></div></div>';
   };
   v.innerHTML = '<h1 class="ptitle">📤 النشر التلقائي</h1>' +
     '<div class="card pad"><div class="row wrap"><div class="grow"><b>إزاي بيشتغل</b><div class="muted small">ارفع المنتج في <b>MUHRA SOCIAL ← فولدر اليوم (يوم-شهر-سنة) ← فولدر باسم المنتج</b> وجواه images / stories / reels. البوت بينشر أول منتجين في اليوم:</div><div class="muted small" style="margin-top:4px">أي منتج في الفولدر بيتعامل إنه <b>معتمد ومستني النشر</b> وكارته بيتنقل لـ «مجدول» لوحده، ولما البوت يكتب <b>[POSTED]</b> الكارت بيتنقل لـ «منشور». لو مفيش كارت، بيتعمل كارت جديد.</div></div>' +
@@ -133,6 +133,7 @@ function viewPublish(v) {
         (gap ? '<span class="small" style="color:var(--bad);font-weight:700">مفيش منتجات للنشر</span>' : '<span class="muted small">' + ps.length + ' منتج</span>') + '</div>' +
         (ps.length ? '<div class="bd">' + ps.map(row).join('') + '</div>' : '') + '</div>';
     }).join('');
+  $$('[data-pubopen]', v).forEach(b => b.onclick = () => openItem(b.dataset.pubopen));
 }
 
 /* ───────── EMBEDDED MODULES ───────── */
