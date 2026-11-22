@@ -32,18 +32,20 @@ function viewTeam(v) {
   const row = m => '<div class="row" style="padding:10px 12px;border-bottom:1px solid var(--line)">' + av(m.id, true) +
     '<div class="grow"><div style="font-weight:700">' + esc(m.name) + (m.id === S.me.id ? ' <span class="muted small">(أنت)</span>' : '') + '</div>' +
     '<div class="muted small"><span dir="ltr">' + esc(m.id) + '</span>' + (m.title ? ' · ' + esc(m.title) : '') + '</div>' +
-    '<div class="row" style="gap:4px;margin-top:3px">' + (m.role === 'admin' ? '<span class="pill">مدير</span>' : '<span class="pill" style="opacity:.7">عضو</span>') + (m.can_approve ? '<span class="pill okp">يوافق على المحتوى</span>' : '') + '</div></div>' +
+    '<div class="row wrap" style="gap:4px;margin-top:3px">' + (m.role === 'admin' ? '<span class="pill">مدير</span>' : '<span class="pill" style="opacity:.7">عضو</span>') + (m.can_approve ? '<span class="pill okp">يوافق على المحتوى</span>' : '') + pushPill(m.id) + '</div></div>' +
     (admin ? '<button class="btn sm" data-edit="' + esc(m.id) + '">تعديل</button>' : '') + '</div>';
   v.innerHTML = '<h1 class="ptitle">👥 الفريق والحساب</h1>' + note +
     '<div class="sectitle">حسابي</div><div class="card pad"><div class="row">' + av(S.me.id, true) + '<div class="grow"><b>' + esc(S.me.name) + '</b><div class="muted small" dir="ltr" style="text-align:right">' + esc(S.me.id) + '</div></div></div>' +
-    '<div class="row wrap" style="margin-top:12px"><button class="btn sm" id="myPhoto">📷 تغيير الصورة</button><button class="btn sm" id="myPw">🔑 تغيير كلمة المرور</button><button class="btn sm" id="myPush">🔔 تفعيل الإشعارات</button><button class="btn sm bad" id="myOut">خروج</button></div></div>' +
+    '<div class="row wrap" style="margin-top:12px"><button class="btn sm" id="myPhoto">📷 تغيير الصورة</button><button class="btn sm" id="myPw">🔑 تغيير كلمة المرور</button><button class="btn sm bad" id="myOut">خروج</button></div></div>' +
+    '<div class="sectitle">الإشعارات على الجهاز ده</div>' + pushBanner(true) +
     '<div class="sectitle">الأعضاء <span class="muted small">(' + S.team.length + ')</span></div><div class="card">' + S.team.map(row).join('') + '</div>' +
     (admin ? '<button class="btn pri" id="addM" style="width:100%;margin-top:14px">+ إضافة عضو جديد</button>' + announceBlock() : '<div class="muted small" style="margin-top:10px">إضافة وحذف الأعضاء للمديرين فقط.</div>');
   bindCopy(v);
   $('#myPw').onclick = () => renderChangePassword(false);
   $('#myOut').onclick = () => { if (confirm('تسجيل الخروج؟')) signOut(); };
   $('#myPhoto').onclick = () => pickPhoto(S.me.id);
-  $('#myPush').onclick = () => { if (window.registerUserWithOneSignal) { window.registerUserWithOneSignal(S.me.id); toast('اسمح بالإشعارات من المتصفح'); } else toast('الإشعارات غير متاحة على المتصفح ده'); };
+  bindPushBanner(v);
+  if (!S._pushLoaded) { S._pushLoaded = true; loadPushStatus(); }
   v.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => editMember(b.dataset.edit));
   const add = $('#addM'); if (add) add.onclick = () => editMember(null);
   bindAnnounce(v);

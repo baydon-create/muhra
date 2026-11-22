@@ -14,6 +14,7 @@ function viewHome(v) {
   const notReady = S.items.filter(i => !shown.has(i.id) && i.publish_date && dayDiff(i.publish_date) >= 0 && dayDiff(i.publish_date) <= 2 && !DONE_STAGES.includes(i.stage));
   let html = '<div style="margin:4px 2px 12px"><div style="font-size:21px;font-weight:800">' + (h < 12 ? 'صباح الخير' : 'مساء الخير') + ' ' + esc(firstName(me)) + ' 👋</div>' +
     '<div class="muted small">' + fmtDay(today()) + ' · ' + (mine.length + openTasksN ? 'عندك ' + mine.length + ' محتوى و' + openTasksN + ' مهمة مفتوحة' : 'مفيش شغل مفتوح عليك') + '</div></div>';
+  html += (typeof pushBanner === 'function' ? pushBanner() : '');
   html += weekStrip();
   if (isApprover()) {
     html += '<h2 class="sec">👀 بانتظار موافقتك <span class="n">' + review.length + '</span></h2>';
@@ -36,6 +37,7 @@ function viewHome(v) {
   if (toSign.length) html += '<h2 class="sec">✍️ محتاجة توقيعك <span class="n">' + toSign.length + '</span></h2><div class="list">' + toSign.map(t => taskCard(t)).join('') + '</div>';
   if (editReqs.length) html += '<h2 class="sec">📝 طلبات تعديل على المهام <span class="n">' + editReqs.length + '</span></h2><div class="list">' + editReqs.map(t => taskCard(t)).join('') + '</div>';
   v.innerHTML = html;
+  if (typeof bindPushBanner === 'function') bindPushBanner(v);
   bindWeekStrip(v);
   v.querySelectorAll('[data-approve]').forEach(b => b.onclick = () => { const it = S.items.find(x => x.id === b.dataset.approve); if (it) moveStage(it, 'approved'); });
   v.querySelectorAll('[data-changes]').forEach(b => b.onclick = () => askChanges(S.items.find(x => x.id === b.dataset.changes)));

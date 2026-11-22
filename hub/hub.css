@@ -297,3 +297,10 @@ dl.facts dd{margin:0;word-break:break-word}
 .slot b{font-size:14px}
 .prow{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:8px;background:#fff;flex-wrap:wrap}
 .pact{display:flex;gap:6px;flex-wrap:wrap}
+
+/* push notifications */
+.pushcard{border:1.5px solid var(--accent,#B98A5E);background:#FFF8EF;margin-bottom:14px}
+.pushcard.on{border-color:#C9E0D0;background:var(--ok-bg)}
+.pill.badp{background:#FCEBEB;color:#A33A3A;border-color:#F0C9C9}
+.ph-steps ol{margin:0;padding-inline-start:20px;line-height:1.9}
+.ph-ic{display:inline-block;margin-inline-start:4px}

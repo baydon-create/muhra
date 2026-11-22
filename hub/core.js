@@ -214,7 +214,7 @@ async function logAct(item_id, action, from_stage, to_stage, note) {
 async function push(ids, title, body) {
   ids = [...new Set((ids || []).filter(id => id && id !== S.me.id && S.teamMap[id]))];
   if (!ids.length) return;
-  const { error } = await sb.functions.invoke('send-push', { body: { external_ids: ids, title, body } });
+  const { error } = await sb.functions.invoke('send-push', { body: { external_ids: ids, title, body, url: location.origin + location.pathname + (location.hash || '') } });
   if (error) console.warn('push failed', error);
 }
 async function updateItem(id, patch, silent) {
@@ -281,6 +281,7 @@ async function afterSignIn() {
   S.me = me; lsS(UID_KEY, me.id);
   if (window.registerUserWithOneSignal) setTimeout(() => window.registerUserWithOneSignal(me.id), 1500);
   boot2();
+  setTimeout(() => { if (typeof maybeAskPush === 'function') maybeAskPush(); }, 2500);
 }
 async function signOut() { await sb.auth.signOut(); localStorage.removeItem(UID_KEY); location.replace(location.pathname); }
 

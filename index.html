@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="hub/hub.css?v=3">
+<link rel="stylesheet" href="hub/hub.css?v=4">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 <script>
@@ -25,16 +25,34 @@ OneSignalDeferred.push(async function (OneSignal) {
   try { await OneSignal.init({ appId: '397aeb96-2c45-4cd8-9a5e-da6c2625281b', serviceWorkerPath: '/muhra/OneSignalSDKWorker.js', serviceWorkerParam: { scope: '/muhra/' }, notifyButton: { enable: false } }); }
   catch (e) { console.warn('OneSignal init', e); }
 });
+/* Saves this device's push subscription for the signed-in member (one row per device). */
+window.hqSavePushSub = async function (OneSignal, id) {
+  try {
+    const ps = OneSignal.User.PushSubscription;
+    const sub = ps && ps.id;
+    if (!sub || !ps.optedIn || !window.sb) return false;
+    const device = (/iPhone|iPad/.test(navigator.userAgent) ? 'iPhone' : /Android/.test(navigator.userAgent) ? 'Android' : 'Computer');
+    await window.sb.from('push_tokens').upsert({ user_id: id, token: sub, device, updated_at: new Date().toISOString() });
+    return true;
+  } catch (e) { console.warn('push save', e); return false; }
+};
+/* Links this device to the member. Never asks for permission by itself (browsers block that);
+   the permission prompt is only opened from a tap, see hqEnablePush in hub/push.js. */
 window.registerUserWithOneSignal = function (memberId) {
   const id = String(memberId || '').replace(/[^a-zA-Z0-9_-]/g, ''); if (!id) return;
   window.OneSignalDeferred.push(async function (OneSignal) {
     try {
-      await OneSignal.login(id);
+      if (OneSignal.User.externalId !== id) await OneSignal.login(id);
       await OneSignal.User.addTag('external_id', id);
-      if ('Notification' in window && Notification.permission === 'default') await Notification.requestPermission();
-      if ('Notification' in window && Notification.permission === 'granted') await OneSignal.User.PushSubscription.optIn();
-      const sub = OneSignal.User.PushSubscription && (OneSignal.User.PushSubscription.id || OneSignal.User.PushSubscription.token);
-      if (sub && window.sb) await window.sb.from('push_tokens').upsert({ user_id: id, token: sub, updated_at: new Date().toISOString() });
+      if (!window._hqSubListener) {
+        window._hqSubListener = true;
+        OneSignal.User.PushSubscription.addEventListener('change', () => window.hqSavePushSub(OneSignal, id).then(() => window.hqPushChanged && window.hqPushChanged()));
+      }
+      if ('Notification' in window && Notification.permission === 'granted') {
+        if (!OneSignal.User.PushSubscription.optedIn) await OneSignal.User.PushSubscription.optIn();
+        await window.hqSavePushSub(OneSignal, id);
+      }
+      window.hqPushChanged && window.hqPushChanged();
     } catch (e) { console.warn('push register', e); }
   });
 };
@@ -44,11 +62,12 @@ window.registerUserWithOneSignal = function (memberId) {
 <div id="app"></div>
 <div id="sheetRoot"></div>
 <input type="file" id="filePick" class="hidden">
-<script src="hub/core.js?v=3"></script>
-<script src="hub/content.js?v=3"></script>
+<script src="hub/core.js?v=4"></script>
+<script src="hub/content.js?v=4"></script>
 <script src="hub/work.js?v=3"></script>
 <script src="hub/extra.js?v=3"></script>
-<script src="hub/team.js?v=3"></script>
+<script src="hub/team.js?v=4"></script>
+<script src="hub/push.js?v=1"></script>
 <script>window.sb = sb; boot();</script>
 </body>
 </html>
