@@ -144,6 +144,7 @@ function viewResearch(v) {
   $('#refAdd').onclick = async () => {
     const u = safeUrl($('#refLink').value.trim()); if (!u) return toast('الصق رابط صحيح');
     const host = new URL(u).hostname.replace('www.', '');
+    previewFor(u);
     await createItem({ title: 'فكرة من ' + host, type: /tiktok/.test(host) ? 'tiktok' : 'reel', ref_url: u, ref_source: host });
   };
 }
@@ -286,7 +287,9 @@ function renderSheet(it) {
       val = val === '' ? null : val;
       if ((it[k] || null) === val) return;
       const prevOwner = it.owner;
-      await updateItem(it.id, { [k]: val });
+      if (k === 'ref_url' && val && !safeUrl(val)) { el.value = it.ref_url || ''; return toast('الصق رابط صحيح يبدأ بـ https://'); }
+      await updateItem(it.id, k === 'ref_url' ? { ref_url: val, ref_thumb: null, ref_source: null } : { [k]: val });
+      if (k === 'ref_url' && val) previewFor(val);
       if (k === 'owner' && val && val !== prevOwner) { push([val], '📌 محتوى جديد عليك', it.title); logAct(it.id, 'owner', null, null, nameOf(val)); renderSheet(it); loadThread(it.id); }
       if (['type', 'ref_url', 'post_url', 'drive_link'].includes(k)) { renderSheet(it); loadThread(it.id); }
       renderAllBg();
@@ -469,11 +472,18 @@ function stageWorkspace(it) {
   if (tab !== it.stage) h += '<div class="muted small" style="margin-bottom:6px">بتشوف مرحلة «' + SM[tab].n + '» — الكارت حاليًا في «' + SM[it.stage].n + '». تقدر تضيف هنا برضه.</div>';
   (cfg.main || []).forEach(m => { h += fld(m[0], m[1], m[2], m[3]); });
   if (cfg.cap) h += '<div class="muted small lat" id="capCount" style="text-align:left">' + (it.caption || '').length + ' / 2200</div>';
-  if (cfg.ref) h += (it.ref_url || it.ref_thumb) ? '<label class="lb">المرجع' + (it.ref_source ? ' · ' + esc(it.ref_source) : '') + '</label><div class="row">' + (it.ref_thumb ? '<div class="thumb" style="background-image:url(\'' + esc(it.ref_thumb) + '\')"></div>' : '') + (safeUrl(it.ref_url) ? '<a class="btn sm" href="' + esc(safeUrl(it.ref_url)) + '" target="_blank" rel="noopener">فتح المرجع ↗</a>' : '') + '</div>' : '';
+  if (cfg.ref) {
+    h += '<label class="lb">المرجع (ريل / بوست / تيك توك / يوتيوب)</label>';
+    if (safeUrl(it.ref_url)) h += linkCard(it.ref_url);
+    else if (it.ref_thumb) h += '<div class="thumb" style="background-image:url(\'' + esc(it.ref_thumb) + '\')"></div>';
+    h += '<input class="inp" data-f="ref_url" dir="ltr" style="margin-top:8px" value="' + esc(it.ref_url || '') + '" placeholder="الصق رابط الريل أو البوست — هتظهر الصورة والمشاهدات واللايكات">';
+  }
   if (cfg.post) h += '<label class="lb">رابط البوست بعد النشر</label><div class="linkrow"><input class="inp" data-f="post_url" value="' + esc(it.post_url || '') + '" placeholder="https://instagram.com/p/…">' + (safeUrl(it.post_url) ? '<a class="btn" href="' + esc(safeUrl(it.post_url)) + '" target="_blank" rel="noopener">فتح</a>' : '') + '</div>';
   h += '<label class="lb">ملاحظات المرحلة</label><textarea dir="auto" class="inp" data-snote="' + tab + '" rows="3" placeholder="' + esc(cfg.notes || '') + '">' + esc(d.notes || '') + '</textarea>' + (d.notes_by ? '<div style="margin-top:4px">' + who(d.notes_by, d.notes_at) + '</div>' : '');
   h += '<label class="lb">روابط المرحلة <span class="muted small">(' + (d.links || []).length + ')</span></label>' +
-    (d.links || []).map(l => '<div class="lrow"><a href="' + esc(safeUrl(l.url) || '#') + '" target="_blank" rel="noopener"><b>' + esc(l.label || 'رابط') + '</b><span dir="ltr">' + esc(l.url) + '</span></a>' + who(l.by, l.at) + (canRm(l.by) ? '<button class="xbtn" data-srm="links" data-sid="' + esc(l.id) + '" title="حذف">✕</button>' : '') + '</div>').join('') +
+    (d.links || []).map(l => isSocialLink(l.url)
+      ? '<div class="lrow rich"><div class="grow">' + (l.label && l.label !== 'رابط' ? '<b class="small">' + esc(l.label) + '</b>' : '') + linkCard(l.url, { compact: true }) + '<div>' + who(l.by, l.at) + '</div></div>' + (canRm(l.by) ? '<button class="xbtn" data-srm="links" data-sid="' + esc(l.id) + '" title="حذف">✕</button>' : '') + '</div>'
+      : '<div class="lrow"><a href="' + esc(safeUrl(l.url) || '#') + '" target="_blank" rel="noopener"><b>' + esc(l.label || 'رابط') + '</b><span dir="ltr">' + esc(l.url) + '</span></a>' + who(l.by, l.at) + (canRm(l.by) ? '<button class="xbtn" data-srm="links" data-sid="' + esc(l.id) + '" title="حذف">✕</button>' : '') + '</div>').join('') +
     '<div class="slinkadd"><input class="inp" id="slLabel" placeholder="اسم الرابط (مثال: فولدر الخام)"><input class="inp" id="slUrl" dir="ltr" placeholder="' + esc(cfg.link ? 'https://… ' : 'https://') + '"><button class="btn" id="slAdd">+ إضافة رابط</button></div>' +
     '<div class="muted small" style="margin-top:4px">' + esc(cfg.link || '') + ' — كل رابط بيتضاف، مفيش حاجة بتتمسح.</div>';
   h += '<label class="lb">ملفات المرحلة <span class="muted small">(' + (d.files || []).length + ')</span></label><div class="files">' +
