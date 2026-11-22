@@ -632,7 +632,8 @@ function cairoParts(iso){
   const parts = cairoFmt.formatToParts(new Date(iso));
   const wd = parts.find(p=>p.type==='weekday').value;
   let h = Number(parts.find(p=>p.type==='hour').value); if(h===24) h=0;
-  return { day: DAYS.indexOf(wd), block: Math.floor(h/3) };
+  // Match on the formatter's English weekday; DAYS only holds the labels (Arabic inside the hub).
+  return { day: ['Sat','Sun','Mon','Tue','Wed','Thu','Fri'].indexOf(wd), block: Math.floor(h/3) };
 }
 // Instagram's desktop site turns /reel/<code> links into its scrolling Reels feed, which often
 // starts on a different reel. /p/<code> opens that exact post (reels included) on its own page.

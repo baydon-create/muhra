@@ -138,8 +138,8 @@ function viewPublish(v) {
 
 /* ───────── EMBEDDED MODULES ───────── */
 const FRAMES = {
-  intel: { src: 'intel/index.html?embed=1', title: 'Competitor Intel', view: 'overview' },
-  ugc: { src: 'intel/index.html?embed=1', title: 'UGC Creators', view: 'ugcDiscover', shared: 'intel' },
+  intel: { src: 'intel/index.html?embed=1&v=2', title: 'Competitor Intel', view: 'overview' },
+  ugc: { src: 'intel/index.html?embed=1&v=2', title: 'UGC Creators', view: 'ugcDiscover', shared: 'intel' },
   tools: { src: 'tools/compressor/index.html?embed=1', title: 'Media Compressor' }
 };
 function frameKey(route) { return (FRAMES[route] && FRAMES[route].shared) || route; }
