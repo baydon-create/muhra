@@ -7,3 +7,10 @@
 --     product field or card title; creates a card when none exists. Never moves a posted card back.
 alter table public.hq_content add column if not exists publish_folder_id text;
 create index if not exists hq_content_publish_folder_idx on public.hq_content (publish_folder_id);
+
+-- 2026-11-22 (later): backfill of all old MUHRA SOCIAL folders
+--   * hq_publish_apply: an already-posted (old) folder only claims a finished card (review/approved/scheduled);
+--     otherwise it gets its own posted card, dated to its folder day (created_at / posted_at).
+--   * hq_notify_trigger skips Telegram while hq.silent = '1'; hq_publish_apply sets it for posts older than yesterday,
+--     so backfilled history does not flood Telegram.
+--   * One-off n8n workflow 'Muhra HQ – Publishing Queue Backfill (one-off)' (manual trigger) reads every dated folder.
