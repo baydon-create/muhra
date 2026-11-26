@@ -104,7 +104,7 @@ function editMember(id) {
     '<div id="mMsg"></div>' +
     (m ? '<div class="sectitle">كلمة المرور</div><div class="card pad"><div class="muted small">ينشئ كلمة مرور مؤقتة جديدة، والعضو يغيرها أول ما يدخل.</div><button class="btn sm" id="mReset" style="margin-top:8px">إعادة تعيين كلمة المرور</button><div id="resetOut"></div></div>' +
       '<div class="sectitle">الصورة</div><button class="btn sm" id="mPhoto">تغيير صورة ' + esc(firstName(m.id)) + '</button>' +
-      (m.id !== S.me.id ? '<div class="sectitle" style="color:var(--bad)">حذف نهائي</div><div class="card pad" style="border-color:#EFC7C1">' +
+      (m.id !== S.me.id ? '<div class="sectitle" style="color:var(--bad)">حذف نهائي</div><div class="card pad" style="border-color:var(--line-2)">' +
         '<div class="small">يحذف الحساب نهائيًا ويمنع الدخول فورًا. المحتوى المنشور والتعليقات القديمة تفضل في السجل.</div>' +
         '<label class="lb">نقل شغله المفتوح (المحتوى والمهام) إلى</label><select class="inp" id="mTo"><option value="">— بدون نقل —</option>' + others.map(o => '<option value="' + esc(o.id) + '"' + (o.id === S.me.id ? ' selected' : '') + '>' + esc(o.name) + '</option>').join('') + '</select>' +
         '<label class="lb">للتأكيد اكتب اسم المستخدم: <span class="lat" dir="ltr">' + esc(m.id) + '</span></label><input class="inp lat" id="mConfirm" dir="ltr" autocapitalize="none">' +

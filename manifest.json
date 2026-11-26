@@ -5,8 +5,8 @@
   "start_url": "/muhra/",
   "scope": "/muhra/",
   "display": "standalone",
-  "background_color": "#3B2A20",
-  "theme_color": "#3B2A20",
+  "background_color": "#FFFFFF",
+  "theme_color": "#FFFFFF",
   "orientation": "portrait",
   "icons": [
     {

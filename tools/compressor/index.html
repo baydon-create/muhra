@@ -5,18 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Media Compressor</title>
 <meta name="description" content="Bulk image and video compression for Shopify. Runs entirely on your device.">
-<meta name="theme-color" content="#F6F7F9" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#0B0D12" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#FFFFFF">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232952CC'/%3E%3Cpath d='M11 7v6h-4M21 7v6h4M11 25v-6h-4M21 25v-6h4' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#F6F4F1; --surface:#FFFFFF; --surface-2:#F1EDE8; --surface-3:#E8E2DA;
-  --ink:#1D1814; --ink-2:#4B4139; --muted:#8B8178; --line:#ECE6DF; --line-strong:#DED5CB;
-  --accent:#4A3226; --accent-hover:#3A271D; --accent-ink:#FFFFFF; --accent-soft:#F6F0EA; --accent-line:#E3D6C8;
-  --ok:#2F7A55; --ok-soft:#EAF4EE; --warn:#A86A12; --warn-soft:#FBF2E1; --bad:#B4382E; --bad-soft:#FBECEA;
+  --bg:#FFFFFF; --surface:#FFFFFF; --surface-2:#F5F4F4; --surface-3:#EBEAEA;
+  --ink:#1A1410; --ink-2:#3F3A36; --muted:#6C6966; --line:#E6E5E5; --line-strong:#D1D0CF;
+  --accent:#4A3226; --accent-hover:#3D291F; --accent-ink:#FFFFFF; --accent-soft:#F1EFEE; --accent-line:#D4CECB;
+  --ok:#4A3226; --ok-soft:#F1EFEE; --warn:#4A3226; --warn-soft:#F1EFEE; --bad:#1A1410; --bad-soft:#F5F4F4;
   --shadow-sm:0 1px 2px rgba(29,24,20,.04);
   --shadow:0 1px 2px rgba(29,24,20,.04),0 4px 16px -4px rgba(29,24,20,.07);
   --shadow-lg:0 24px 64px -16px rgba(29,24,20,.3);
@@ -24,16 +23,7 @@
   --font:"IBM Plex Sans Arabic","Inter",system-ui,-apple-system,"Segoe UI",Roboto,Tahoma,Arial,sans-serif;
   color-scheme:light;
 }
-@media (prefers-color-scheme:dark){
-  :root{
-    --bg:#151210; --surface:#1D1916; --surface-2:#26211D; --surface-3:#302A25;
-    --ink:#F1EBE4; --ink-2:#CFC6BC; --muted:#9C9187; --line:#2E2823; --line-strong:#3F3731;
-    --accent:#DCC3A0; --accent-hover:#E8D4B6; --accent-ink:#1D1814; --accent-soft:#2C241D; --accent-line:#4A3D31;
-    --ok:#4FC59A; --ok-soft:#10281F; --warn:#E8B055; --warn-soft:#2D2312; --bad:#F2808E; --bad-soft:#331A1E;
-    --shadow-sm:none; --shadow:0 1px 0 rgba(255,255,255,.02); --shadow-lg:0 24px 64px -12px rgba(0,0,0,.7);
-    color-scheme:dark;
-  }
-}
+/* Dark theme removed: the hub is white everywhere */
 *,*::before,*::after{box-sizing:border-box}
 html,body{margin:0;height:auto}
 body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14.5px;line-height:1.55;-webkit-font-smoothing:antialiased;
@@ -220,7 +210,7 @@ dialog::backdrop{background:rgba(9,12,20,.6);backdrop-filter:blur(2px)}
 
 /* Inside Muhra HQ: the hub owns the header; same font everywhere */
 html.embed header.top{display:none}
-html.embed body{font-family:"IBM Plex Sans Arabic",system-ui,sans-serif;background:#FCFAF7}
+html.embed body{font-family:"IBM Plex Sans Arabic",system-ui,sans-serif;background:#FFFFFF}
 </style>
 <script>if(/[?&]embed/.test(location.search)&&window.parent!==window){document.documentElement.classList.add('embed');document.documentElement.dataset.theme='light';}</script>
 </head>
@@ -548,6 +538,6 @@ html.embed body{font-family:"IBM Plex Sans Arabic",system-ui,sans-serif;backgrou
   window.__appStarted = false;
   setTimeout(function(){ if(!window.__appStarted && location.protocol !== 'file:') document.getElementById('loadFail').hidden = false; }, 8000);
 </script>
-<script type="module" src="./app.js?v=2"></script>
+<script type="module" src="./app.js?v=3"></script>
 </body>
 </html>
