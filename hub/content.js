@@ -56,28 +56,69 @@ function weekStrip() {
 }
 function bindWeekStrip(v) { v.querySelectorAll('[data-day]').forEach(el => el.onclick = () => { S.calStart = weekStart(el.dataset.day); go('calendar'); setTimeout(() => { const t = document.getElementById('day-' + el.dataset.day); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 50); }); }
 
-/* ───────── VIEW: BOARD ───────── */
+/* ───────── VIEW: BOARD ─────────
+   Two views of one pipeline. The board shows the working stages plus one "ready" column,
+   each column scrolls on its own so the page never grows. Published items live in the list,
+   filtered by period and paged, so hundreds of old posts never load into the board. */
+const BOARD_COLS = [
+  { k: 'idea', n: 'فكرة', st: ['idea'] }, { k: 'script', n: 'سكريبت', st: ['script'] }, { k: 'shoot', n: 'تصوير', st: ['shoot'] },
+  { k: 'edit', n: 'مونتاج', st: ['edit'] }, { k: 'review', n: 'مراجعة', st: ['review'] }, { k: 'ready', n: 'جاهز للنشر', st: ['approved', 'scheduled'] }
+];
+const LIST_TABS = [
+  { k: 'active', n: 'شغال', st: ['idea', 'script', 'shoot', 'edit', 'review'] }, { k: 'ready', n: 'جاهز للنشر', st: ['approved', 'scheduled'] },
+  { k: 'posted', n: 'منشور', st: ['posted'] }, { k: 'all', n: 'الكل', st: null }
+];
+const PERIODS = [[7, 'آخر 7 أيام'], [30, 'آخر 30 يوم'], [90, 'آخر 90 يوم'], [0, 'كل الوقت']];
+const postedDay = i => String(i.posted_at || i.publish_date || i.created_at || '').slice(0, 10);
+function inPeriod(i, days) { return !days || i.stage !== 'posted' || dayDiff(postedDay(i)) >= -days; }
+
 function viewBoard(v) {
   const f = S.board;
-  const pool = S.items.filter(i => (!f.mine || i.owner === S.me.id || (i.helpers || []).includes(S.me.id)) && (!f.type || i.type === f.type));
   const wide = window.innerWidth >= 1000;
-  let html = '<div class="toolbar"><button class="chip ' + (f.mine ? '' : 'on') + '" data-mine="0">الكل</button><button class="chip ' + (f.mine ? 'on' : '') + '" data-mine="1">شغلي</button>' +
+  const view = wide ? f.view : 'list';
+  const pool = S.items.filter(i => (!f.mine || i.owner === S.me.id || (i.helpers || []).includes(S.me.id)) && (!f.type || i.type === f.type));
+  const posted = pool.filter(i => i.stage === 'posted' && inPeriod(i, f.period || 30));
+  let html = '<div class="toolbar ptool">' +
+    (wide ? '<div class="seg" role="tablist"><button class="' + (view === 'board' ? 'on' : '') + '" data-view="board">' + ic('board') + 'لوحة</button><button class="' + (view === 'list' ? 'on' : '') + '" data-view="list">' + ic('tasks') + 'قائمة</button></div>' : '') +
+    '<div class="seg"><button class="' + (f.mine ? '' : 'on') + '" data-mine="0">الكل</button><button class="' + (f.mine ? 'on' : '') + '" data-mine="1">شغلي</button></div>' +
     '<select class="mini" id="typeF"><option value="">كل الأنواع</option>' + Object.entries(TYPES).map(([k, n]) => '<option value="' + k + '"' + (f.type === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select>' +
-    '<span class="muted small" style="margin-inline-start:auto">' + pool.filter(i => !DONE_STAGES.includes(i.stage)).length + ' شغال · ' + pool.filter(isLate).length + ' متأخر</span></div>';
-  if (wide) {
-    html += '<div class="kanban">' + STAGES.map(s => {
-      const col = sortCol(pool.filter(i => i.stage === s.k), s.k);
-      return '<div class="kcol"><h3><span>' + s.n + '</span><span class="muted lat">' + col.length + '</span></h3><div class="list">' + (col.map(i => ccard(i, { noStage: true })).join('') || '<div class="muted small" style="padding:8px">—</div>') + '</div></div>';
+    '<span class="muted small ptool-sum">' + pool.filter(i => !DONE_STAGES.includes(i.stage)).length + ' شغال · <span' + (pool.some(isLate) ? ' class="late-n"' : '') + '>' + pool.filter(isLate).length + ' متأخر</span></span></div>';
+
+  if (view === 'board') {
+    html += '<button class="postedbar" data-golist="posted">' + ic('ads') + '<span>منشور</span><b>' + posted.length + '</b><span class="muted">في آخر ' + (f.period || 30) + ' يوم</span><span class="grow"></span><span class="seeall">عرض في القائمة ←</span></button>';
+    html += '<div class="kanban fit">' + BOARD_COLS.map(c => {
+      const col = sortCol(pool.filter(i => c.st.includes(i.stage)), c.k);
+      return '<section class="kcol"><h3><span>' + c.n + '</span><span class="kn">' + col.length + '</span></h3><div class="kbody">' +
+        (col.map(i => ccard(i, { compact: true, noStage: c.k !== 'ready' })).join('') || '<div class="kempty">لا يوجد</div>') + '</div></section>';
     }).join('') + '</div>';
   } else {
-    html += '<div class="chips">' + STAGES.map(s => '<button class="chip ' + (f.stage === s.k ? 'on' : '') + '" data-stage="' + s.k + '">' + s.n + ' <span class="c">' + pool.filter(i => i.stage === s.k).length + '</span></button>').join('') + '</div>';
-    const col = sortCol(pool.filter(i => i.stage === f.stage), f.stage);
-    html += col.length ? '<div class="list">' + col.map(i => ccard(i, { noStage: true })).join('') + '</div>' : '<div class="empty">مفيش محتوى في مرحلة «' + SM[f.stage].n + '»</div>';
+    const tab = LIST_TABS.find(t => t.k === f.lstage) || LIST_TABS[0];
+    const count = t => pool.filter(i => (!t.st || t.st.includes(i.stage)) && inPeriod(i, f.period)).length;
+    html += '<div class="ltabs">' + LIST_TABS.map(t => '<button class="' + (t.k === tab.k ? 'on' : '') + '" data-lstage="' + t.k + '">' + t.n + ' <span class="c">' + count(t) + '</span></button>').join('') +
+      '<span class="grow"></span>' + ((tab.k === 'posted' || tab.k === 'all') ? '<select class="mini" id="periodF">' + PERIODS.map(([d, n]) => '<option value="' + d + '"' + (+f.period === d ? ' selected' : '') + '>' + n + '</option>').join('') + '</select>' : '') + '</div>';
+    let rows = pool.filter(i => (!tab.st || tab.st.includes(i.stage)) && inPeriod(i, f.period));
+    const key = { title: i => i.title || '', stage: i => SI[i.stage], type: i => i.type || '', owner: i => firstName(i.owner) || '', date: i => (i.stage === 'posted' ? postedDay(i) : (i.publish_date || i.due_date || '9999')) };
+    const kf = key[f.sort] || key.date;
+    rows.sort((a, b) => { const x = kf(a), y = kf(b); return (x > y ? 1 : x < y ? -1 : 0) * f.dir; });
+    const total = rows.length; rows = rows.slice(0, f.limit);
+    const th = (k, n, cls) => '<th class="' + (cls || '') + '"><button data-sort="' + k + '" class="' + (f.sort === k ? 'on' : '') + '">' + n + (f.sort === k ? (f.dir > 0 ? ' ↓' : ' ↑') : '') + '</button></th>';
+    if (!total) html += '<div class="empty">مفيش محتوى هنا</div>';
+    else if (wide) {
+      html += '<div class="card ptable"><table class="tb"><thead><tr>' + th('title', 'العنوان') + th('stage', 'المرحلة') + th('type', 'النوع') + th('owner', 'المسؤول') + th('date', tab.k === 'posted' ? 'اتنشر' : 'النشر', 'dcol') + '</tr></thead><tbody>' +
+        rows.map(i => '<tr data-open="' + i.id + '"><td class="tt"><bdi>' + esc(i.title) + '</bdi>' + (isLate(i) ? ' <span class="pill late">متأخر</span>' : '') + (i.changes_note && !DONE_STAGES.includes(i.stage) ? ' <span class="pill soon">تعديلات</span>' : '') + '</td><td>' + stageTag(i.stage) + '</td><td class="muted">' + typeIc(i.type) + ' ' + (TYPES[i.type] || '') + '</td><td>' + (i.owner ? '<span class="who">' + av(i.owner) + esc(firstName(i.owner)) + '</span>' : '<span class="muted">—</span>') + '</td><td class="dcol">' + (kf(i) && kf(i) !== '9999' ? fmtShort(kf(i)) : '<span class="muted">—</span>') + '</td></tr>').join('') +
+        '</tbody></table></div>';
+    } else html += '<div class="list">' + rows.map(i => ccard(i)).join('') + '</div>';
+    if (total > rows.length) html += '<button class="btn more" id="moreRows">عرض المزيد · ' + (total - rows.length) + ' باقي</button>';
   }
   v.innerHTML = html;
-  v.querySelectorAll('[data-mine]').forEach(b => b.onclick = () => { f.mine = b.dataset.mine === '1'; renderAll(); });
-  v.querySelectorAll('[data-stage]').forEach(b => b.onclick = () => { f.stage = b.dataset.stage; renderAll(); });
-  $('#typeF').onchange = e => { f.type = e.target.value; renderAll(); };
+  v.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { f.view = b.dataset.view; lsS('hq.boardView', f.view); renderAll(); });
+  v.querySelectorAll('[data-mine]').forEach(b => b.onclick = () => { f.mine = b.dataset.mine === '1'; f.limit = 50; renderAll(); });
+  v.querySelectorAll('[data-lstage]').forEach(b => b.onclick = () => { f.lstage = b.dataset.lstage; f.limit = 50; if (f.lstage === 'posted') { f.sort = 'date'; f.dir = -1; } else if (f.sort === 'date') f.dir = 1; renderAll(); });
+  v.querySelectorAll('[data-golist]').forEach(b => b.onclick = () => { f.view = 'list'; f.lstage = 'posted'; f.sort = 'date'; f.dir = -1; f.limit = 50; lsS('hq.boardView', 'list'); renderAll(); });
+  v.querySelectorAll('[data-sort]').forEach(b => b.onclick = () => { const k = b.dataset.sort; f.dir = f.sort === k ? -f.dir : 1; f.sort = k; renderAll(); });
+  const pf = $('#periodF'); if (pf) pf.onchange = e => { f.period = +e.target.value; f.limit = 50; renderAll(); };
+  const mr = $('#moreRows'); if (mr) mr.onclick = () => { f.limit += 50; renderAll(); };
+  $('#typeF').onchange = e => { f.type = e.target.value; f.limit = 50; renderAll(); };
 }
 function sortCol(arr, stage) {
   if (stage === 'posted') return arr.sort((a, b) => (b.posted_at || '').localeCompare(a.posted_at || '')).slice(0, 40);

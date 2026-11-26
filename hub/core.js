@@ -65,7 +65,7 @@ const MOBILE_TABS = ['home', 'content', 'tasks', 'chat'];
 const S = {
   me: null, team: [], teamMap: {}, photos: {},
   route: 'home', routeArg: null,
-  items: [], board: { stage: 'idea', mine: false, type: '' },
+  items: [], board: { stage: 'idea', mine: false, type: '', view: lsGet('hq.boardView', 'board'), lstage: 'active', period: 30, sort: 'date', dir: 1, limit: 50 },
   calStart: null, research: { days: 14, format: '', kind: 'competitor', rows: null, loading: false },
   openId: null, stats: null, activity: [],
   tasks: [], taskFilter: { status: 'All', member: 'All', mine: false }, openTaskId: null,
@@ -144,7 +144,7 @@ function itemThumb(it) {
   return u ? '<div class="thumb" style="background-image:url(\'' + esc(u) + '\')"></div>' : '<div class="thumb">' + typeIc(it.type, 20) + '</div>';
 }
 function ccard(it, opts = {}) {
-  return '<div class="card ccard" data-open="' + it.id + '">' + itemThumb(it) +
+  return '<div class="card ccard' + (opts.compact ? ' compact' : '') + '" data-open="' + it.id + '">' + (opts.compact ? '' : itemThumb(it)) +
     '<div class="grow"><div class="t">' + esc(it.title) + '</div><div class="meta">' +
     (opts.noStage ? '' : stageTag(it.stage)) +
     '<span class="pill">' + typeIc(it.type) + ' ' + (TYPES[it.type] || it.type) + '</span>' + dueInfo(it) +
