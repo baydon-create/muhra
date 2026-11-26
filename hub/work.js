@@ -36,23 +36,23 @@ function taskCard(t, opts = {}) {
   const asg = assigneesOf(t), subs = t.subtasks || [], sd = subs.filter(s => s.completed).length;
   const content = t.content_id ? S.items.find(i => i.id === t.content_id) : null;
   const counts = [
-    (t.comments || []).length && '💬 ' + t.comments.length,
-    subs.length && '☑ ' + sd + '/' + subs.length,
-    (t.signed_by || []).length && '✍️ ' + t.signed_by.length,
-    (t.edit_requests || []).length && '📝 ' + t.edit_requests.length,
-    (t.attachments || []).length && '🖼 ' + t.attachments.length,
-    (t.links || []).length && '🔗 ' + t.links.length,
-    ((t.instructions && t.instructions.voices) || []).length && '🎙 ' + t.instructions.voices.length
+    (t.comments || []).length && ic('msg') + t.comments.length,
+    subs.length && ic('tasks') + sd + '/' + subs.length,
+    (t.signed_by || []).length && ic('pen') + t.signed_by.length,
+    (t.edit_requests || []).length && ic('edit') + t.edit_requests.length,
+    (t.attachments || []).length && ic('image') + t.attachments.length,
+    (t.links || []).length && ic('link') + t.links.length,
+    ((t.instructions && t.instructions.voices) || []).length && ic('mic') + t.instructions.voices.length
   ].filter(Boolean);
   return '<div class="card tcard' + (t.pinned ? ' pinned' : '') + '" data-task="' + t.id + '">' +
-    '<div class="row" style="align-items:flex-start"><div class="grow">' + (t.pinned ? '<div class="pin">📌 مثبتة</div>' : '') +
+    '<div class="row" style="align-items:flex-start"><div class="grow">' + (t.pinned ? '<div class="pin">مثبتة</div>' : '') +
     '<div class="t" dir="auto">' + esc(t.title) + '</div>' +
     (!opts.compact && t.description ? '<div class="muted small clamp2" dir="auto">' + esc(t.description) + '</div>' : '') + '</div>' +
     '<span class="pill ' + (PRIO_CLS[t.priority] || '') + '">' + (PRIO_AR[t.priority] || t.priority || '') + '</span></div>' +
     '<div class="meta" style="margin-top:7px"><span class="pill ' + STAT_CLS[t.status] + '">' + statusAr(t.status) + '</span>' +
-    (t.deadline ? '<span class="pill ' + (isOD(t) ? 'late' : '') + '">' + (isOD(t) ? '⚠️ ' : '📅 ') + fmtShort(t.deadline) + '</span>' : '') +
-    (content ? '<span class="pill">🎬 ' + esc(content.title.slice(0, 24)) + '</span>' : '') +
-    ((t.product_ids || []).length ? '<span class="pill">🛍 ' + esc(((prod(t.product_ids[0]) || {}).title || 'منتج').slice(0, 22)) + (t.product_ids.length > 1 ? ' +' + (t.product_ids.length - 1) : '') + '</span>' : '') +
+    (t.deadline ? '<span class="pill ' + (isOD(t) ? 'late' : '') + '">' + (isOD(t) ? ic('alert') : ic('cal')) + fmtShort(t.deadline) + '</span>' : '') +
+    (content ? '<span class="pill">' + ic('film') + ' ' + esc(content.title.slice(0, 24)) + '</span>' : '') +
+    ((t.product_ids || []).length ? '<span class="pill">' + ic('bag') + ' ' + esc(((prod(t.product_ids[0]) || {}).title || 'منتج').slice(0, 22)) + (t.product_ids.length > 1 ? ' +' + (t.product_ids.length - 1) : '') + '</span>' : '') +
     counts.map(c => '<span class="cnt">' + c + '</span>').join('') +
     '<span class="grow"></span><span class="avs">' + asg.slice(0, 4).map(id => av(id, false, true)).join('') + '</span></div></div>';
 }
@@ -72,7 +72,7 @@ function viewTasks(v) {
     (!f.mine || assigneesOf(t).includes(me)) &&
     (!f.quick || (f.quick === 'urgent' ? t.priority === 'Urgent' && t.status !== 'Done' : f.quick === 'late' ? isOD(t) : f.quick === 'done' ? t.status === 'Done' : true)));
   list = list.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || (a.status === 'Done') - (b.status === 'Done') || String(a.deadline || '9999').localeCompare(String(b.deadline || '9999')));
-  v.innerHTML = '<h1 class="ptitle">☑️ المهام</h1><div class="kpis k4">' + k.map(([key, l, n]) => '<button class="card kpi kbtn' + ((key === 'mine' && f.mine) || f.quick === key ? ' on' : '') + '" data-q="' + key + '"><div class="v' + (key === 'late' && n ? ' bad' : '') + '">' + n + '</div><div class="l">' + l + '</div></button>').join('') + '</div>' +
+  v.innerHTML = '<h1 class="ptitle">المهام</h1><div class="kpis k4">' + k.map(([key, l, n]) => '<button class="card kpi kbtn' + ((key === 'mine' && f.mine) || f.quick === key ? ' on' : '') + '" data-q="' + key + '"><div class="v' + (key === 'late' && n ? ' bad' : '') + '">' + n + '</div><div class="l">' + l + '</div></button>').join('') + '</div>' +
     '<div class="chips" style="margin-top:12px">' + ['All', ...STAT].map(s => '<button class="chip' + (f.status === s ? ' on' : '') + '" data-st="' + s + '">' + (s === 'All' ? 'الكل' : statusAr(s)) + ' <span class="c">' + (s === 'All' ? S.tasks.length : S.tasks.filter(t => t.status === s).length) + '</span></button>').join('') + '</div>' +
     '<div class="toolbar"><select class="mini" id="tMember"><option value="All">كل الفريق</option>' + S.team.map(m => '<option value="' + esc(m.id) + '"' + (f.member === m.id ? ' selected' : '') + '>' + esc(m.name) + '</option>').join('') + '</select>' +
     (isAdmin() ? '<button class="btn sm pri" id="tNew">+ مهمة جديدة</button>' : '') + '<span class="muted small" style="margin-inline-start:auto">' + list.length + ' مهمة</span></div>' +
@@ -94,7 +94,7 @@ async function updateTask(id, patch, opts = {}) {
 }
 function newTask(pre = {}) {
   const sel = new Set(pre.assigned_to || []);
-  const root = sheet('<div class="sh"><b class="grow">مهمة جديدة</b><button class="btn ghost sm" id="x">✕</button></div><div class="sb">' +
+  const root = sheet('<div class="sh"><b class="grow">مهمة جديدة</b><button class="btn ghost sm" id="x">' + ic('x') + '</button></div><div class="sb">' +
     '<label class="lb">العنوان *</label><input class="inp" id="ntT" dir="auto" value="' + esc(pre.title || '') + '" placeholder="عنوان المهمة">' +
     '<label class="lb">التفاصيل</label><textarea class="inp" id="ntD" dir="auto" placeholder="التفاصيل…">' + esc(pre.description || '') + '</textarea>' +
     '<div class="g2"><div><label class="lb">الأولوية</label><select class="inp" id="ntP">' + PRIO.map(p => '<option value="' + p + '"' + (p === (pre.priority || 'Medium') ? ' selected' : '') + '>' + PRIO_AR[p] + '</option>').join('') + '</select></div>' +
@@ -125,7 +125,7 @@ function newTask(pre = {}) {
     push(asg, '☑️ مهمة جديدة عليك', firstName(S.me.id) + ': ' + title);
     push(others().filter(id => !asg.includes(id)), '☑️ مهمة جديدة', firstName(S.me.id) + ' أنشأ: ' + title);
     if (pre.brief_id) { await sb.from('maha_briefs').update({ task_id: data.id }).eq('id', pre.brief_id); const b = S.briefs.find(x => x.id === pre.brief_id); if (b) b.task_id = data.id; }
-    closeSheet(); toast('تم إنشاء المهمة ✓'); renderAll();
+    closeSheet(); toast('تم إنشاء المهمة'); renderAll();
     openTask(data.id);
   };
   setTimeout(() => $('#ntT') && $('#ntT').focus(), 60);
@@ -165,56 +165,56 @@ function renderTaskSheet(t) {
       '<div class="row" style="margin-top:16px"><button class="btn pri" id="eSave">حفظ</button><button class="btn" id="eCancel">إلغاء</button></div>';
   } else {
     body = '<h2 class="ttl" dir="auto">' + esc(t.title) + '</h2><div class="muted small">' + av(t.created_by, false, true) + ' ' + esc(firstName(t.created_by)) + ' · ' + fmtTime(t.created_at) + '</div>' +
-      '<div class="meta" style="margin:10px 0"><span class="pill ' + PRIO_CLS[t.priority] + '">أولوية ' + (PRIO_AR[t.priority] || '') + '</span>' + (t.deadline ? '<span class="pill ' + (isOD(t) ? 'late' : '') + '">📅 ' + fmtShort(t.deadline) + (isOD(t) ? ' · متأخرة' : '') + '</span>' : '') +
-      (content ? '<button class="pill" data-gocontent="' + content.id + '">🎬 ' + esc(content.title) + '</button>' : '') + '</div>' +
+      '<div class="meta" style="margin:10px 0"><span class="pill ' + PRIO_CLS[t.priority] + '">أولوية ' + (PRIO_AR[t.priority] || '') + '</span>' + (t.deadline ? '<span class="pill ' + (isOD(t) ? 'late' : '') + '">' + ic('cal') + ' ' + fmtShort(t.deadline) + (isOD(t) ? ' · متأخرة' : '') + '</span>' : '') +
+      (content ? '<button class="pill" data-gocontent="' + content.id + '">' + ic('film') + ' ' + esc(content.title) + '</button>' : '') + '</div>' +
       (t.description ? '<div class="desc" dir="auto">' + richText(t.description) + '</div>' : '') +
       productsBlock(t.product_ids, 'task:' + t.id) +
       '<div class="sectitle">المسؤولين</div><div class="row wrap">' + asg.map(id => '<span class="person">' + av(id, false, true) + esc(nameOf(id)) + '</span>').join('') + '</div>' +
       '<div class="sectitle">الحالة</div><div class="stepper">' + STAT.map(s => '<button data-status="' + s + '" class="' + (t.status === s ? 'cur' : '') + '"' + (canStatus ? '' : ' disabled') + '>' + statusAr(s) + '</button>').join('') + '</div>' +
-      ((t.signed_by || []).length ? '<div class="sectitle">وقّع عليها</div><div class="row wrap">' + t.signed_by.map(id => '<span class="person">' + av(id, false, true) + esc(firstName(id)) + ' ✓</span>').join('') + '</div>' : '') +
-      (canSign ? '<button class="btn ok" id="tSign" style="margin-top:10px;width:100%">✍️ توقيع واعتماد المهمة</button>' : '') +
-      (signed ? '<div class="alert ok">✓ إنت وقّعت على المهمة دي</div>' : '') +
-      (!admin ? '<div style="margin-top:12px"><button class="btn sm" id="tReqBtn">📝 طلب تعديل</button><div id="tReqBox" class="hidden" style="margin-top:8px"><textarea class="inp" id="tReq" dir="auto" placeholder="إيه اللي محتاج يتغير؟"></textarea><button class="btn pri sm" id="tReqSend" style="margin-top:6px">إرسال الطلب</button></div></div>' : '') +
-      (admin && (t.edit_requests || []).length ? '<div class="sectitle">📝 طلبات تعديل (' + t.edit_requests.length + ')</div>' + t.edit_requests.map(r => '<div class="alert warn"><b>' + esc(firstName(r.author)) + '</b> · ' + fmtTime(r.created_at) + '<div dir="auto">' + richText(r.note) + '</div></div>').join('') : '') +
+      ((t.signed_by || []).length ? '<div class="sectitle">وقّع عليها</div><div class="row wrap">' + t.signed_by.map(id => '<span class="person">' + av(id, false, true) + esc(firstName(id)) + ' ' + ic('check') + '</span>').join('') + '</div>' : '') +
+      (canSign ? '<button class="btn ok" id="tSign" style="margin-top:10px;width:100%">توقيع واعتماد المهمة</button>' : '') +
+      (signed ? '<div class="alert ok">إنت وقّعت على المهمة دي</div>' : '') +
+      (!admin ? '<div style="margin-top:12px"><button class="btn sm" id="tReqBtn">طلب تعديل</button><div id="tReqBox" class="hidden" style="margin-top:8px"><textarea class="inp" id="tReq" dir="auto" placeholder="إيه اللي محتاج يتغير؟"></textarea><button class="btn pri sm" id="tReqSend" style="margin-top:6px">إرسال الطلب</button></div></div>' : '') +
+      (admin && (t.edit_requests || []).length ? '<div class="sectitle">طلبات تعديل (' + t.edit_requests.length + ')</div>' + t.edit_requests.map(r => '<div class="alert warn"><b>' + esc(firstName(r.author)) + '</b> · ' + fmtTime(r.created_at) + '<div dir="auto">' + richText(r.note) + '</div></div>').join('') : '') +
       // instructions
-      '<div class="sectitle">📋 التعليمات</div><textarea class="inp" id="tInstr" dir="auto" placeholder="اكتب تعليمات المهمة…">' + esc((t.instructions && t.instructions.text) || '') + '</textarea>' +
+      '<div class="sectitle">التعليمات</div><textarea class="inp" id="tInstr" dir="auto" placeholder="اكتب تعليمات المهمة…">' + esc((t.instructions && t.instructions.text) || '') + '</textarea>' +
       '<button class="btn sm pri hidden" id="tInstrSave" style="margin-top:6px">حفظ التعليمات</button>' +
-      voices.map(vc => '<div class="voice">🎙 <span class="muted small">' + esc(firstName(vc.uploadedBy)) + ' · ' + fmtTime(vc.uploadedAt) + (vc.duration ? ' · ' + fmtSec(vc.duration) : '') + '</span>' +
-        ((admin || vc.uploadedBy === me) ? '<button class="xbtn" data-delvoice="' + esc(vc.id) + '">✕</button>' : '') + '<audio controls preload="none" src="' + esc(vc.url) + '"></audio></div>').join('') +
-      '<button class="btn sm" id="tRec" style="margin-top:8px">🎙 تسجيل ملاحظة صوتية</button>' +
+      voices.map(vc => '<div class="voice">' + ic('mic') + ' <span class="muted small">' + esc(firstName(vc.uploadedBy)) + ' · ' + fmtTime(vc.uploadedAt) + (vc.duration ? ' · ' + fmtSec(vc.duration) : '') + '</span>' +
+        ((admin || vc.uploadedBy === me) ? '<button class="xbtn" data-delvoice="' + esc(vc.id) + '">' + ic('x') + '</button>' : '') + '<audio controls preload="none" src="' + esc(vc.url) + '"></audio></div>').join('') +
+      '<button class="btn sm" id="tRec" style="margin-top:8px">تسجيل ملاحظة صوتية</button>' +
       // attachments
-      '<div class="sectitle">🖼 الصور (' + (t.attachments || []).length + ')</div><div class="files">' + (t.attachments || []).map(a =>
+      '<div class="sectitle">الصور (' + (t.attachments || []).length + ')</div><div class="files">' + (t.attachments || []).map(a =>
         '<div class="att"><a class="file" href="' + esc(a.url || a.dataUrl) + '" target="_blank" rel="noopener" style="background-image:url(\'' + esc(a.url || a.dataUrl) + '\')">' + ((admin || a.uploadedBy === me) ? '<button class="x" data-delatt="' + esc(a.id) + '">×</button>' : '') + '</a>' +
-        '<div class="note" dir="auto">' + (a.note ? esc(a.note) : '') + ((admin || a.uploadedBy === me) ? ' <button class="linkbtn" data-attnote="' + esc(a.id) + '">' + (a.note ? '✎' : '+ ملاحظة') + '</button>' : '') + '</div></div>').join('') +
-      '<label class="file add" id="tAddImg">+</label><label class="file add shop" id="tAddProdImg" title="صور من منتجات Shopify">🛍<br><small>Shopify</small></label></div>' +
+        '<div class="note" dir="auto">' + (a.note ? esc(a.note) : '') + ((admin || a.uploadedBy === me) ? ' <button class="linkbtn" data-attnote="' + esc(a.id) + '">' + (a.note ? ic('edit') : '+ ملاحظة') + '</button>' : '') + '</div></div>').join('') +
+      '<label class="file add" id="tAddImg">+</label><label class="file add shop" id="tAddProdImg" title="صور من منتجات Shopify">' + ic('bag') + '<br><small>Shopify</small></label></div>' +
       // links
-      '<div class="sectitle">🔗 روابط ومصادر (' + (t.links || []).length + ')</div>' + (t.links || []).map(l => '<div class="lrow"><a href="' + esc(safeUrl(l.url)) + '" target="_blank" rel="noopener"><b>' + esc(l.name) + '</b><span dir="ltr">' + esc(l.url) + '</span></a>' + ((admin || l.addedBy === me) ? '<button class="xbtn" data-dellink="' + esc(l.id) + '">✕</button>' : '') + '</div>').join('') +
+      '<div class="sectitle">روابط ومصادر (' + (t.links || []).length + ')</div>' + (t.links || []).map(l => '<div class="lrow"><a href="' + esc(safeUrl(l.url)) + '" target="_blank" rel="noopener"><b>' + esc(l.name) + '</b><span dir="ltr">' + esc(l.url) + '</span></a>' + ((admin || l.addedBy === me) ? '<button class="xbtn" data-dellink="' + esc(l.id) + '">' + ic('x') + '</button>' : '') + '</div>').join('') +
       '<div class="linkrow" style="margin-top:6px"><input class="inp" id="lkN" placeholder="اسم الرابط" style="max-width:40%"><input class="inp" id="lkU" placeholder="https://…" dir="ltr"><button class="btn" id="lkAdd">إضافة</button></div>' +
       // subtasks
-      '<div class="sectitle">☑ مهام فرعية (' + sd + '/' + subs.length + ')</div>' + (subs.length ? '<div class="prog"><i style="width:' + Math.round(sd / subs.length * 100) + '%"></i></div>' : '') +
+      '<div class="sectitle">مهام فرعية (' + sd + '/' + subs.length + ')</div>' + (subs.length ? '<div class="prog"><i style="width:' + Math.round(sd / subs.length * 100) + '%"></i></div>' : '') +
       subs.map((s, i) => { const can = admin || s.assignedTo === me; return '<div class="srow2"><span class="muted small">' + (i + 1) + '</span>' +
-        '<button class="chk' + (s.completed ? ' on' : '') + '" data-subtoggle="' + esc(s.id) + '"' + (can ? '' : ' disabled title="المسؤول عنها فقط"') + '>' + (s.completed ? '✓' : '') + '</button>' +
+        '<button class="chk' + (s.completed ? ' on' : '') + '" data-subtoggle="' + esc(s.id) + '"' + (can ? '' : ' disabled title="المسؤول عنها فقط"') + '>' + (s.completed ? ic('check') : '') + '</button>' +
         '<span class="grow' + (s.completed ? ' done' : '') + '" dir="auto">' + esc(s.title) + (s.assignedTo ? ' <span class="muted small">· ' + esc(firstName(s.assignedTo)) + '</span>' : '') + '</span>' +
-        '<button class="btn sm ghost" data-subthread="' + esc(s.id) + '">💬 ' + ((s.comments || []).length || '') + '</button>' + (admin ? '<button class="xbtn" data-subdel="' + esc(s.id) + '">✕</button>' : '') + '</div>'; }).join('') +
+        '<button class="btn sm ghost" data-subthread="' + esc(s.id) + '">' + ic('msg') + ' ' + ((s.comments || []).length || '') + '</button>' + (admin ? '<button class="xbtn" data-subdel="' + esc(s.id) + '">' + ic('x') + '</button>' : '') + '</div>'; }).join('') +
       (admin ? '<div class="linkrow" style="margin-top:6px"><input class="inp" id="stT" dir="auto" placeholder="مهمة فرعية جديدة…"><select class="inp" id="stA" style="max-width:38%"><option value="">بدون مسؤول</option>' + S.team.map(m => '<option value="' + esc(m.id) + '">' + esc(firstName(m.id)) + '</option>').join('') + '</select><button class="btn" id="stAdd">إضافة</button></div>' : '') +
       // linked content
-      (!content ? '<div class="sectitle">🎬 المحتوى</div><button class="btn sm" id="tToContent">+ إنشاء كارت محتوى من المهمة دي</button>' : '') +
+      (!content ? '<div class="sectitle">المحتوى</div><button class="btn sm" id="tToContent">+ إنشاء كارت محتوى من المهمة دي</button>' : '') +
       // comments
-      '<div class="sectitle">💬 التعليقات (' + (t.comments || []).length + ')</div>' + (t.comments || []).map(c => {
+      '<div class="sectitle">التعليقات (' + (t.comments || []).length + ')</div>' + (t.comments || []).map(c => {
         const likes = c.likes || [], mine = c.author === me;
         return '<div class="cmt">' + av(c.author) + '<div class="bub"><div class="row"><span class="who">' + esc(firstName(c.author)) + '</span><span class="tm">' + fmtTime(c.created_at) + (c.edited ? ' · معدّل' : '') + '</span></div>' +
-          '<p dir="auto">' + richText(c.text) + '</p><div class="row" style="gap:6px;margin-top:4px"><button class="like' + (likes.includes(me) ? ' on' : '') + '" data-like="' + c.id + '">♥ ' + (likes.length || '') + '</button>' +
+          '<p dir="auto">' + richText(c.text) + '</p><div class="row" style="gap:6px;margin-top:4px"><button class="like' + (likes.includes(me) ? ' on' : '') + '" data-like="' + c.id + '">' + ic('heart') + ' ' + (likes.length || '') + '</button>' +
           (mine ? '<button class="linkbtn" data-editcmt="' + c.id + '">تعديل</button>' : '') + '</div></div></div>';
       }).join('') +
       composer('tc', 'اكتب تعليق… (@ لذكر شخص)');
   }
-  const root = sheet('<div class="sh"><button class="btn ghost sm" id="x">✕</button><span class="pill ' + STAT_CLS[t.status] + '">' + statusAr(t.status) + '</span><span class="grow"></span>' +
-    (admin ? '<button class="btn ghost sm" id="tPin" title="تثبيت">' + (t.pinned ? '📌 مثبتة' : '📌') + '</button><button class="btn ghost sm" id="tEdit">✎ تعديل</button><button class="btn ghost sm" id="tDel">🗑</button>' : '') +
-    '<button class="btn ghost sm" id="tCopy">🔗</button></div><div class="sb">' + body + '</div>');
+  const root = sheet('<div class="sh"><button class="btn ghost sm" id="x">' + ic('x') + '</button><span class="pill ' + STAT_CLS[t.status] + '">' + statusAr(t.status) + '</span><span class="grow"></span>' +
+    (admin ? '<button class="btn ghost sm" id="tPin" title="تثبيت">' + (t.pinned ? 'مثبتة' : ic('pin')) + '</button><button class="btn ghost sm" id="tEdit">تعديل</button><button class="btn ghost sm" id="tDel">' + ic('trash') + '</button>' : '') +
+    '<button class="btn ghost sm" id="tCopy">' + ic('link') + '</button></div><div class="sb">' + body + '</div>');
   bindTaskSheet(t, root);
 }
 function composer(key, ph) {
-  return '<div class="composer"><button class="btn ghost sm" data-cattach="' + key + '" title="إرفاق">📎</button><button class="btn ghost sm" data-cprod="' + key + '" title="صورة منتج من Shopify">🛍</button><textarea class="inp" id="' + key + 'Text" dir="auto" rows="1" placeholder="' + esc(ph) + '"></textarea><button class="btn pri" data-csend="' + key + '">إرسال</button></div>' +
+  return '<div class="composer"><button class="btn ghost sm" data-cattach="' + key + '" title="إرفاق">' + ic('clip') + '</button><button class="btn ghost sm" data-cprod="' + key + '" title="صورة منتج من Shopify">' + ic('bag') + '</button><textarea class="inp" id="' + key + 'Text" dir="auto" rows="1" placeholder="' + esc(ph) + '"></textarea><button class="btn pri" data-csend="' + key + '">إرسال</button></div>' +
     '<div class="mentions">' + S.team.filter(m => m.id !== S.me.id).map(m => '<button class="mchip" data-mention="' + key + '" data-name="' + esc(firstName(m.id)) + '">@' + esc(firstName(m.id)) + '</button>').join('') + '</div>';
 }
 function bindComposer(root, key, onSend) {
@@ -251,12 +251,12 @@ function bindTaskSheet(t, root) {
       S._taskEdit = false;
       await updateTask(t.id, { title: $('#eT').value.trim(), description: $('#eD').value.trim() || null, priority: $('#eP').value, deadline: $('#eDl').value || null, assigned_to: [...sel], content_id: $('#eC').value || null });
       push([...sel].filter(id => !before.includes(id)), '☑️ مهمة جديدة عليك', t.title);
-      toast('تم الحفظ ✓'); renderTaskSheet(S.tasks.find(x => x.id === t.id));
+      toast('تم الحفظ'); renderTaskSheet(S.tasks.find(x => x.id === t.id));
     };
     return;
   }
   $$('[data-status]', root).forEach(b => b.onclick = async () => { if (b.dataset.status === t.status) return; await updateTask(t.id, { status: b.dataset.status }); toast('الحالة: ' + statusAr(b.dataset.status)); });
-  const sg = $('#tSign'); if (sg) sg.onclick = async () => { await updateTask(t.id, { signed_by: [...(t.signed_by || []), me] }, { silent: true }); push(adminIds(), '✍️ توقيع على مهمة', firstName(me) + ' وقّع على «' + t.title + '»'); renderAll(); toast('تم التوقيع ✓'); };
+  const sg = $('#tSign'); if (sg) sg.onclick = async () => { await updateTask(t.id, { signed_by: [...(t.signed_by || []), me] }, { silent: true }); push(adminIds(), '✍️ توقيع على مهمة', firstName(me) + ' وقّع على «' + t.title + '»'); renderAll(); toast('تم التوقيع'); };
   const rb = $('#tReqBtn'); if (rb) { rb.onclick = () => $('#tReqBox').classList.toggle('hidden'); $('#tReqSend').onclick = async () => {
     const note = $('#tReq').value.trim(); if (!note) return;
     await sb.from('edit_requests').insert({ task_id: t.id, author: me, note });
@@ -266,11 +266,11 @@ function bindTaskSheet(t, root) {
   // instructions
   const ins = $('#tInstr'), insSave = $('#tInstrSave');
   ins.oninput = () => insSave.classList.toggle('hidden', ins.value === ((t.instructions && t.instructions.text) || ''));
-  insSave.onclick = async () => { await updateTask(t.id, { instructions: { text: ins.value, voices: (t.instructions && t.instructions.voices) || [] } }, { silent: true }); insSave.classList.add('hidden'); toast('تم الحفظ ✓'); };
+  insSave.onclick = async () => { await updateTask(t.id, { instructions: { text: ins.value, voices: (t.instructions && t.instructions.voices) || [] } }, { silent: true }); insSave.classList.add('hidden'); toast('تم الحفظ'); };
   const recBtn = $('#tRec');
   recBtn.onclick = async () => {
     if (!Rec.mr) {
-      try { await recStart(s => { recBtn.textContent = '⏹ إيقاف وحفظ · ' + fmtSec(s); }); recBtn.classList.add('bad'); }
+      try { await recStart(s => { recBtn.textContent = 'إيقاف وحفظ · ' + fmtSec(s); }); recBtn.classList.add('bad'); }
       catch { toast('اسمح باستخدام الميكروفون'); }
     } else {
       recBtn.disabled = true; recBtn.textContent = 'جاري الحفظ…';
@@ -279,7 +279,7 @@ function bindTaskSheet(t, root) {
         const cur = S.tasks.find(x => x.id === t.id) || t;
         const voices = [...((cur.instructions && cur.instructions.voices) || []), { id: uid(), url: f.url, path: f.path, uploadedBy: me, uploadedAt: new Date().toISOString(), duration: f.duration }];
         await updateTask(t.id, { instructions: { text: (cur.instructions && cur.instructions.text) || '', voices } });
-        toast('تم حفظ الملاحظة الصوتية ✓');
+        toast('تم حفظ الملاحظة الصوتية');
       } catch { toast('فشل حفظ الصوت'); renderTaskSheet(t); }
     }
   };
@@ -302,7 +302,7 @@ function bindTaskSheet(t, root) {
     const add = [];
     for (const f of files) { try { const u = await uploadFile(f, t.id); add.push({ id: uid(), url: u.url, path: u.path, name: f.name, uploadedBy: me, uploadedAt: new Date().toISOString(), note: '' }); } catch { toast('فشل رفع ' + f.name); } }
     const cur = S.tasks.find(x => x.id === t.id) || t;
-    await updateTask(t.id, { attachments: [...(cur.attachments || []), ...add] }); toast('تم الرفع ✓');
+    await updateTask(t.id, { attachments: [...(cur.attachments || []), ...add] }); toast('تم الرفع');
   };
   $$('[data-delatt]', root).forEach(b => b.onclick = async e => {
     e.preventDefault(); e.stopPropagation(); if (!confirm('حذف الصورة؟')) return;
@@ -332,7 +332,7 @@ function bindTaskSheet(t, root) {
   };
   const tc = $('#tToContent'); if (tc) tc.onclick = async () => {
     const it = await createItem({ title: t.title, product_ids: t.product_ids || [], brief: t.description || null, due_date: t.deadline ? String(t.deadline).slice(0, 10) : null, owner: assigneesOf(t)[0] || me }, { open: false });
-    if (it) { await updateTask(t.id, { content_id: it.id }); toast('اتعمل كارت محتوى ✓'); }
+    if (it) { await updateTask(t.id, { content_id: it.id }); toast('اتعمل كارت محتوى'); }
   };
   $$('[data-gocontent]', root).forEach(b => b.onclick = () => openItem(b.dataset.gocontent));
   // comments
@@ -361,14 +361,14 @@ function openSubThread(taskId, subId) {
   const me = S.me.id, admin = isAdmin();
   const can = admin || assigneesOf(t).includes(me) || st.assignedTo === me;
   const cm = st.comments || [];
-  const root = sheet('<div class="sh"><button class="btn ghost sm" id="back">→ رجوع</button><b class="grow" dir="auto">' + esc(st.title) + '</b>' + (st.completed ? '<span class="pill okp">✓ خلصت</span>' : '<span class="pill soon">⏳</span>') + '</div><div class="sb">' +
+  const root = sheet('<div class="sh"><button class="btn ghost sm" id="back">→ رجوع</button><b class="grow" dir="auto">' + esc(st.title) + '</b>' + (st.completed ? '<span class="pill okp">خلصت</span>' : '<span class="pill soon">' + ic('clock') + '</span>') + '</div><div class="sb">' +
     '<div class="muted small" style="margin:8px 0">' + (st.assignedTo ? av(st.assignedTo, false, true) + ' ' + esc(nameOf(st.assignedTo)) : 'بدون مسؤول') + ' · ' + cm.length + ' تعليق</div>' +
-    (cm.length ? cm.map(c => '<div class="cmt">' + av(c.author) + '<div class="bub' + (c.type === 'evaluation' ? ' eval' : '') + '"><div class="row"><span class="who">' + esc(firstName(c.author)) + '</span><span class="pill ' + (c.type === 'evaluation' ? 'info' : '') + '">' + (c.type === 'evaluation' ? '⭐ تقييم' : '↩ رد') + '</span><span class="tm">' + fmtTime(c.createdAt) + (c.editedAt ? ' · معدّل' : '') + '</span></div>' +
+    (cm.length ? cm.map(c => '<div class="cmt">' + av(c.author) + '<div class="bub' + (c.type === 'evaluation' ? ' eval' : '') + '"><div class="row"><span class="who">' + esc(firstName(c.author)) + '</span><span class="pill ' + (c.type === 'evaluation' ? 'info' : '') + '">' + (c.type === 'evaluation' ? 'تقييم' : 'رد') + '</span><span class="tm">' + fmtTime(c.createdAt) + (c.editedAt ? ' · معدّل' : '') + '</span></div>' +
       (c.text ? '<p dir="auto">' + richText(c.text) + '</p>' : '') + (c.voice ? '<audio controls preload="none" src="' + esc(c.voice.url) + '"></audio>' : '') +
-      ((c.attachments || []).map(a => isImgUrl(a.url) ? '<a href="' + esc(a.url) + '" target="_blank" rel="noopener"><img class="inl" src="' + esc(a.url) + '" alt=""></a>' : '<a class="fchip" href="' + esc(a.url) + '" target="_blank" rel="noopener">📎 ' + esc(a.name) + '</a>').join('')) +
+      ((c.attachments || []).map(a => isImgUrl(a.url) ? '<a href="' + esc(a.url) + '" target="_blank" rel="noopener"><img class="inl" src="' + esc(a.url) + '" alt=""></a>' : '<a class="fchip" href="' + esc(a.url) + '" target="_blank" rel="noopener">' + ic('clip') + ' ' + esc(a.name) + '</a>').join('')) +
       ((c.author === me || admin) ? '<div class="row" style="gap:6px;margin-top:4px">' + (c.author === me ? '<button class="linkbtn" data-sedit="' + c.id + '">تعديل</button>' : '') + '<button class="linkbtn bad" data-sdel="' + c.id + '">حذف</button></div>' : '') + '</div></div>').join('')
       : '<div class="empty">' + (admin ? 'اكتب أول تقييم للمهمة الفرعية دي' : 'مستني تقييم المدير') + '</div>') +
-    (can ? '<div class="muted small" style="margin-top:10px">' + (admin ? '⭐ هتنشر كتقييم' : '↩ هتنشر كرد') + '</div><div class="composer"><button class="btn ghost sm" id="sAtt">📎</button><button class="btn ghost sm" id="sRec">🎙</button><textarea class="inp" id="sText" dir="auto" rows="1" placeholder="' + (admin ? 'اكتب تقييمك…' : 'اكتب ردك…') + '"></textarea><button class="btn pri" id="sSend">إرسال</button></div>' : '<div class="alert warn">👁 للقراءة فقط — المدير والمسؤول بس يقدروا يعلقوا</div>') +
+    (can ? '<div class="muted small" style="margin-top:10px">' + (admin ? 'هتنشر كتقييم' : 'هتنشر كرد') + '</div><div class="composer"><button class="btn ghost sm" id="sAtt">' + ic('clip') + '</button><button class="btn ghost sm" id="sRec">' + ic('mic') + '</button><textarea class="inp" id="sText" dir="auto" rows="1" placeholder="' + (admin ? 'اكتب تقييمك…' : 'اكتب ردك…') + '"></textarea><button class="btn pri" id="sSend">إرسال</button></div>' : '<div class="alert warn">للقراءة فقط — المدير والمسؤول بس يقدروا يعلقوا</div>') +
     '</div>', { onClose: () => { S._subOpen = false; openTask(taskId); } });
   $('#back').onclick = () => { S._subOpen = false; openTask(taskId); };
   const save = async comments => {
@@ -377,7 +377,7 @@ function openSubThread(taskId, subId) {
     openSubThread(taskId, subId);
   };
   const entry = extra => ({ id: uid(), author: me, type: admin ? 'evaluation' : 'reply', text: ($('#sText') ? $('#sText').value.trim() : ''), createdAt: new Date().toISOString(), ...extra });
-  const notify = () => push([st.assignedTo, ...assigneesOf(t), ...adminIds()].filter(Boolean), admin ? '⭐ تقييم جديد' : '↩ رد على تقييم', st.title + ' — ' + t.title);
+  const notify = () => push([st.assignedTo, ...assigneesOf(t), ...adminIds()].filter(Boolean), admin ? '⭐ تقييم جديد' : 'رد على تقييم', st.title + ' — ' + t.title);
   if (can) {
     $('#sSend').onclick = async () => { if (!$('#sText').value.trim()) return; await save([...cm, entry()]); notify(); };
     $('#sAtt').onclick = async () => {
@@ -387,7 +387,7 @@ function openSubThread(taskId, subId) {
     };
     const rb = $('#sRec');
     rb.onclick = async () => {
-      if (!Rec.mr) { try { await recStart(s => { rb.textContent = '⏹ ' + fmtSec(s); }); } catch { toast('اسمح باستخدام الميكروفون'); } }
+      if (!Rec.mr) { try { await recStart(s => { rb.textContent = '' + fmtSec(s); }); } catch { toast('اسمح باستخدام الميكروفون'); } }
       else { rb.disabled = true; try { const f = await recStop('subtask-comments/' + subId); await save([...cm, entry({ voice: { url: f.url, path: f.path, duration: f.duration } })]); notify(); } catch { toast('فشل حفظ الصوت'); } }
     };
   }
@@ -396,15 +396,15 @@ function openSubThread(taskId, subId) {
 }
 
 /* ───────── BRIEFS ───────── */
-function briefFor(b) { return (b.assignees && b.assignees.length) ? b.assignees.map(id => av(id, false, true) + esc(firstName(id))).join(' ') : '👥 للكل'; }
+function briefFor(b) { return (b.assignees && b.assignees.length) ? b.assignees.map(id => av(id, false, true) + esc(firstName(id))).join(' ') : 'للكل'; }
 function briefMini(b) {
   return '<a class="card bmini" href="#/briefs/' + b.id + '">' + av(b.created_by) + '<div class="grow"><div class="row"><b>' + esc(firstName(b.created_by)) + '</b><span class="pill ' + URG_CLS[b.urgency] + '">' + (URG_AR[b.urgency] || b.urgency) + '</span><span class="muted small">' + fmtTime(b.created_at) + '</span></div>' +
-    '<div class="clamp2" dir="auto">' + (b.text ? esc(b.text) : (b.voice_url ? '🎙 بريف صوتي' : '')) + '</div></div></a>';
+    '<div class="clamp2" dir="auto">' + (b.text ? esc(b.text) : (b.voice_url ? 'بريف صوتي' : '')) + '</div></div></a>';
 }
 function viewBriefs(v) {
   const me = S.me.id;
   if (S.routeArg) setTimeout(() => { const el = document.getElementById('brief-' + S.routeArg); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); el.classList.add('flash'); } }, 80);
-  v.innerHTML = '<h1 class="ptitle">👑 البريفات</h1><div class="muted small" style="margin:-6px 2px 12px">تعليمات صاحبة البراند والإدارة للفريق</div>' +
+  v.innerHTML = '<h1 class="ptitle">البريفات</h1><div class="muted small" style="margin:-6px 2px 12px">تعليمات صاحبة البراند والإدارة للفريق</div>' +
     (canBrief() ? '<button class="btn pri" id="bNew" style="margin-bottom:12px">+ بريف جديد</button>' : '') +
     (S.briefs.length ? S.briefs.map(b => briefCard(b)).join('') : '<div class="empty">مفيش بريفات لسه</div>');
   const bn = $('#bNew', v); if (bn) bn.onclick = () => newBrief();
@@ -417,17 +417,17 @@ function briefCard(b) {
   const task = b.task_id ? S.tasks.find(t => t.id === b.task_id) : null;
   const content = b.content_id ? S.items.find(i => i.id === b.content_id) : null;
   return '<div class="card pad brief" id="brief-' + b.id + '"><div class="row">' + av(b.created_by, true) + '<div class="grow"><b>' + esc(nameOf(b.created_by)) + '</b><div class="muted small">' + fmtTime(b.created_at) + '</div></div>' +
-    '<span class="pill ' + URG_CLS[b.urgency] + '">' + (URG_AR[b.urgency] || b.urgency) + '</span>' + (own ? '<button class="btn ghost sm" data-bedit="' + b.id + '">✎</button><button class="btn ghost sm" data-bdel="' + b.id + '">🗑</button>' : '') + '</div>' +
+    '<span class="pill ' + URG_CLS[b.urgency] + '">' + (URG_AR[b.urgency] || b.urgency) + '</span>' + (own ? '<button class="btn ghost sm" data-bedit="' + b.id + '">' + ic('edit') + '</button><button class="btn ghost sm" data-bdel="' + b.id + '">' + ic('trash') + '</button>' : '') + '</div>' +
     '<div class="muted small" style="margin:8px 0">لـ: ' + briefFor(b) + '</div>' +
     (b.text ? '<div class="desc" dir="auto">' + richText(b.text) + '</div>' : '') +
-    (b.deadline ? '<div style="margin:6px 0"><span class="pill ' + (od ? 'late' : '') + '">' + (od ? '⚠️ الموعد فات: ' : '📅 الموعد: ') + fmtShort(b.deadline) + '</span></div>' : '') +
+    (b.deadline ? '<div style="margin:6px 0"><span class="pill ' + (od ? 'late' : '') + '">' + (od ? 'الموعد فات: ' : 'الموعد: ') + fmtShort(b.deadline) + '</span></div>' : '') +
     (b.voice_url ? '<audio controls preload="none" src="' + esc(b.voice_url) + '" style="width:100%;margin:6px 0"></audio>' : '') +
     (b.notes ? '<div class="alert" style="background:var(--beige-l)"><b>ملاحظات</b><div dir="auto">' + richText(b.notes) + '</div></div>' : '') +
-    ((b.attachments || []).length || own ? '<div class="files" style="margin-top:8px">' + (b.attachments || []).map(a => '<div class="att"><a class="file" href="' + esc(a.url) + '" target="_blank" rel="noopener" style="background-image:url(\'' + esc(a.url) + '\')">' + (own || a.uploadedBy === me ? '<button class="x" data-batdel="' + b.id + '|' + esc(a.id) + '">×</button>' : '') + '</a><div class="note" dir="auto">' + esc(a.note || '') + (own ? ' <button class="linkbtn" data-batnote="' + b.id + '|' + esc(a.id) + '">' + (a.note ? '✎' : '+ ملاحظة') + '</button>' : '') + '</div></div>').join('') + (own ? '<label class="file add" data-badd="' + b.id + '">+</label>' : '') + '</div>' : '') +
+    ((b.attachments || []).length || own ? '<div class="files" style="margin-top:8px">' + (b.attachments || []).map(a => '<div class="att"><a class="file" href="' + esc(a.url) + '" target="_blank" rel="noopener" style="background-image:url(\'' + esc(a.url) + '\')">' + (own || a.uploadedBy === me ? '<button class="x" data-batdel="' + b.id + '|' + esc(a.id) + '">×</button>' : '') + '</a><div class="note" dir="auto">' + esc(a.note || '') + (own ? ' <button class="linkbtn" data-batnote="' + b.id + '|' + esc(a.id) + '">' + (a.note ? ic('edit') : '+ ملاحظة') + '</button>' : '') + '</div></div>').join('') + (own ? '<label class="file add" data-badd="' + b.id + '">+</label>' : '') + '</div>' : '') +
     '<div class="row wrap" style="margin-top:10px;gap:6px">' +
-    (task ? '<button class="chip-link" data-task="' + task.id + '">☑️ ' + esc(task.title.slice(0, 30)) + '</button>' : (isAdmin() ? '<button class="btn sm" data-b2task="' + b.id + '">➡️ تحويل لمهمة</button>' : '')) +
-    (content ? '<button class="chip-link" data-open="' + content.id + '">🎬 ' + esc(content.title.slice(0, 30)) + '</button>' : '<button class="btn sm" data-b2content="' + b.id + '">🎬 تحويل لمحتوى</button>') +
-    '<button class="btn sm ghost" data-bcm="' + b.id + '">💬 التعليقات' + (cms ? ' (' + cms.length + ')' : '') + '</button></div>' +
+    (task ? '<button class="chip-link" data-task="' + task.id + '">' + ic('tasks') + ' ' + esc(task.title.slice(0, 30)) + '</button>' : (isAdmin() ? '<button class="btn sm" data-b2task="' + b.id + '">تحويل لمهمة</button>' : '')) +
+    (content ? '<button class="chip-link" data-open="' + content.id + '">' + ic('film') + ' ' + esc(content.title.slice(0, 30)) + '</button>' : '<button class="btn sm" data-b2content="' + b.id + '">تحويل لمحتوى</button>') +
+    '<button class="btn sm ghost" data-bcm="' + b.id + '">التعليقات' + (cms ? ' (' + cms.length + ')' : '') + '</button></div>' +
     (S._openBriefCm === b.id ? '<div class="bcm">' + (cms ? (cms.length ? cms.map(c => '<div class="cmt">' + av(c.author) + '<div class="bub"><div class="row"><span class="who">' + esc(firstName(c.author)) + '</span><span class="tm">' + fmtTime(c.created_at) + '</span></div><p dir="auto">' + richText(c.text) + '</p></div></div>').join('') : '<div class="muted small">مفيش تعليقات — كن أول واحد</div>') : '<div class="muted small">…</div>') + composer('bc' + b.id.slice(0, 8), 'اكتب تعليق…') + '</div>' : '') +
     '</div>';
 }
@@ -466,17 +466,17 @@ function bindBriefs(v) {
     const n = prompt('ملاحظة على الصورة:', (a && a.note) || ''); if (n === null) return;
     await sb.from('maha_briefs').update({ attachments: (br.attachments || []).map(x => x.id === aid ? { ...x, note: n.trim() } : x) }).eq('id', id); await loadBriefs(); renderAll();
   });
-  $$('[data-b2task]', v).forEach(b => b.onclick = () => { const br = S.briefs.find(x => x.id === b.dataset.b2task); newTask({ title: (br.text || 'بريف صوتي').split('\n')[0].slice(0, 80), description: (br.text || '') + (br.voice_url ? '\n🎙 ' + br.voice_url : '') + (br.notes ? '\n\n' + br.notes : ''), deadline: br.deadline, priority: br.urgency === 'Urgent' ? 'Urgent' : br.urgency === 'High' ? 'High' : 'Medium', assigned_to: br.assignees || [], brief_id: br.id }); });
+  $$('[data-b2task]', v).forEach(b => b.onclick = () => { const br = S.briefs.find(x => x.id === b.dataset.b2task); newTask({ title: (br.text || 'بريف صوتي').split('\n')[0].slice(0, 80), description: (br.text || '') + (br.voice_url ? '\n' + br.voice_url : '') + (br.notes ? '\n\n' + br.notes : ''), deadline: br.deadline, priority: br.urgency === 'Urgent' ? 'Urgent' : br.urgency === 'High' ? 'High' : 'Medium', assigned_to: br.assignees || [], brief_id: br.id }); });
   $$('[data-b2content]', v).forEach(b => b.onclick = async () => {
     const br = S.briefs.find(x => x.id === b.dataset.b2content);
     const it = await createItem({ title: (br.text || 'بريف صوتي').split('\n')[0].slice(0, 80), brief: (br.text || '') + (br.notes ? '\n\n' + br.notes : ''), due_date: br.deadline, brief_id: br.id, owner: (br.assignees && br.assignees[0]) || S.me.id, ref_url: br.voice_url || null, ref_source: br.voice_url ? 'بريف صوتي' : null }, { open: false });
-    if (it) { await sb.from('maha_briefs').update({ content_id: it.id }).eq('id', br.id); br.content_id = it.id; renderAll(); toast('اتعمل كارت محتوى ✓'); openItem(it.id); }
+    if (it) { await sb.from('maha_briefs').update({ content_id: it.id }).eq('id', br.id); br.content_id = it.id; renderAll(); toast('اتعمل كارت محتوى'); openItem(it.id); }
   });
 }
 function newBrief(edit) {
   const b = edit || {}, sel = new Set(b.assignees || []);
   let voice = b.voice_url ? { url: b.voice_url, duration: b.voice_duration } : null;
-  const root = sheet('<div class="sh"><b class="grow">' + (edit ? 'تعديل البريف' : 'بريف جديد') + '</b><button class="btn ghost sm" id="x">✕</button></div><div class="sb">' +
+  const root = sheet('<div class="sh"><b class="grow">' + (edit ? 'تعديل البريف' : 'بريف جديد') + '</b><button class="btn ghost sm" id="x">' + ic('x') + '</button></div><div class="sb">' +
     '<label class="lb">التعليمات</label><textarea class="inp" id="bT" dir="auto" rows="4" placeholder="اكتب تعليمات النهارده…">' + esc(b.text || '') + '</textarea>' +
     '<div class="g2"><div><label class="lb">الأهمية</label><select class="inp" id="bU">' + URG.map(u => '<option value="' + u + '"' + (u === (b.urgency || 'Normal') ? ' selected' : '') + '>' + URG_AR[u] + '</option>').join('') + '</select></div>' +
     '<div><label class="lb">الموعد</label><input type="date" class="inp" id="bD" value="' + esc(b.deadline || '') + '"></div></div>' +
@@ -487,11 +487,11 @@ function newBrief(edit) {
   $('#x').onclick = closeSheet;
   $$('[data-a]', root).forEach(x => x.onclick = () => { x.classList.toggle('on'); sel.has(x.dataset.a) ? sel.delete(x.dataset.a) : sel.add(x.dataset.a); });
   const drawVoice = () => {
-    $('#bV').innerHTML = voice ? '<div class="voice">🎙 ' + (voice.duration ? fmtSec(voice.duration) : '') + ' <button class="xbtn" id="bVx">✕</button><audio controls src="' + esc(voice.url) + '"></audio></div>' : '<button class="btn sm" id="bRec">🎙 تسجيل</button>';
+    $('#bV').innerHTML = voice ? '<div class="voice">' + ic('mic') + ' ' + (voice.duration ? fmtSec(voice.duration) : '') + ' <button class="xbtn" id="bVx">' + ic('x') + '</button><audio controls src="' + esc(voice.url) + '"></audio></div>' : '<button class="btn sm" id="bRec">تسجيل</button>';
     if (voice) $('#bVx').onclick = () => { voice = null; drawVoice(); };
     else $('#bRec').onclick = async () => {
       const rb = $('#bRec');
-      if (!Rec.mr) { try { await recStart(s => { rb.textContent = '⏹ إيقاف · ' + fmtSec(s); }); } catch { toast('اسمح باستخدام الميكروفون'); } }
+      if (!Rec.mr) { try { await recStart(s => { rb.textContent = 'إيقاف · ' + fmtSec(s); }); } catch { toast('اسمح باستخدام الميكروفون'); } }
       else { rb.disabled = true; rb.textContent = 'جاري الحفظ…'; try { const f = await recStop('briefs'); voice = { url: f.url, duration: f.duration }; } catch { toast('فشل حفظ الصوت'); } drawVoice(); }
     };
   };
@@ -504,7 +504,7 @@ function newBrief(edit) {
     const { error } = edit ? await sb.from('maha_briefs').update(row).eq('id', edit.id) : await sb.from('maha_briefs').insert({ ...row, created_by: S.me.id, attachments: [] });
     if (error) { $('#bSave').disabled = false; console.error(error); return toast('تعذر الحفظ'); }
     if (!edit) push(sel.size ? [...sel] : others(), '👑 بريف جديد من ' + firstName(S.me.id), (text || 'ملاحظة صوتية').slice(0, 120));
-    closeSheet(); await loadBriefs(); if (S.route !== 'briefs') go('briefs'); else renderAll(); toast('تم ✓');
+    closeSheet(); await loadBriefs(); if (S.route !== 'briefs') go('briefs'); else renderAll(); toast('تم');
   };
 }
 
@@ -520,8 +520,8 @@ function viewChat(v) {
     return sep + '<div class="msg' + (mine ? ' mine' : '') + (cont ? ' cont' : '') + '">' + (mine || cont ? '<span class="avsp"></span>' : av(m.author)) +
       '<div class="mb">' + (!mine && !cont ? '<div class="who">' + esc(firstName(m.author)) + '</div>' : '') + '<div dir="auto">' + richText(m.text) + '</div><div class="tm">' + fmtClock(m.created_at) + '</div></div></div>';
   }).join('');
-  v.innerHTML = '<div class="chat"><div class="chat-h"><b>💬 شات الفريق</b><span class="muted small">' + S.team.length + ' أعضاء · مباشر</span></div><div class="chat-body" id="chatBody">' + (rows || '<div class="empty">مفيش رسائل لسه</div>') + '</div>' +
-    '<div class="chat-in"><button class="btn ghost" id="chAtt">📎</button><button class="btn ghost" id="chProd" title="صورة منتج من Shopify">🛍</button><textarea class="inp" id="chText" dir="auto" rows="1" placeholder="اكتب رسالة…"></textarea><button class="btn pri" id="chSend">إرسال</button></div></div>';
+  v.innerHTML = '<div class="chat"><div class="chat-h"><b>شات الفريق</b><span class="muted small">' + S.team.length + ' أعضاء · مباشر</span></div><div class="chat-body" id="chatBody">' + (rows || '<div class="empty">مفيش رسائل لسه</div>') + '</div>' +
+    '<div class="chat-in"><button class="btn ghost" id="chAtt">' + ic('clip') + '</button><button class="btn ghost" id="chProd" title="صورة منتج من Shopify">' + ic('bag') + '</button><textarea class="inp" id="chText" dir="auto" rows="1" placeholder="اكتب رسالة…"></textarea><button class="btn pri" id="chSend">إرسال</button></div></div>';
   const body = $('#chatBody'); body.scrollTop = body.scrollHeight;
   const ta = $('#chText');
   if (S._chatDraft) { ta.value = S._chatDraft; }

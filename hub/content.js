@@ -21,25 +21,25 @@ function viewHome(v) {
   html += (typeof pushBanner === 'function' ? pushBanner() : '');
   html += weekStrip();
   if (isApprover()) {
-    html += '<h2 class="sec">👀 بانتظار موافقتك <span class="n">' + review.length + '</span></h2>';
-    html += review.length ? '<div class="list">' + review.map(i => ccard(i, { noStage: true, extra: '<div class="row" style="margin-top:8px"><button class="btn ok sm" data-approve="' + i.id + '">✅ موافقة</button><button class="btn bad sm" data-changes="' + i.id + '">✏️ تعديل</button><span class="muted small">' + esc(firstName(i.owner)) + '</span></div>' })).join('') + '</div>' : '<div class="empty">مفيش حاجة مستنية موافقتك ✨</div>';
+    html += '<h2 class="sec">بانتظار موافقتك <span class="n">' + review.length + '</span></h2>';
+    html += review.length ? '<div class="list">' + review.map(i => ccard(i, { noStage: true, extra: '<div class="row" style="margin-top:8px"><button class="btn ok sm" data-approve="' + i.id + '">موافقة</button><button class="btn bad sm" data-changes="' + i.id + '">تعديل</button><span class="muted small">' + esc(firstName(i.owner)) + '</span></div>' })).join('') + '</div>' : '<div class="empty">مفيش حاجة مستنية موافقتك ' + ic('x') + '</div>';
   }
-  if (changes.length) html += '<h2 class="sec">✏️ تعديلات مطلوبة منك <span class="n">' + changes.length + '</span></h2><div class="list">' + changes.map(i => ccard(i, { extra: '<div class="alert warn" style="margin-top:7px;padding:7px 10px">' + esc(i.changes_note) + '</div>' })).join('') + '</div>';
-  html += '<h2 class="sec">📌 مطلوب منك <span class="n">' + rest.length + '</span></h2>';
+  if (changes.length) html += '<h2 class="sec">تعديلات مطلوبة منك <span class="n">' + changes.length + '</span></h2><div class="list">' + changes.map(i => ccard(i, { extra: '<div class="alert warn" style="margin-top:7px;padding:7px 10px">' + esc(i.changes_note) + '</div>' })).join('') + '</div>';
+  html += '<h2 class="sec">مطلوب منك <span class="n">' + rest.length + '</span></h2>';
   html += rest.length ? '<div class="list">' + rest.map(i => ccard(i)).join('') + '</div>' : '<div class="empty">مفيش محتوى عليك دلوقتي. خد فكرة من <a href="#/ideas">الأبحاث</a> أو اضغط <b>+</b></div>';
-  if (waitingMine.length) html += '<h2 class="sec">⏳ مستني الموافقة <span class="n">' + waitingMine.length + '</span></h2><div class="list">' + waitingMine.map(i => ccard(i)).join('') + '</div>';
-  if (notReady.length) html += '<h2 class="sec">⏰ نشره خلال يومين ولسه مش جاهز <span class="n">' + notReady.length + '</span></h2><div class="list">' + notReady.map(i => ccard(i)).join('') + '</div>';
+  if (waitingMine.length) html += '<h2 class="sec">مستني الموافقة <span class="n">' + waitingMine.length + '</span></h2><div class="list">' + waitingMine.map(i => ccard(i)).join('') + '</div>';
+  if (notReady.length) html += '<h2 class="sec">نشره خلال يومين ولسه مش جاهز <span class="n">' + notReady.length + '</span></h2><div class="list">' + notReady.map(i => ccard(i)).join('') + '</div>';
   // Tasks, sign-offs and briefs live on the same home screen
   const myTasks = S.tasks.filter(t => assigneesOf(t).includes(me) && t.status !== 'Done')
     .sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || String(a.deadline || '9999').localeCompare(String(b.deadline || '9999')));
   const toSign = S.tasks.filter(t => t.status === 'Done' && assigneesOf(t).includes(me) && !(t.signed_by || []).includes(me));
   const editReqs = isAdmin() ? S.tasks.filter(t => (t.edit_requests || []).some(r => dayDiff(String(r.created_at).slice(0, 10)) >= -7) && t.status !== 'Done') : [];
   const myBriefs = S.briefs.filter(b => (!b.assignees || !b.assignees.length || b.assignees.includes(me)) && dayDiff(String(b.created_at).slice(0, 10)) >= -3).slice(0, 4);
-  if (myBriefs.length) html += '<h2 class="sec">👑 بريفات جديدة <span class="n">' + myBriefs.length + '</span><a class="seeall" href="#/briefs">الكل ←</a></h2><div class="list">' + myBriefs.map(briefMini).join('') + '</div>';
-  html += '<h2 class="sec">☑️ مهامي <span class="n">' + myTasks.length + '</span><a class="seeall" href="#/tasks">كل المهام ←</a></h2>';
-  html += myTasks.length ? '<div class="list">' + myTasks.slice(0, 8).map(t => taskCard(t)).join('') + '</div>' : '<div class="empty">مفيش مهام مفتوحة عليك ✨</div>';
-  if (toSign.length) html += '<h2 class="sec">✍️ محتاجة توقيعك <span class="n">' + toSign.length + '</span></h2><div class="list">' + toSign.map(t => taskCard(t)).join('') + '</div>';
-  if (editReqs.length) html += '<h2 class="sec">📝 طلبات تعديل على المهام <span class="n">' + editReqs.length + '</span></h2><div class="list">' + editReqs.map(t => taskCard(t)).join('') + '</div>';
+  if (myBriefs.length) html += '<h2 class="sec">بريفات جديدة <span class="n">' + myBriefs.length + '</span><a class="seeall" href="#/briefs">الكل ←</a></h2><div class="list">' + myBriefs.map(briefMini).join('') + '</div>';
+  html += '<h2 class="sec">مهامي <span class="n">' + myTasks.length + '</span><a class="seeall" href="#/tasks">كل المهام ←</a></h2>';
+  html += myTasks.length ? '<div class="list">' + myTasks.slice(0, 8).map(t => taskCard(t)).join('') + '</div>' : '<div class="empty">مفيش مهام مفتوحة عليك ' + ic('x') + '</div>';
+  if (toSign.length) html += '<h2 class="sec">محتاجة توقيعك <span class="n">' + toSign.length + '</span></h2><div class="list">' + toSign.map(t => taskCard(t)).join('') + '</div>';
+  if (editReqs.length) html += '<h2 class="sec">طلبات تعديل على المهام <span class="n">' + editReqs.length + '</span></h2><div class="list">' + editReqs.map(t => taskCard(t)).join('') + '</div>';
   v.innerHTML = html;
   if (typeof bindPushBanner === 'function') bindPushBanner(v);
   bindWeekStrip(v);
@@ -50,7 +50,7 @@ function weekStrip() {
   const t = today(); let cells = '';
   for (let d = 0; d < 7; d++) {
     const k = addDays(t, d), n = S.items.filter(i => i.publish_date === k).length, dt = new Date(k + 'T12:00:00');
-    cells += '<div class="wd ' + (n ? '' : 'gap ') + (d === 0 ? 'today' : '') + '" data-day="' + k + '"><div class="d">' + AR_DAYS[dt.getDay()].replace('ال', '') + '</div><div class="n">' + dt.getDate() + '</div><div class="c">' + (n ? n + ' منشور' : 'فاضي') + '</div></div>';
+    cells += '<div class="wd ' + (n ? '' : 'gap ') + (d === 0 ? 'today' : '') + '" data-day="' + k + '"><div class="d">' + AR_DAYS[dt.getDay()].replace('ال', '') + '</div><div class="n">' + dt.getDate() + '</div><div class="c">' + (n ? n + ' منشور' : 'فاضي') + '</div><div class="pips">' + '<i></i>'.repeat(Math.min(n, 4)) + '</div></div>';
   }
   return '<div class="week">' + cells + '</div>';
 }
@@ -67,10 +67,10 @@ function viewBoard(v) {
   if (wide) {
     html += '<div class="kanban">' + STAGES.map(s => {
       const col = sortCol(pool.filter(i => i.stage === s.k), s.k);
-      return '<div class="kcol"><h3><span>' + s.ic + ' ' + s.n + '</span><span class="muted lat">' + col.length + '</span></h3><div class="list">' + (col.map(i => ccard(i, { noStage: true })).join('') || '<div class="muted small" style="padding:8px">—</div>') + '</div></div>';
+      return '<div class="kcol"><h3><span>' + s.n + '</span><span class="muted lat">' + col.length + '</span></h3><div class="list">' + (col.map(i => ccard(i, { noStage: true })).join('') || '<div class="muted small" style="padding:8px">—</div>') + '</div></div>';
     }).join('') + '</div>';
   } else {
-    html += '<div class="chips">' + STAGES.map(s => '<button class="chip ' + (f.stage === s.k ? 'on' : '') + '" data-stage="' + s.k + '">' + s.ic + ' ' + s.n + ' <span class="c">' + pool.filter(i => i.stage === s.k).length + '</span></button>').join('') + '</div>';
+    html += '<div class="chips">' + STAGES.map(s => '<button class="chip ' + (f.stage === s.k ? 'on' : '') + '" data-stage="' + s.k + '">' + s.n + ' <span class="c">' + pool.filter(i => i.stage === s.k).length + '</span></button>').join('') + '</div>';
     const col = sortCol(pool.filter(i => i.stage === f.stage), f.stage);
     html += col.length ? '<div class="list">' + col.map(i => ccard(i, { noStage: true })).join('') + '</div>' : '<div class="empty">مفيش محتوى في مرحلة «' + SM[f.stage].n + '»</div>';
   }
@@ -98,7 +98,7 @@ function viewCal(v) {
       (list.length ? '<div class="bd">' + list.map(i => ccard(i)).join('') + '</div>' : '') + '</div>';
   }
   const unsched = S.items.filter(i => !i.publish_date && !['posted'].includes(i.stage));
-  if (unsched.length) html += '<h2 class="sec">🕓 بدون موعد نشر <span class="n">' + unsched.length + '</span></h2><div class="list">' + unsched.map(i => ccard(i)).join('') + '</div>';
+  if (unsched.length) html += '<h2 class="sec">بدون موعد نشر <span class="n">' + unsched.length + '</span></h2><div class="list">' + unsched.map(i => ccard(i)).join('') + '</div>';
   v.innerHTML = html;
   $('#prevW').onclick = () => { S.calStart = addDays(st, -7); renderAll(); };
   $('#nextW').onclick = () => { S.calStart = addDays(st, 7); renderAll(); };
@@ -127,10 +127,10 @@ function viewResearch(v) {
   else html += '<div class="rgrid">' + r.rows.map((p, idx) => {
     const isSaved = saved.has(p.permalink);
     return '<div class="card rcard"><div class="img" data-img="' + esc(p.thumb || '') + '"><span class="fmt">' + esc(p.format || '') + '</span>' + (p.er != null ? '<span class="er">' + Number(p.er).toFixed(1) + '%</span>' : '') + '</div>' +
-      '<div class="bd"><div class="u">@' + esc(p.username) + '</div><div class="cap">' + esc(p.caption || '') + '</div><div class="st"><span>❤ ' + num(p.likes) + '</span><span>💬 ' + num(p.comments) + '</span>' + (p.views ? '<span>▶ ' + num(p.views) + '</span>' : '') + '</div>' +
-      '<div class="row"><a class="btn sm grow" href="' + esc(safeUrl(p.permalink)) + '" target="_blank" rel="noopener">فتح</a><button class="btn sm grow ' + (isSaved ? '' : 'pri') + '" data-save="' + idx + '"' + (isSaved ? ' disabled' : '') + '>' + (isSaved ? 'محفوظ ✓' : 'حفظ كفكرة') + '</button></div></div></div>';
+      '<div class="bd"><div class="u">@' + esc(p.username) + '</div><div class="cap">' + esc(p.caption || '') + '</div><div class="st"><span>' + ic('heart') + ' ' + num(p.likes) + '</span><span>' + ic('msg') + ' ' + num(p.comments) + '</span>' + (p.views ? '<span>' + ic('play') + ' ' + num(p.views) + '</span>' : '') + '</div>' +
+      '<div class="row"><a class="btn sm grow" href="' + esc(safeUrl(p.permalink)) + '" target="_blank" rel="noopener">فتح</a><button class="btn sm grow ' + (isSaved ? '' : 'pri') + '" data-save="' + idx + '"' + (isSaved ? ' disabled' : '') + '>' + (isSaved ? 'محفوظ ' + ic('check') : 'حفظ كفكرة') + '</button></div></div></div>';
   }).join('') + '</div>';
-  html += '<div class="row wrap" style="margin-top:16px"><a class="btn" href="#/intel">📊 Competitor Intel كامل</a><a class="btn" href="#/ads">📢 إعلانات Adlumi</a></div>';
+  html += '<div class="row wrap" style="margin-top:16px"><a class="btn" href="#/intel">Competitor Intel كامل</a><a class="btn" href="#/ads">إعلانات Adlumi</a></div>';
   v.innerHTML = html;
   v.querySelectorAll('[data-img]').forEach(el => { const u = el.dataset.img; if (!u) return; const im = new Image(); im.onload = () => { el.style.backgroundImage = 'url("' + u.replace(/"/g, '%22') + '")'; }; im.src = u; });
   v.querySelectorAll('[data-kind]').forEach(b => b.onclick = () => { r.kind = b.dataset.kind; r.rows = null; loadResearch(); });
@@ -139,7 +139,7 @@ function viewResearch(v) {
   v.querySelectorAll('[data-save]').forEach(b => b.onclick = async () => {
     const p = r.rows[+b.dataset.save]; b.disabled = true;
     await createItem({ title: 'فكرة من @' + p.username + (p.format === 'Reel' ? ' (ريل)' : ''), type: p.format === 'Reel' ? 'reel' : p.format === 'Carousel' ? 'carousel' : 'post', ref_url: p.permalink, ref_thumb: p.thumb, ref_source: '@' + p.username, brief: p.caption ? 'الكابشن الأصلي:\n' + p.caption : null }, { open: false });
-    toast('اتحفظت في «فكرة» 💡');
+    toast('اتحفظت في «فكرة»');
   });
   $('#refAdd').onclick = async () => {
     const u = safeUrl($('#refLink').value.trim()); if (!u) return toast('الصق رابط صحيح');
@@ -167,10 +167,10 @@ function viewStats(v) {
   const review = S.items.filter(i => i.stage === 'review');
   const st = S.stats;
   let html = '';
-  html += '<h2 class="sec" style="margin-top:4px">📊 هذا الأسبوع (من السبت)</h2><div class="kpis">' +
+  html += '<h2 class="sec" style="margin-top:4px">هذا الأسبوع (من السبت)</h2><div class="kpis">' +
     kpi(postedWeek.length + ' / ' + planned.length, 'منشور / مخطط') + kpi(review.length, 'بانتظار موافقة') + kpi(late.length, 'متأخر', late.length ? 'var(--bad)' : '') +
     kpi(S.items.filter(i => i.stage === 'idea').length, 'أفكار في البنك') + '</div>';
-  html += '<h2 class="sec">📱 إنستجرام @muhra.egy — آخر 7 أيام</h2>';
+  html += '<h2 class="sec">إنستجرام @muhra.egy — آخر 7 أيام</h2>';
   html += st ? '<div class="kpis">' + kpi(st.posts + ' (' + st.reels + ' ريل)', 'بوستات') + kpi(num(st.views), 'مشاهدات') + kpi(num(st.reach), 'وصول') + kpi(num(st.saved) + ' / ' + num(st.shares), 'حفظ / مشاركة') + kpi(num(st.followers), 'متابعين') + '</div>' : '<div class="empty">جاري التحميل…</div>';
   // per person
   const rows = S.team.map(m => {
@@ -180,12 +180,12 @@ function viewStats(v) {
     const tOwn = S.tasks.filter(t => assigneesOf(t).includes(m.id));
     return { m, open: own.filter(i => !DONE_STAGES.includes(i.stage)).length + tOwn.filter(t => t.status !== 'Done').length, late: own.filter(isLate).length + tOwn.filter(t => t.status !== 'Done' && t.deadline && new Date(t.deadline) < new Date()).length, moves: done, finished: finished + tOwn.filter(t => t.status === 'Done' && t.created_at && isoDate(new Date(t.created_at)) >= ws).length };
   });
-  html += '<h2 class="sec">👥 الفريق هذا الأسبوع</h2><div class="card" style="overflow-x:auto"><table class="tb"><tr><th>الشخص</th><th>مفتوح</th><th>متأخر</th><th>خلص/اعتمد</th><th>تحديثات</th></tr>' +
+  html += '<h2 class="sec">الفريق هذا الأسبوع</h2><div class="card" style="overflow-x:auto"><table class="tb"><tr><th>الشخص</th><th>مفتوح</th><th>متأخر</th><th>خلص/اعتمد</th><th>تحديثات</th></tr>' +
     rows.map(r => '<tr><td><div class="row">' + av(r.m.id) + esc(firstName(r.m.id)) + '</div></td><td class="num">' + r.open + '</td><td class="num" style="' + (r.late ? 'color:var(--bad)' : '') + '">' + r.late + '</td><td class="num">' + r.finished + '</td><td class="num">' + r.moves + '</td></tr>').join('') + '</table></div>';
   // tasks this week
   const tDone = S.tasks.filter(t => t.status === 'Done').length, tOpen = S.tasks.filter(t => t.status !== 'Done').length;
   const tLate = S.tasks.filter(t => t.status !== 'Done' && t.deadline && new Date(t.deadline) < new Date()).length;
-  html += '<h2 class="sec">☑️ المهام</h2><div class="kpis">' + kpi(tOpen, 'مفتوحة') + kpi(tLate, 'متأخرة', tLate ? 'var(--bad)' : '') + kpi(tDone, 'خلصت') + kpi(S.briefs.filter(b => dayDiff(String(b.created_at).slice(0, 10)) >= -7).length, 'بريفات الأسبوع') + '</div>';
+  html += '<h2 class="sec">المهام</h2><div class="kpis">' + kpi(tOpen, 'مفتوحة') + kpi(tLate, 'متأخرة', tLate ? 'var(--bad)' : '') + kpi(tDone, 'خلصت') + kpi(S.briefs.filter(b => dayDiff(String(b.created_at).slice(0, 10)) >= -7).length, 'بريفات الأسبوع') + '</div>';
   v.innerHTML = html;
 }
 const kpi = (val, label, color) => '<div class="card kpi"><div class="v" style="' + (color ? 'color:' + color : '') + '">' + esc(val) + '</div><div class="l">' + esc(label) + '</div></div>';
@@ -204,12 +204,12 @@ async function createItem(fields, opts = { open: true }) {
 }
 function newItem(pre = {}) {
   const root = $('#sheetRoot');
-  root.innerHTML = '<div class="overlay" id="ov"><div class="sheet"><div class="sh"><b class="grow">محتوى جديد</b><button class="btn ghost sm" id="x">✕</button></div><div class="sb">' +
+  root.innerHTML = '<div class="overlay" id="ov"><div class="sheet"><div class="sh"><b class="grow">محتوى جديد</b><button class="btn ghost sm" id="x">' + ic('x') + '</button></div><div class="sb">' +
     '<label class="lb">العنوان</label><input class="inp" id="nTitle" value="' + esc(pre.title || '') + '" placeholder="مثال: ريل تنسيق فستان السهرة البيج" autofocus>' +
     '<label class="lb">المنتجات (من Shopify)</label><div id="nProds" class="plinks"></div><button class="btn sm" id="nProdBtn" type="button" style="margin-top:6px">+ اختار منتج</button>' +
-    '<label class="lb">النوع</label><div class="toggles" id="nType">' + Object.entries(TYPES).map(([k, n], i) => '<button class="tg ' + ((pre.type || 'reel') === k ? 'on' : '') + '" data-v="' + k + '">' + TYPE_IC[k] + ' ' + n + '</button>').join('') + '</div>' +
+    '<label class="lb">النوع</label><div class="toggles" id="nType">' + Object.entries(TYPES).map(([k, n], i) => '<button class="tg ' + ((pre.type || 'reel') === k ? 'on' : '') + '" data-v="' + k + '">' + typeIc(k) + ' ' + n + '</button>').join('') + '</div>' +
     '<div class="g2"><div><label class="lb">المسؤول</label><select class="inp" id="nOwner">' + S.team.map(m => '<option value="' + m.id + '"' + (m.id === S.me.id ? ' selected' : '') + '>' + esc(m.name) + '</option>').join('') + '</select></div>' +
-    '<div><label class="lb">المرحلة</label><select class="inp" id="nStage">' + STAGES.slice(0, 5).map(s => '<option value="' + s.k + '">' + s.ic + ' ' + s.n + '</option>').join('') + '</select></div>' +
+    '<div><label class="lb">المرحلة</label><select class="inp" id="nStage">' + STAGES.slice(0, 5).map(s => '<option value="' + s.k + '">' + s.n + '</option>').join('') + '</select></div>' +
     '<div><label class="lb">التسليم قبل</label><input type="date" class="inp" id="nDue"></div><div><label class="lb">موعد النشر</label><input type="date" class="inp" id="nPub" value="' + esc(pre.publish_date || '') + '"></div></div>' +
     '<label class="lb">البريف / الفكرة (اختياري)</label><textarea class="inp" id="nBrief" placeholder="إيه الهدف؟ مين الجمهور؟ أي منتج؟"></textarea>' +
     '</div><div class="sf"><button class="btn pri" id="nSave">إنشاء</button></div></div></div>';
@@ -226,7 +226,7 @@ function newItem(pre = {}) {
     const f = { title, type, owner: $('#nOwner').value, stage: $('#nStage').value, due_date: $('#nDue').value || null, publish_date: $('#nPub').value || null, brief: $('#nBrief').value.trim() || null, product_ids: prodIds };
     if (prodIds.length && prod(prodIds[0])) f.product = prod(prodIds[0]).title;
     if (type === 'tiktok') f.platforms = ['tiktok'];
-    close(); await createItem(f, { open: false }); toast('تم الإنشاء ✓');
+    close(); await createItem(f, { open: false }); toast('تم الإنشاء');
   };
   setTimeout(() => $('#nTitle') && $('#nTitle').focus(), 80);
 }
@@ -249,15 +249,15 @@ function renderSheet(it) {
     return '<label class="lb">' + label + '</label><div class="linkrow"><input class="inp" data-f="' + key + '" value="' + esc(it[key] || '') + '" placeholder="' + esc(ph) + '">' + (u ? '<a class="btn" href="' + esc(u) + '" target="_blank" rel="noopener">فتح</a>' : '') + '</div>';
   };
   let alert = '';
-  if (it.changes_note && it.stage !== 'approved') alert = '<div class="alert warn">✏️ <b>تعديلات مطلوبة:</b> ' + esc(it.changes_note) + '</div>';
-  if (it.stage === 'approved' && it.approved_by) alert = '<div class="alert ok">✅ اعتمده ' + esc(firstName(it.approved_by)) + (it.approved_at ? ' · ' + fmtTime(it.approved_at) : '') + ' — ارفعه على Drive للنشر التلقائي أو جدوله.</div>';
-  if (isLate(it)) alert += '<div class="alert bad">⏱ متأخر عن الموعد</div>';
-  if (it.publish_folder_id) alert += '<div class="alert ' + (it.stage === 'posted' ? 'ok' : 'warn') + '">📁 ' + (it.stage === 'posted' ? 'اتنشر من طابور النشر التلقائي' : 'في طابور النشر التلقائي' + (it.publish_date ? ' ليوم ' + esc(fmtDay(it.publish_date)) : '') + ' — معتمد ومستني النشر') +
+  if (it.changes_note && it.stage !== 'approved') alert = '<div class="alert warn"><b>تعديلات مطلوبة:</b> ' + esc(it.changes_note) + '</div>';
+  if (it.stage === 'approved' && it.approved_by) alert = '<div class="alert ok">اعتمده ' + esc(firstName(it.approved_by)) + (it.approved_at ? ' · ' + fmtTime(it.approved_at) : '') + ' — ارفعه على Drive للنشر التلقائي أو جدوله.</div>';
+  if (isLate(it)) alert += '<div class="alert bad">متأخر عن الموعد</div>';
+  if (it.publish_folder_id) alert += '<div class="alert ' + (it.stage === 'posted' ? 'ok' : 'warn') + '">' + ic('folder') + ' ' + (it.stage === 'posted' ? 'اتنشر من طابور النشر التلقائي' : 'في طابور النشر التلقائي' + (it.publish_date ? ' ليوم ' + esc(fmtDay(it.publish_date)) : '') + ' — معتمد ومستني النشر') +
     ' · <a href="https://drive.google.com/drive/folders/' + encodeURIComponent(it.publish_folder_id) + '" target="_blank" rel="noopener">فتح الفولدر</a></div>';
-  root.innerHTML = '<div class="overlay" id="ov"><div class="sheet"><div class="sh">' + stageTag(it.stage) + '<span class="pill">' + TYPE_IC[it.type] + ' ' + TYPES[it.type] + '</span><span class="grow"></span>' +
-    '<button class="btn ghost sm" id="copyLink" title="نسخ الرابط">🔗</button><button class="btn ghost sm" id="x">✕</button></div><div class="sb">' +
+  root.innerHTML = '<div class="overlay" id="ov"><div class="sheet"><div class="sh">' + stageTag(it.stage) + '<span class="pill">' + typeIc(it.type) + ' ' + TYPES[it.type] + '</span><span class="grow"></span>' +
+    '<button class="btn ghost sm" id="copyLink" title="نسخ الرابط">' + ic('link') + '</button><button class="btn ghost sm" id="x">' + ic('x') + '</button></div><div class="sb">' +
     '<input dir="auto" class="titleinp" data-f="title" value="' + esc(it.title) + '">' +
-    '<div class="stepper">' + STAGES.map((s, i) => '<button data-step="' + s.k + '" class="' + (i < idx ? 'done' : i === idx ? 'cur' : '') + '">' + s.ic + ' ' + s.n + '</button>').join('') + '</div>' + alert +
+    '<div class="stepper">' + STAGES.map((s, i) => '<button data-step="' + s.k + '" class="' + (i < idx ? 'done' : i === idx ? 'cur' : '') + '">' + s.n + '</button>').join('') + '</div>' + alert +
     '<details class="cdet"' + (it.stage === 'idea' ? ' open' : '') + '><summary><span>تفاصيل الكارت</span><span class="muted small">' + esc(firstName(it.owner)) + (it.publish_date ? ' · نشر ' + fmtDay(it.publish_date) : '') + '</span></summary>' +
     '<div class="g2"><div><label class="lb">المسؤول</label><select class="inp" data-f="owner">' + S.team.map(m => '<option value="' + m.id + '"' + (m.id === it.owner ? ' selected' : '') + '>' + esc(m.name) + '</option>').join('') + '</select></div>' +
     '<div><label class="lb">النوع</label><select class="inp" data-f="type">' + Object.entries(TYPES).map(([k, n]) => '<option value="' + k + '"' + (k === it.type ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></div>' +
@@ -271,10 +271,10 @@ function renderSheet(it) {
     productsBlock(it.product_ids, 'item:' + it.id) +
     stageWorkspace(it) +
     linkedTasksBlock(it) +
-    '<div class="sectitle">💬 التعليقات</div><div id="thread"><div class="muted small">…</div></div>' +
+    '<div class="sectitle">التعليقات</div><div id="thread"><div class="muted small">…</div></div>' +
     '<div class="linkrow" style="margin-top:8px"><textarea dir="auto" class="inp" id="cText" rows="1" placeholder="اكتب تعليق… (اذكر الشخص بـ @)" style="min-height:44px"></textarea><button class="btn pri" id="cSend">إرسال</button></div>' +
-    '<div class="sectitle">🕓 السجل</div><div id="acts" class="small"></div>' +
-    ((isAdmin() || it.created_by === S.me.id) ? '<div style="margin-top:22px"><button class="btn bad sm" id="archive">🗑 أرشفة</button></div>' : '') +
+    '<div class="sectitle">السجل</div><div id="acts" class="small"></div>' +
+    ((isAdmin() || it.created_by === S.me.id) ? '<div style="margin-top:22px"><button class="btn bad sm" id="archive">أرشفة</button></div>' : '') +
     '</div><div class="sf" id="actions">' + actionButtons(it) + '</div></div></div>';
 
   $('#x').onclick = closeSheet;
@@ -326,7 +326,7 @@ function renderSheet(it) {
 }
 function fileTile(f, i) {
   const u = safeUrl(f.url), img = /\.(jpe?g|png|webp|gif)$/i.test(f.name || u.split('?')[0]), vid = /\.(mp4|mov|webm|m4v)$/i.test(f.name || u);
-  return '<a class="file" href="' + esc(u) + '" target="_blank" rel="noopener" style="' + (img ? 'background-image:url(\'' + esc(u) + '\')' : '') + '">' + (img ? '' : (vid ? '🎬<br>' : '📄<br>') + esc((f.name || '').slice(0, 22))) + '<button class="x" data-rmfile="' + i + '">×</button></a>';
+  return '<a class="file" href="' + esc(u) + '" target="_blank" rel="noopener" style="' + (img ? 'background-image:url(\'' + esc(u) + '\')' : '') + '">' + (img ? '' : (vid ? ic('film') + '<br>' : ic('file') + '<br>') + esc((f.name || '').slice(0, 22))) + '<button class="x" data-rmfile="' + i + '">×</button></a>';
 }
 async function uploadFiles(it, files) {
   if (!files.length) return;
@@ -343,18 +343,18 @@ async function uploadFiles(it, files) {
     out.push({ name: f.name, url: data.publicUrl, by: S.me.id, at: new Date().toISOString() });
   }
   await updateItem(it.id, { files: out }, true); logAct(it.id, 'files', null, null, files.length + ' ملف');
-  toast('تم الرفع ✓'); renderSheet(it); loadThread(it.id); renderAllBg();
+  toast('تم الرفع'); renderSheet(it); loadThread(it.id); renderAllBg();
 }
 function actionButtons(it) {
   const s = it.stage, appr = isApprover();
-  if (s === 'review') return appr ? '<button class="btn ok" data-act="approve">✅ موافقة</button><button class="btn bad" data-act="changes">✏️ طلب تعديل</button>' : '<div class="muted small grow" style="text-align:center;padding:8px">⏳ مستني موافقة ' + esc(approverNames()) + '</div>';
-  if (s === 'idea') return '<button class="btn pri" data-act="next">✍️ ابدأ السكريبت</button>';
-  if (s === 'script') return '<button class="btn pri" data-act="next">🎥 جاهز للتصوير</button><button class="btn" data-act="review">👀 مراجعة السكريبت</button>';
-  if (s === 'shoot') return '<button class="btn pri" data-act="next">✂️ اتصور — للمونتاج</button>';
-  if (s === 'edit') return '<button class="btn pri" data-act="review">👀 إرسال للمراجعة</button>';
-  if (s === 'approved') return '<button class="btn pri" data-act="next">🗓️ تم الجدولة / الرفع على Drive</button><button class="btn" data-act="posted">📣 تم النشر</button>';
-  if (s === 'scheduled') return '<button class="btn pri" data-act="posted">📣 تم النشر</button>';
-  return '<div class="muted small grow" style="text-align:center;padding:8px">📣 منشور' + (it.posted_at ? ' · ' + fmtTime(it.posted_at) : '') + '</div>';
+  if (s === 'review') return appr ? '<button class="btn ok" data-act="approve">موافقة</button><button class="btn bad" data-act="changes">طلب تعديل</button>' : '<div class="muted small grow" style="text-align:center;padding:8px">مستني موافقة ' + esc(approverNames()) + '</div>';
+  if (s === 'idea') return '<button class="btn pri" data-act="next">ابدأ السكريبت</button>';
+  if (s === 'script') return '<button class="btn pri" data-act="next">جاهز للتصوير</button><button class="btn" data-act="review">مراجعة السكريبت</button>';
+  if (s === 'shoot') return '<button class="btn pri" data-act="next">اتصور — للمونتاج</button>';
+  if (s === 'edit') return '<button class="btn pri" data-act="review">إرسال للمراجعة</button>';
+  if (s === 'approved') return '<button class="btn pri" data-act="next">تم الجدولة / الرفع على Drive</button><button class="btn" data-act="posted">تم النشر</button>';
+  if (s === 'scheduled') return '<button class="btn pri" data-act="posted">تم النشر</button>';
+  return '<div class="muted small grow" style="text-align:center;padding:8px">منشور' + (it.posted_at ? ' · ' + fmtTime(it.posted_at) : '') + '</div>';
 }
 function bindActions(it) {
   document.querySelectorAll('#actions [data-act]').forEach(b => b.onclick = async () => {
@@ -380,7 +380,7 @@ function askChanges(it, inSheet) {
   if (!note || !note.trim()) return;
   const back = SI[it.stage] <= SI.script ? 'script' : 'edit';
   moveStage(it, back, { changes: note.trim(), force: true }).then(() => {
-    sb.from('hq_comments').insert({ item_id: it.id, author: S.me.id, text: '✏️ تعديلات: ' + note.trim() });
+    sb.from('hq_comments').insert({ item_id: it.id, author: S.me.id, text: 'تعديلات: ' + note.trim() });
     if (S.openId === it.id) { renderSheet(it); loadThread(it.id); }
   });
 }
@@ -395,12 +395,12 @@ async function loadThread(id) {
 }
 function actText(a) {
   if (a.action === 'created') return 'أنشأ المحتوى';
-  if (a.action === 'stage') return 'نقله إلى ' + (SM[a.to_stage] ? SM[a.to_stage].ic + ' ' + SM[a.to_stage].n : a.to_stage);
+  if (a.action === 'stage') return 'نقله إلى ' + (SM[a.to_stage] ? SM[a.to_stage].n : a.to_stage);
   if (a.action === 'changes') return 'طلب تعديلات: ' + esc(a.note || '');
   if (a.action === 'owner') return 'غيّر المسؤول إلى ' + esc(a.note || '');
   if (a.action === 'files') return 'رفع ' + esc(a.note || 'ملفات');
   if (a.action === 'archived') return 'أرشفه';
-  if (a.action === 'publish') return '📁 ' + esc(a.note || 'تحديث من طابور النشر');
+  if (a.action === 'publish') return ic('folder') + esc(a.note || 'تحديث من طابور النشر');
   return esc(a.action);
 }
 async function sendComment(it) {
@@ -429,9 +429,9 @@ function renderAllBg() { const id = S.openId; S.openId = null; renderAll(); S.op
 function linkedTasksBlock(it) {
   const ts = S.tasks.filter(t => t.content_id === it.id);
   const src = [];
-  if (it.brief_id) { const b = S.briefs.find(x => x.id === it.brief_id); if (b) src.push('<a class="chip-link" href="#/briefs/' + b.id + '">👑 من بريف ' + esc(firstName(b.created_by)) + ' · ' + fmtShort(b.created_at) + '</a>'); }
-  if (it.ad_id) src.push('<button class="chip-link" data-openad="' + it.ad_id + '">📢 من إعلان Adlumi</button>');
-  return '<div class="sectitle">☑️ مهام مرتبطة <span class="muted small">' + ts.length + '</span></div>' +
+  if (it.brief_id) { const b = S.briefs.find(x => x.id === it.brief_id); if (b) src.push('<a class="chip-link" href="#/briefs/' + b.id + '">من بريف ' + esc(firstName(b.created_by)) + ' · ' + fmtShort(b.created_at) + '</a>'); }
+  if (it.ad_id) src.push('<button class="chip-link" data-openad="' + it.ad_id + '">من إعلان Adlumi</button>');
+  return '<div class="sectitle">مهام مرتبطة <span class="muted small">' + ts.length + '</span></div>' +
     (src.length ? '<div class="row wrap" style="margin-bottom:8px">' + src.join('') + '</div>' : '') +
     (ts.length ? '<div class="list">' + ts.map(t => taskCard(t, { compact: true })).join('') + '</div>' : '') +
     (isAdmin() ? '<button class="btn sm" data-linktask="' + it.id + '" style="margin-top:8px">+ مهمة مرتبطة بالمحتوى ده</button>' : '');
@@ -482,14 +482,14 @@ function stageWorkspace(it) {
   h += '<label class="lb">ملاحظات المرحلة</label><textarea dir="auto" class="inp" data-snote="' + tab + '" rows="3" placeholder="' + esc(cfg.notes || '') + '">' + esc(d.notes || '') + '</textarea>' + (d.notes_by ? '<div style="margin-top:4px">' + who(d.notes_by, d.notes_at) + '</div>' : '');
   h += '<label class="lb">روابط المرحلة <span class="muted small">(' + (d.links || []).length + ')</span></label>' +
     (d.links || []).map(l => isSocialLink(l.url)
-      ? '<div class="lrow rich"><div class="grow">' + (l.label && l.label !== 'رابط' ? '<b class="small">' + esc(l.label) + '</b>' : '') + linkCard(l.url, { compact: true }) + '<div>' + who(l.by, l.at) + '</div></div>' + (canRm(l.by) ? '<button class="xbtn" data-srm="links" data-sid="' + esc(l.id) + '" title="حذف">✕</button>' : '') + '</div>'
-      : '<div class="lrow"><a href="' + esc(safeUrl(l.url) || '#') + '" target="_blank" rel="noopener"><b>' + esc(l.label || 'رابط') + '</b><span dir="ltr">' + esc(l.url) + '</span></a>' + who(l.by, l.at) + (canRm(l.by) ? '<button class="xbtn" data-srm="links" data-sid="' + esc(l.id) + '" title="حذف">✕</button>' : '') + '</div>').join('') +
+      ? '<div class="lrow rich"><div class="grow">' + (l.label && l.label !== 'رابط' ? '<b class="small">' + esc(l.label) + '</b>' : '') + linkCard(l.url, { compact: true }) + '<div>' + who(l.by, l.at) + '</div></div>' + (canRm(l.by) ? '<button class="xbtn" data-srm="links" data-sid="' + esc(l.id) + '" title="حذف">' + ic('x') + '</button>' : '') + '</div>'
+      : '<div class="lrow"><a href="' + esc(safeUrl(l.url) || '#') + '" target="_blank" rel="noopener"><b>' + esc(l.label || 'رابط') + '</b><span dir="ltr">' + esc(l.url) + '</span></a>' + who(l.by, l.at) + (canRm(l.by) ? '<button class="xbtn" data-srm="links" data-sid="' + esc(l.id) + '" title="حذف">' + ic('x') + '</button>' : '') + '</div>').join('') +
     '<div class="slinkadd"><input class="inp" id="slLabel" placeholder="اسم الرابط (مثال: فولدر الخام)"><input class="inp" id="slUrl" dir="ltr" placeholder="' + esc(cfg.link ? 'https://… ' : 'https://') + '"><button class="btn" id="slAdd">+ إضافة رابط</button></div>' +
     '<div class="muted small" style="margin-top:4px">' + esc(cfg.link || '') + ' — كل رابط بيتضاف، مفيش حاجة بتتمسح.</div>';
   h += '<label class="lb">ملفات المرحلة <span class="muted small">(' + (d.files || []).length + ')</span></label><div class="files">' +
     (d.files || []).map(f => { const u = safeUrl(f.url), img = /\.(jpe?g|png|webp|gif)$/i.test(f.name || u.split('?')[0]), vid = /\.(mp4|mov|webm|m4v)$/i.test(f.name || u);
-      return '<a class="file" href="' + esc(u) + '" target="_blank" rel="noopener" title="' + esc(f.name + ' · ' + firstName(f.by)) + '" style="' + (img ? 'background-image:url(\'' + esc(u) + '\')' : '') + '">' + (img ? '' : (vid ? '🎬<br>' : '📄<br>') + esc((f.name || '').slice(0, 22))) + (canRm(f.by) ? '<button class="x" data-srm="files" data-sid="' + esc(f.id) + '">×</button>' : '') + '</a>'; }).join('') +
-    '<label class="file add" id="sfAdd">+</label><label class="file add shop" id="sfProd" title="صور من منتجات Shopify">🛍<br><small>Shopify</small></label></div><div class="muted small" style="margin-top:6px">صور أو فيديو لحد 50MB. الفيديوهات الكبيرة: اضغطها من «ضغط الملفات» أو حط رابط Drive.</div>';
+      return '<a class="file" href="' + esc(u) + '" target="_blank" rel="noopener" title="' + esc(f.name + ' · ' + firstName(f.by)) + '" style="' + (img ? 'background-image:url(\'' + esc(u) + '\')' : '') + '">' + (img ? '' : (vid ? ic('film') + '<br>' : ic('file') + '<br>') + esc((f.name || '').slice(0, 22))) + (canRm(f.by) ? '<button class="x" data-srm="files" data-sid="' + esc(f.id) + '">×</button>' : '') + '</a>'; }).join('') +
+    '<label class="file add" id="sfAdd">+</label><label class="file add shop" id="sfProd" title="صور من منتجات Shopify">' + ic('bag') + '<br><small>Shopify</small></label></div><div class="muted small" style="margin-top:6px">صور أو فيديو لحد 50MB. الفيديوهات الكبيرة: اضغطها من «ضغط الملفات» أو حط رابط Drive.</div>';
   // older single fields from before stages had their own space
   const legacy = (it.files || []).length || it.drive_link;
   if (legacy && (tab === 'edit' || tab === it.stage)) h += '<details class="legacy"><summary>ملفات وروابط من قبل التحديث</summary>' +

@@ -19,14 +19,14 @@ function viewAds(v) {
   const sorters = { new: (a, b) => String(b.sent_at).localeCompare(String(a.sent_at)), score: (a, b) => (b.winning_score || 0) - (a.winning_score || 0), days: (a, b) => (b.days_running || 0) - (a.days_running || 0), spend: (a, b) => ((b.estimates || {}).spend_mid || 0) - ((a.estimates || {}).spend_mid || 0) };
   list = list.sort(sorters[f.sort] || sorters.new);
   const plats = [...new Set(S.ads.map(a => a.platform).filter(Boolean))];
-  v.innerHTML = '<h1 class="ptitle">📢 إعلانات Adlumi</h1><div class="muted small" style="margin:-6px 2px 12px">الإعلانات اللي الفريق بعتها من إضافة Adlumi — بالتقديرات والسكور. حوّل أي إعلان لفكرة محتوى بضغطة.</div>' +
+  v.innerHTML = '<h1 class="ptitle">إعلانات Adlumi</h1><div class="muted small" style="margin:-6px 2px 12px">الإعلانات اللي الفريق بعتها من إضافة Adlumi — بالتقديرات والسكور. حوّل أي إعلان لفكرة محتوى بضغطة.</div>' +
     '<div class="toolbar"><input class="inp" id="adQ" placeholder="ابحث بالمعلن أو الكلام…" value="' + esc(f.q) + '" style="flex:1;min-width:160px">' +
     '<select class="mini" id="adP"><option value="">كل المنصات</option>' + plats.map(p => '<option value="' + esc(p) + '"' + (f.platform === p ? ' selected' : '') + '>' + esc(AD_PLAT[p] || p) + '</option>').join('') + '</select>' +
     '<select class="mini" id="adS"><option value="new"' + (f.sort === 'new' ? ' selected' : '') + '>الأحدث</option><option value="score"' + (f.sort === 'score' ? ' selected' : '') + '>أعلى سكور</option><option value="days"' + (f.sort === 'days' ? ' selected' : '') + '>أطول تشغيل</option><option value="spend"' + (f.sort === 'spend' ? ' selected' : '') + '>أعلى صرف</option></select></div>' +
     '<div class="chips">' + [['active', 'الكل'], ['new', 'جديد'], ['idea', 'اتحول لفكرة'], ['used', 'اتنفذ'], ['archived', 'أرشيف']].map(([k, n]) => '<button class="chip' + (f.status === k ? ' on' : '') + '" data-ast="' + k + '">' + n + ' <span class="c">' + (k === 'active' ? S.ads.filter(a => a.status !== 'archived').length : S.ads.filter(a => a.status === k).length) + '</span></button>').join('') + '</div>' +
-    (S.ads.length ? (list.length ? '<div class="rgrid">' + list.map(a => '<div class="card rcard adcard" data-ad="' + a.id + '"><div class="img" style="' + adThumb(a) + '">' + (a.platform ? '<span class="fmt">' + esc(AD_PLAT[a.platform] || a.platform) + '</span>' : '') + (a.winning_score != null ? '<span class="er">⚡ ' + a.winning_score + '</span>' : '') + '</div>' +
+    (S.ads.length ? (list.length ? '<div class="rgrid">' + list.map(a => '<div class="card rcard adcard" data-ad="' + a.id + '"><div class="img" style="' + adThumb(a) + '">' + (a.platform ? '<span class="fmt">' + esc(AD_PLAT[a.platform] || a.platform) + '</span>' : '') + (a.winning_score != null ? '<span class="er">' + ic('zap') + ' ' + a.winning_score + '</span>' : '') + '</div>' +
       '<div class="bd"><div class="u">' + esc(a.advertiser || a.landing_domain || 'معلن') + '</div><div class="cap" dir="auto">' + esc(a.headline || a.body || '') + '</div>' +
-      '<div class="st">' + (a.days_running ? '<span>🔥 ' + a.days_running + 'd</span>' : '') + ((a.estimates || {}).spend_mid ? '<span>~' + money(a.estimates.spend_mid) + '</span>' : '') + '<span>' + esc(AD_STATUS[a.status] || '') + '</span></div>' +
+      '<div class="st">' + (a.days_running ? '<span>' + ic('flame') + ' ' + a.days_running + 'd</span>' : '') + ((a.estimates || {}).spend_mid ? '<span>~' + money(a.estimates.spend_mid) + '</span>' : '') + '<span>' + esc(AD_STATUS[a.status] || '') + '</span></div>' +
       '<div class="row" style="gap:4px">' + av(a.sent_by, false, true) + '<span class="muted small">' + fmtShort(a.sent_at) + '</span></div></div></div>').join('') + '</div>' : '<div class="empty">مفيش إعلانات بالفلتر ده</div>')
       : '<div class="card pad"><b>لسه مفيش إعلانات</b><ol class="small" style="margin:8px 0 0;padding-inline-start:18px;line-height:1.9"><li>افتح داشبورد Adlumi ← الإعدادات ← <b>Muhra HQ</b></li><li>سجل دخول بنفس اسم المستخدم وكلمة المرور بتوع الهب</li><li>اضغط <b>📤 ابعت للفريق</b> على أي إعلان، أو <b>مزامنة المفضلة</b></li></ol><a class="btn sm" style="margin-top:10px" href="' + LINKS.adLibrary + '" target="_blank" rel="noopener">فتح Meta Ad Library</a></div>');
   $('#adQ').oninput = e => { f.q = e.target.value; clearTimeout(S._adq); S._adq = setTimeout(() => { renderAll(); const q = $('#adQ'); if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); } }, 300); };
@@ -43,28 +43,28 @@ function openAd(id) {
   const fact = (l, v2) => v2 || v2 === 0 ? '<dt>' + l + '</dt><dd>' + v2 + '</dd>' : '';
   const libQ = LINKS.adLibrary + '?active_status=all&ad_type=all&country=ALL&search_type=keyword_unordered&q=' + encodeURIComponent(a.advertiser || a.landing_domain || '');
   const linked = S.items.find(i => i.ad_id === a.id);
-  const root = sheet('<div class="sh"><button class="btn ghost sm" id="x">✕</button><b class="grow">' + esc(a.advertiser || a.landing_domain || 'إعلان') + '</b>' + (a.winning_score != null ? '<span class="pill">⚡ ' + a.winning_score + '</span>' : '') + '</div><div class="sb">' +
+  const root = sheet('<div class="sh"><button class="btn ghost sm" id="x">' + ic('x') + '</button><b class="grow">' + esc(a.advertiser || a.landing_domain || 'إعلان') + '</b>' + (a.winning_score != null ? '<span class="pill">' + ic('zap') + ' ' + a.winning_score + '</span>' : '') + '</div><div class="sb">' +
     ((a.thumb || a.media_url) ? '<img class="adimg" src="' + esc(a.thumb || a.media_url) + '" alt="" referrerpolicy="no-referrer">' : '') +
     (a.headline ? '<h3 dir="auto" style="margin:12px 0 4px">' + esc(a.headline) + '</h3>' : '') + (a.body ? '<div class="desc" dir="auto">' + esc(a.body) + '</div>' : '') +
-    '<div class="row wrap" style="margin:10px 0;gap:6px">' + (linked ? '<button class="chip-link" data-open="' + linked.id + '">🎬 ' + esc(linked.title) + '</button>' : '<button class="btn pri sm" id="adIdea">💡 حوّله لفكرة محتوى</button>') +
+    '<div class="row wrap" style="margin:10px 0;gap:6px">' + (linked ? '<button class="chip-link" data-open="' + linked.id + '">' + ic('film') + ' ' + esc(linked.title) + '</button>' : '<button class="btn pri sm" id="adIdea">حوّله لفكرة محتوى</button>') +
     (a.post_url ? '<a class="btn sm" href="' + esc(safeUrl(a.post_url)) + '" target="_blank" rel="noopener">فتح الإعلان ↗</a>' : '') + '<a class="btn sm" href="' + esc(libQ) + '" target="_blank" rel="noopener">Ad Library ↗</a></div>' +
-    '<div class="sectitle">📈 التقديرات (من Adlumi)</div><dl class="facts">' +
+    '<div class="sectitle">التقديرات (من Adlumi)</div><dl class="facts">' +
     fact('الصرف التقريبي', e.spend_mid ? money(e.spend_lo) + ' – ' + money(e.spend_hi) + ' (~' + money(e.spend_mid) + ')' : '') + fact('الصرف اليومي', e.daily_mid ? money(e.daily_mid) : '') +
     fact('CPM', e.cpm ? '$' + Number(e.cpm).toFixed(2) : '') + fact('ROAS', e.roas ? Number(e.roas).toFixed(1) + 'x' : '') + fact('الثقة', e.confidence || '') +
     fact('شغال من', a.days_running ? a.days_running + ' يوم' : '') + fact('الحالة', a.active === true ? 'شغال' : a.active === false ? 'متوقف' : '') + fact('اتشاف', a.seen_count ? a.seen_count + ' مرة' : '') +
     fact('تفاعل', ['reactions', 'likes', 'comments', 'shares', 'views'].filter(k => g[k]).map(k => k + ' ' + num(g[k])).join(' · ')) +
     fact('CTA', esc(a.cta || '')) + fact('الصفحة', link(a.landing_url, a.landing_domain || a.landing_url)) + fact('المنصة', esc(AD_PLAT[a.platform] || a.platform || '')) + '</dl>' +
-    ((a.angles || []).length ? '<div class="sectitle">🎯 الزوايا</div><div class="row wrap">' + a.angles.map(x => '<span class="pill">' + esc(x) + '</span>').join('') + '</div>' : '') +
-    ((a.offers || []).length ? '<div class="sectitle">🏷 العروض</div><div class="row wrap">' + a.offers.map(x => '<span class="pill">' + esc(x) + '</span>').join('') + '</div>' : '') +
+    ((a.angles || []).length ? '<div class="sectitle">الزوايا</div><div class="row wrap">' + a.angles.map(x => '<span class="pill">' + esc(x) + '</span>').join('') + '</div>' : '') +
+    ((a.offers || []).length ? '<div class="sectitle">العروض</div><div class="row wrap">' + a.offers.map(x => '<span class="pill">' + esc(x) + '</span>').join('') + '</div>' : '') +
     (a.adlumi_notes ? '<div class="sectitle">ملاحظة اللي بعته</div><div class="desc" dir="auto">' + esc(a.adlumi_notes) + '</div>' : '') +
     '<label class="lb">ملاحظات الفريق</label><textarea class="inp" id="adNotes" dir="auto" placeholder="ليه الإعلان ده مهم؟ الهوك، الزاوية، العرض…">' + esc(a.team_notes || '') + '</textarea>' +
     '<div class="g2"><div><label class="lb">الحالة</label><select class="inp" id="adSt">' + Object.entries(AD_STATUS).map(([k, n]) => '<option value="' + k + '"' + (a.status === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></div>' +
     '<div><label class="lb">تاجز</label><input class="inp" id="adTags" dir="auto" value="' + esc((a.tags || []).join(', ')) + '"></div></div>' +
     '<div class="muted small" style="margin-top:12px">بعته ' + esc(firstName(a.sent_by)) + ' · ' + fmtTime(a.sent_at) + '</div>' +
-    (isAdmin() ? '<button class="btn bad sm" id="adDel" style="margin-top:14px">🗑 حذف</button>' : '') + '</div>');
+    (isAdmin() ? '<button class="btn bad sm" id="adDel" style="margin-top:14px">حذف</button>' : '') + '</div>');
   $('#x').onclick = closeSheet;
   $$('[data-open]', root).forEach(b => b.onclick = () => openItem(b.dataset.open));
-  const upd = async patch => { Object.assign(a, patch); const { error } = await sb.from('hq_ads').update(patch).eq('id', a.id); if (error) toast('لم يتم الحفظ'); else toast('تم الحفظ ✓', 1000); };
+  const upd = async patch => { Object.assign(a, patch); const { error } = await sb.from('hq_ads').update(patch).eq('id', a.id); if (error) toast('لم يتم الحفظ'); else toast('تم الحفظ', 1000); };
   $('#adNotes').onchange = e2 => upd({ team_notes: e2.target.value.trim() || null });
   $('#adSt').onchange = e2 => upd({ status: e2.target.value }).then(renderAll);
   $('#adTags').onchange = e2 => upd({ tags: e2.target.value.split(',').map(t => t.trim()).filter(Boolean) });
@@ -90,7 +90,7 @@ function pubStatus(p) {
   const total = p.images_total + p.stories_total + p.reels_total;
   const done = (p.images_posted ? p.images_total : 0) + p.stories_posted + p.reels_posted;
   const d = dayDiff(p.post_date);
-  if (p.posted || (total && done >= total)) return ['okp', '✓ اتنشر'];
+  if (p.posted || (total && done >= total)) return ['okp', 'اتنشر'];
   if (!total) return ['late', 'فولدر فاضي'];
   if (d < 0) return ['late', done ? 'اتنشر جزئيًا' : 'فات ومتنشرش'];
   if (done) return ['soon', 'بينشر'];
@@ -104,7 +104,7 @@ function contentForProduct(name) {
 function publishChips(day) {
   if (!S.publish) return '';
   const ps = S.publish.filter(p => p.post_date === day);
-  return ps.length ? '<a class="pill" href="#/publish" title="منتجات في فولدر النشر">📁 ' + ps.length + ' في Drive</a>' : '';
+  return ps.length ? '<a class="pill" href="#/publish" title="منتجات في فولدر النشر">' + ic('folder') + ' ' + ps.length + ' في Drive</a>' : '';
 }
 function viewPublish(v) {
   if (S.publish === null) { v.innerHTML = '<div class="empty">جاري التحميل…</div>'; loadPublish().then(renderAll); return; }
@@ -114,17 +114,17 @@ function viewPublish(v) {
   const counts = c => c.total ? c.done + '/' + c.total : '—';
   const row = p => {
     const [cls, st] = pubStatus(p), c = contentForFolder(p);
-    const chip = (lbl, total, done, all) => total ? '<span class="pill ' + (all || done >= total ? 'okp' : done ? 'soon' : '') + '">' + lbl + ' ' + (all ? '✓' : counts({ total, done })) + '</span>' : '';
+    const chip = (lbl, total, done, all) => total ? '<span class="pill ' + (all || done >= total ? 'okp' : done ? 'soon' : '') + '">' + lbl + ' ' + (all ? ic('check') : counts({ total, done })) + '</span>' : '';
     const slot = SLOTS.map(s => s[p.position ? 1 : 0]).join(' · ');
     return '<div class="prow"><div class="grow"><div class="row"><b dir="auto">' + esc(p.product) + '</b><span class="pill ' + cls + '">' + st + '</span></div>' +
-      '<div class="meta" style="margin-top:5px">' + chip('🖼 صور', p.images_total, p.images_posted ? p.images_total : 0, p.images_posted) + chip('⭕ ستوري', p.stories_total, p.stories_posted) + chip('🎬 ريلز', p.reels_total, p.reels_posted) +
-      (p.has_caption ? '<span class="pill">✍️ caption.txt</span>' : '<span class="pill" title="هيتكتب كابشن تلقائي">🤖 كابشن تلقائي</span>') + '</div>' +
-      '<div class="muted small" style="margin-top:4px">مواعيده: ' + slot + (p.position > 1 ? ' · ⚠️ المنتج التالت وما بعده مش هيتنشر في نفس اليوم' : '') + '</div></div>' +
-      '<div class="pact">' + (c ? stageTag(c.stage) + '<button class="btn sm pri" data-pubopen="' + c.id + '" title="افتح كارت المحتوى بتاع المنتج ده في الهب">🎬 فتح كارت المحتوى</button>' : '') + '<a class="btn sm" href="' + driveFolder(p.folder_id) + '" target="_blank" rel="noopener">📁 Drive</a></div></div>';
+      '<div class="meta" style="margin-top:5px">' + chip('صور', p.images_total, p.images_posted ? p.images_total : 0, p.images_posted) + chip('ستوري', p.stories_total, p.stories_posted) + chip('ريلز', p.reels_total, p.reels_posted) +
+      (p.has_caption ? '<span class="pill">caption.txt</span>' : '<span class="pill" title="هيتكتب كابشن تلقائي">كابشن تلقائي</span>') + '</div>' +
+      '<div class="muted small" style="margin-top:4px">مواعيده: ' + slot + (p.position > 1 ? ' · المنتج التالت وما بعده مش هيتنشر في نفس اليوم' : '') + '</div></div>' +
+      '<div class="pact">' + (c ? stageTag(c.stage) + '<button class="btn sm pri" data-pubopen="' + c.id + '" title="افتح كارت المحتوى بتاع المنتج ده في الهب">فتح كارت المحتوى</button>' : '') + '<a class="btn sm" href="' + driveFolder(p.folder_id) + '" target="_blank" rel="noopener">Drive</a></div></div>';
   };
-  v.innerHTML = '<h1 class="ptitle">📤 النشر التلقائي</h1>' +
+  v.innerHTML = '<h1 class="ptitle">النشر التلقائي</h1>' +
     '<div class="card pad"><div class="row wrap"><div class="grow"><b>إزاي بيشتغل</b><div class="muted small">ارفع المنتج في <b>MUHRA SOCIAL ← فولدر اليوم (يوم-شهر-سنة) ← فولدر باسم المنتج</b> وجواه images / stories / reels. البوت بينشر أول منتجين في اليوم:</div><div class="muted small" style="margin-top:4px">أي منتج في الفولدر بيتعامل إنه <b>معتمد ومستني النشر</b> وكارته بيتنقل لـ «مجدول» لوحده، ولما البوت يكتب <b>[POSTED]</b> الكارت بيتنقل لـ «منشور». لو مفيش كارت، بيتعمل كارت جديد.</div></div>' +
-    (meta && meta.root_folder_id ? '<a class="btn sm pri" href="' + driveFolder(meta.root_folder_id) + '" target="_blank" rel="noopener">📁 فتح فولدر النشر</a>' : '') + '</div>' +
+    (meta && meta.root_folder_id ? '<a class="btn sm pri" href="' + driveFolder(meta.root_folder_id) + '" target="_blank" rel="noopener">فتح فولدر النشر</a>' : '') + '</div>' +
     '<div class="slots">' + SLOTS.map(s => '<div class="slot"><b>' + s[0] + ' / ' + s[1] + '</b><span>' + s[2] + '</span></div>').join('') + '</div>' +
     '<div class="muted small">بتوقيت القاهرة · المنتج الأول في المواعيد الأولى والتاني بعدها بساعة · آخر تحديث: ' + (meta && meta.synced_at ? fmtTime(meta.synced_at) : 'لسه') + ' (كل 20 دقيقة)</div></div>' +
     days.map(d => {
@@ -201,7 +201,7 @@ function onModuleMessage(e) {
   } else if (m.type === 'hq:idea') {
     createItem({ title: String(m.title || 'فكرة جديدة').slice(0, 120), type: m.format === 'Reel' ? 'reel' : m.format === 'Carousel' ? 'carousel' : 'post',
       ref_url: safeUrl(m.ref_url) || null, ref_thumb: safeUrl(m.ref_thumb) || null, ref_source: String(m.ref_source || '').slice(0, 80) || null, brief: m.brief ? String(m.brief).slice(0, 2000) : null }, { open: false })
-      .then(it => { if (it) toastAction('💡 اتحفظت في «فكرة»', 'افتح', () => openItem(it.id)); });
+      .then(it => { if (it) toastAction('اتحفظت في «فكرة»', 'افتح', () => openItem(it.id)); });
   } else if (m.type === 'hq:attach' && Array.isArray(m.files)) {
     attachFilesFlow(m.files.filter(f => f instanceof Blob));
   } else if (m.type === 'hq:toast') {
@@ -220,8 +220,8 @@ function attachFilesFlow(files) {
   if (!files.length) return;
   const open = S.items.filter(i => i.stage !== 'posted').slice(0, 60);
   const size = files.reduce((a, f) => a + (f.size || 0), 0);
-  const root = sheet('<div class="sh"><b class="grow">📎 إرفاق ' + files.length + ' ملف (' + (size / 1048576).toFixed(1) + 'MB)</b><button class="btn ghost sm" id="x">✕</button></div><div class="sb">' +
-    '<label class="lb">على أي كارت محتوى؟</label><select class="inp" id="atC"><option value="__new">+ كارت محتوى جديد</option>' + open.map(i => '<option value="' + i.id + '">' + esc(SM[i.stage].ic + ' ' + i.title) + '</option>').join('') + '</select>' +
+  const root = sheet('<div class="sh"><b class="grow">إرفاق ' + files.length + ' ملف (' + (size / 1048576).toFixed(1) + 'MB)</b><button class="btn ghost sm" id="x">' + ic('x') + '</button></div><div class="sb">' +
+    '<label class="lb">على أي كارت محتوى؟</label><select class="inp" id="atC"><option value="__new">+ كارت محتوى جديد</option>' + open.map(i => '<option value="' + i.id + '">' + esc(SM[i.stage].n + ' · ' + i.title) + '</option>').join('') + '</select>' +
     '<div class="muted small" style="margin-top:8px">' + files.map(f => esc(f.name || 'file')).join('، ') + '</div>' +
     (files.some(f => f.size > 50 * 1048576) ? '<div class="alert warn">فيه ملف أكبر من 50MB — مش هيترفع. استخدم رابط Drive للملفات الكبيرة.</div>' : '') +
     '</div><div class="sf"><button class="btn pri" id="atGo">إرفاق</button></div>');
@@ -236,7 +236,7 @@ function attachFilesFlow(files) {
       try { const u = await uploadFile(f instanceof File ? f : new File([f], f.name || 'file', { type: f.type }), 'hq/' + it.id); out.push({ name: u.name, url: u.url, by: S.me.id, at: new Date().toISOString() }); } catch { toast('فشل رفع ' + (f.name || '')); }
     }
     await updateItem(it.id, { files: out }, true); logAct(it.id, 'files', null, null, files.length + ' ملف');
-    closeSheet(); toast('تم الإرفاق ✓'); openItem(it.id);
+    closeSheet(); toast('تم الإرفاق'); openItem(it.id);
   };
 }
 

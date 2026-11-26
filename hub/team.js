@@ -20,7 +20,7 @@ function genPassword() {
 function credCard(username, password) {
   const txt = 'Muhra HQ\n' + location.origin + location.pathname + '\nاسم المستخدم: ' + username + '\nكلمة المرور المؤقتة: ' + password;
   return '<div class="alert ok" style="text-align:right"><b>ابعت البيانات دي للعضو:</b><div class="lat" dir="ltr" style="text-align:left;margin:8px 0;background:#fff;border-radius:8px;padding:8px;font-weight:600">' + esc(username) + '<br>' + esc(password) + '</div>' +
-    '<button class="btn sm" data-copy="' + esc(txt) + '">📋 نسخ الرسالة</button> <span class="small">هيُطلب منه تغييرها أول ما يدخل.</span></div>';
+    '<button class="btn sm" data-copy="' + esc(txt) + '">نسخ الرسالة</button> <span class="small">هيُطلب منه تغييرها أول ما يدخل.</span></div>';
 }
 function bindCopy(root) { root.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => { const t = b.dataset.copy; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast('تم النسخ'), () => prompt('انسخ:', t)); }); }
 
@@ -34,9 +34,9 @@ function viewTeam(v) {
     '<div class="muted small"><span dir="ltr">' + esc(m.id) + '</span>' + (m.title ? ' · ' + esc(m.title) : '') + '</div>' +
     '<div class="row wrap" style="gap:4px;margin-top:3px">' + (m.role === 'admin' ? '<span class="pill">مدير</span>' : '<span class="pill" style="opacity:.7">عضو</span>') + (m.can_approve ? '<span class="pill okp">يوافق على المحتوى</span>' : '') + pushPill(m.id) + '</div></div>' +
     (admin ? '<button class="btn sm" data-edit="' + esc(m.id) + '">تعديل</button>' : '') + '</div>';
-  v.innerHTML = '<h1 class="ptitle">👥 الفريق والحساب</h1>' + note +
+  v.innerHTML = '<h1 class="ptitle">الفريق والحساب</h1>' + note +
     '<div class="sectitle">حسابي</div><div class="card pad"><div class="row">' + av(S.me.id, true) + '<div class="grow"><b>' + esc(S.me.name) + '</b><div class="muted small" dir="ltr" style="text-align:right">' + esc(S.me.id) + '</div></div></div>' +
-    '<div class="row wrap" style="margin-top:12px"><button class="btn sm" id="myPhoto">📷 تغيير الصورة</button><button class="btn sm" id="myPw">🔑 تغيير كلمة المرور</button><button class="btn sm bad" id="myOut">خروج</button></div></div>' +
+    '<div class="row wrap" style="margin-top:12px"><button class="btn sm" id="myPhoto">تغيير الصورة</button><button class="btn sm" id="myPw">تغيير كلمة المرور</button><button class="btn sm bad" id="myOut">خروج</button></div></div>' +
     '<div class="sectitle">الإشعارات</div>' + pushBanner(true) +
     '<details class="muted small" style="margin:6px 2px 0"><summary>إشعارات المتصفح (اختياري)</summary><div style="margin-top:8px">' + webPushBanner(true) + '</div></details>' +
     '<div class="sectitle">الأعضاء <span class="muted small">(' + S.team.length + ')</span></div><div class="card">' + S.team.map(row).join('') + '</div>' +
@@ -53,7 +53,7 @@ function viewTeam(v) {
 }
 /* Admin announcement: push to everyone or chosen people (was in the Tasks app) */
 function announceBlock() {
-  return '<div class="sectitle">📢 إعلان للفريق</div><div class="card pad"><textarea class="inp" id="annText" dir="auto" placeholder="اكتب الإعلان… يوصل إشعار على موبايل كل شخص"></textarea>' +
+  return '<div class="sectitle">إعلان للفريق</div><div class="card pad"><textarea class="inp" id="annText" dir="auto" placeholder="اكتب الإعلان… يوصل إشعار على موبايل كل شخص"></textarea>' +
     '<div class="toggles" id="annTo" style="margin-top:8px"><button class="tg on" data-ann="all">الكل</button>' + S.team.filter(m => m.id !== S.me.id).map(m => '<button class="tg" data-ann="' + esc(m.id) + '">' + av(m.id, false, true) + esc(firstName(m.id)) + '</button>').join('') + '</div>' +
     '<button class="btn pri" id="annSend" style="margin-top:10px">إرسال الإعلان</button></div>';
 }
@@ -69,8 +69,8 @@ function bindAnnounce(v) {
     const all = box.querySelector('[data-ann=all]').classList.contains('on');
     const ids = all ? S.team.map(m => m.id) : [...box.querySelectorAll('.tg.on')].map(b => b.dataset.ann);
     await push(ids, '📢 إعلان من ' + firstName(S.me.id), t);
-    await sb.from('chat').insert({ author: S.me.id, text: '📢 ' + t });
-    $('#annText', v).value = ''; toast('تم إرسال الإعلان ✓');
+    await sb.from('chat').insert({ author: S.me.id, text: '' + t });
+    $('#annText', v).value = ''; toast('تم إرسال الإعلان');
   };
 }
 function pickPhoto(memberId) {
@@ -84,7 +84,7 @@ function pickPhoto(memberId) {
     const url = sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
     const { error: e2 } = await sb.from('profiles').upsert({ user_id: memberId, photo_url: url, updated_at: new Date().toISOString() });
     if (e2) return toast('تعذر حفظ الصورة');
-    S.photos[memberId] = url; toast('تم تحديث الصورة ✓'); renderShell(); openTeam();
+    S.photos[memberId] = url; toast('تم تحديث الصورة'); renderShell(); openTeam();
   };
   fp.click();
 }
@@ -99,12 +99,12 @@ function editMember(id) {
     '<label class="lb">المسمى الوظيفي</label><input class="inp" id="mTitle" value="' + esc(m ? (m.title || '') : '') + '" placeholder="Content Creator">' +
     '<div class="g2"><div><label class="lb">الصلاحية</label><select class="inp" id="mRole"><option value="member">عضو</option><option value="admin"' + (m && m.role === 'admin' ? ' selected' : '') + '>مدير (يدير الفريق)</option></select></div>' +
     '<div><label class="lb">اللون</label><input type="color" class="inp" id="mColor" value="' + esc(m && /^#[0-9a-f]{6}$/i.test(m.color || '') ? m.color : '#5c3d2e') + '" style="height:44px;padding:4px"></div></div>' +
-    '<label class="lb">الموافقة على المحتوى</label><div class="toggles"><button class="tg' + (m && m.can_approve ? ' on' : '') + '" id="mAppr">✅ يقدر يوافق أو يطلب تعديل</button></div>' +
+    '<label class="lb">الموافقة على المحتوى</label><div class="toggles"><button class="tg' + (m && m.can_approve ? ' on' : '') + '" id="mAppr">يقدر يوافق أو يطلب تعديل</button></div>' +
     (m ? '' : '<label class="lb">كلمة مرور مؤقتة</label><div class="linkrow"><input class="inp lat" id="mPw" dir="ltr" value="' + pw + '"><button class="btn" id="regen">↻</button></div>') +
     '<div id="mMsg"></div>' +
-    (m ? '<div class="sectitle">🔑 كلمة المرور</div><div class="card pad"><div class="muted small">ينشئ كلمة مرور مؤقتة جديدة، والعضو يغيرها أول ما يدخل.</div><button class="btn sm" id="mReset" style="margin-top:8px">إعادة تعيين كلمة المرور</button><div id="resetOut"></div></div>' +
-      '<div class="sectitle">📷 الصورة</div><button class="btn sm" id="mPhoto">تغيير صورة ' + esc(firstName(m.id)) + '</button>' +
-      (m.id !== S.me.id ? '<div class="sectitle" style="color:var(--bad)">🗑 حذف نهائي</div><div class="card pad" style="border-color:#EFC7C1">' +
+    (m ? '<div class="sectitle">كلمة المرور</div><div class="card pad"><div class="muted small">ينشئ كلمة مرور مؤقتة جديدة، والعضو يغيرها أول ما يدخل.</div><button class="btn sm" id="mReset" style="margin-top:8px">إعادة تعيين كلمة المرور</button><div id="resetOut"></div></div>' +
+      '<div class="sectitle">الصورة</div><button class="btn sm" id="mPhoto">تغيير صورة ' + esc(firstName(m.id)) + '</button>' +
+      (m.id !== S.me.id ? '<div class="sectitle" style="color:var(--bad)">حذف نهائي</div><div class="card pad" style="border-color:#EFC7C1">' +
         '<div class="small">يحذف الحساب نهائيًا ويمنع الدخول فورًا. المحتوى المنشور والتعليقات القديمة تفضل في السجل.</div>' +
         '<label class="lb">نقل شغله المفتوح (المحتوى والمهام) إلى</label><select class="inp" id="mTo"><option value="">— بدون نقل —</option>' + others.map(o => '<option value="' + esc(o.id) + '"' + (o.id === S.me.id ? ' selected' : '') + '>' + esc(o.name) + '</option>').join('') + '</select>' +
         '<label class="lb">للتأكيد اكتب اسم المستخدم: <span class="lat" dir="ltr">' + esc(m.id) + '</span></label><input class="inp lat" id="mConfirm" dir="ltr" autocapitalize="none">' +
@@ -119,12 +119,12 @@ function editMember(id) {
     const b = $('#mSave'); b.disabled = true;
     const payload = { name: $('#mName').value.trim(), title: $('#mTitle').value.trim(), role: $('#mRole').value, color: $('#mColor').value, can_approve: $('#mAppr').classList.contains('on') };
     try {
-      if (m) { await teamAdmin({ action: 'update', id: m.id, ...payload }); await loadTeam(); if (m.id === S.me.id) S.me = S.teamMap[m.id] || S.me; renderShell(); openTeam('<div class="alert ok">تم حفظ بيانات ' + esc(payload.name) + ' ✓</div>'); }
+      if (m) { await teamAdmin({ action: 'update', id: m.id, ...payload }); await loadTeam(); if (m.id === S.me.id) S.me = S.teamMap[m.id] || S.me; renderShell(); openTeam('<div class="alert ok">تم حفظ بيانات ' + esc(payload.name) + ' ' + ic('check') + '</div>'); }
       else {
         const username = $('#mUser').value.trim().toLowerCase(), password = $('#mPw').value.trim();
         await teamAdmin({ action: 'create', username, password, ...payload });
         await loadTeam(); renderAll();
-        openTeam('<div class="alert ok" style="margin-top:12px">تم إنشاء حساب ' + esc(payload.name) + ' ✓</div>' + credCard(username, password));
+        openTeam('<div class="alert ok" style="margin-top:12px">تم إنشاء حساب ' + esc(payload.name) + ' ' + ic('check') + '</div>' + credCard(username, password));
       }
     } catch (e) { b.disabled = false; msg(esc(e.message)); }
   };

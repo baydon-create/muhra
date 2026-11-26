@@ -22,7 +22,7 @@ function normLink(raw) {
   u.hash = ''; return u.href;
 }
 const isSocialLink = u => /(instagram\.com|tiktok\.com|youtube\.com|youtu\.be)/i.test(u || '');
-const PLAT_IC = { instagram: '📸', tiktok: '🎵', youtube: '▶️', web: '🔗' };
+const PLAT_IC = { instagram: 'camera', tiktok: 'music', youtube: 'play', web: 'link' };
 const PLAT_N = { instagram: 'إنستجرام', tiktok: 'تيك توك', youtube: 'يوتيوب', web: 'رابط' };
 
 /* Returns the cached preview (or undefined) and fetches it in the background the first time. */
@@ -82,10 +82,10 @@ function linkCard(url, opts = {}) {
   const plat = p.platform || (/instagram/.test(u) ? 'instagram' : /tiktok/.test(u) ? 'tiktok' : /youtu/.test(u) ? 'youtube' : 'web');
   const loading = p._loading || (!p.url && !p.status);
   const stat = (ic, v, t) => v != null ? '<span title="' + t + '">' + ic + ' <b>' + num(v) + '</b></span>' : '';
-  const stats = [stat('▶', p.views, 'مشاهدات'), stat('❤', p.likes, 'لايكات'), stat('💬', p.comments, 'تعليقات'), stat('↗', p.shares, 'مشاركات')].join('');
+  const stats = [stat(ic('play'), p.views, 'مشاهدات'), stat(ic('heart'), p.likes, 'لايكات'), stat(ic('msg'), p.comments, 'تعليقات'), stat('↗', p.shares, 'مشاركات')].join('');
   return '<a class="lcard' + (opts.compact ? ' compact' : '') + '" href="' + esc(u) + '" target="_blank" rel="noopener">' +
-    '<span class="lthumb" style="' + (p.thumb ? 'background-image:url(\'' + esc(p.thumb) + '\')' : '') + '">' + (p.thumb ? '' : (loading ? '<i class="spin"></i>' : PLAT_IC[plat])) + (p.format ? '<em>' + esc(p.format) + '</em>' : '') + '</span>' +
-    '<span class="lbody"><span class="lacc"><b dir="ltr">' + esc(p.account || (loading ? 'جاري جلب المعاينة…' : PLAT_N[plat])) + '</b><span class="muted small">' + PLAT_IC[plat] + ' ' + PLAT_N[plat] + (p.posted_at ? ' · ' + fmtShort(p.posted_at) : '') + '</span></span>' +
+    '<span class="lthumb" style="' + (p.thumb ? 'background-image:url(\'' + esc(p.thumb) + '\')' : '') + '">' + (p.thumb ? '' : (loading ? '<i class="spin"></i>' : ic(PLAT_IC[plat], 20))) + (p.format ? '<em>' + esc(p.format) + '</em>' : '') + '</span>' +
+    '<span class="lbody"><span class="lacc"><b dir="ltr">' + esc(p.account || (loading ? 'جاري جلب المعاينة…' : PLAT_N[plat])) + '</b><span class="muted small">' + ic(PLAT_IC[plat], 14) + ' ' + PLAT_N[plat] + (p.posted_at ? ' · ' + fmtShort(p.posted_at) : '') + '</span></span>' +
     (stats ? '<span class="lstats">' + stats + '</span>' : (p.status === 'partial' && !loading ? '<span class="muted small">الأرقام مش متاحة للرابط ده</span>' : '')) +
     (p.title ? '<span class="lcap" dir="auto">' + esc(String(p.title).slice(0, 140)) + '</span>' : '') +
     (p.status === 'failed' && !loading ? '<span class="muted small">مقدرناش نجيب المعاينة (حساب خاص أو رابط غلط) · <button class="linkbtn" data-reprev="' + esc(u) + '">حاول تاني</button></span>' : '') +

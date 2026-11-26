@@ -20,19 +20,20 @@ const LINKS = {
 const sb = supabase.createClient(SB_URL, SB_KEY, { auth: { storageKey: AUTH_KEY, persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } });
 
 const STAGES = [
-  { k: 'idea', n: 'فكرة', ic: '💡', bg: '#F1ECE6', fg: '#6B5A4D' },
-  { k: 'script', n: 'سكريبت', ic: '✍️', bg: '#EDE7F3', fg: '#5B4A7A' },
-  { k: 'shoot', n: 'تصوير', ic: '🎥', bg: '#E6EEF5', fg: '#365F80' },
-  { k: 'edit', n: 'مونتاج', ic: '✂️', bg: '#F5EBDD', fg: '#8A5A1F' },
-  { k: 'review', n: 'مراجعة', ic: '👀', bg: '#FBF0DC', fg: '#A26A10' },
-  { k: 'approved', n: 'معتمد', ic: '✅', bg: '#E5F0E8', fg: '#3F7A57' },
-  { k: 'scheduled', n: 'مجدول', ic: '🗓️', bg: '#E3EEF0', fg: '#2F6970' },
-  { k: 'posted', n: 'منشور', ic: '📣', bg: '#E9E4DE', fg: '#5C3D2E' }
+  { k: 'idea', n: 'فكرة', ic: '' },
+  { k: 'script', n: 'سكريبت', ic: '' },
+  { k: 'shoot', n: 'تصوير', ic: '' },
+  { k: 'edit', n: 'مونتاج', ic: '' },
+  { k: 'review', n: 'مراجعة', ic: '' },
+  { k: 'approved', n: 'معتمد', ic: '' },
+  { k: 'scheduled', n: 'مجدول', ic: '' },
+  { k: 'posted', n: 'منشور', ic: '' }
 ];
 const SI = Object.fromEntries(STAGES.map((s, i) => [s.k, i]));
 const SM = Object.fromEntries(STAGES.map(s => [s.k, s]));
 const TYPES = { reel: 'ريل', carousel: 'كاروسيل', post: 'بوست', story: 'ستوري', tiktok: 'تيك توك', ad: 'إعلان' };
-const TYPE_IC = { reel: '🎬', carousel: '🖼️', post: '📷', story: '⭕', tiktok: '🎵', ad: '📢' };
+const TYPE_IC = { reel: 'film', carousel: 'image', post: 'camera', story: 'story', tiktok: 'music', ad: 'ads' };
+const typeIc = (t, s = 16) => ic(TYPE_IC[t] || 'file', s);
 const PLATFORMS = { instagram: 'إنستجرام', tiktok: 'تيك توك', facebook: 'فيسبوك' };
 const PILLARS = ['إطلاق منتج', 'تنسيقات', 'كواليس', 'آراء عملاء / UGC', 'عروض', 'تعليمي / مقاسات', 'براند'];
 const DONE_STAGES = ['approved', 'scheduled', 'posted'];
@@ -127,26 +128,27 @@ function mentionsIn(text) {
   S.team.forEach(m => { const f = firstName(m.id); if (text.includes('@' + f) || text.includes('@' + m.name) || text.toLowerCase().includes('@' + m.id)) out.push(m.id); });
   return out;
 }
-function stageTag(k) { const s = SM[k] || STAGES[0]; return '<span class="stage-tag" style="background:' + s.bg + ';color:' + s.fg + '">' + s.ic + ' ' + s.n + '</span>'; }
+/* Signature: a seam of 8 stitches, filled up to the card's stage (idea → posted). */
+function stageTag(k) { const s = SM[k] || STAGES[0], i = SI[s.k]; return '<span class="stage-tag" title="' + s.n + ' · ' + (i + 1) + '/' + STAGES.length + '"><span class="seam">' + STAGES.map((_, j) => '<i' + (j <= i ? ' class="on"' : '') + '></i>').join('') + '</span>' + s.n + '</span>'; }
 function dueInfo(it) {
   if (DONE_STAGES.includes(it.stage)) return '';
   const out = [];
-  if (it.due_date) { const d = dayDiff(it.due_date); out.push('<span class="pill ' + (d < 0 ? 'late' : d <= 1 ? 'soon' : '') + '">⏱ ' + (d < 0 ? 'متأخر ' + (-d) + ' يوم' : d === 0 ? 'اليوم' : d === 1 ? 'بكرة' : fmtShort(it.due_date)) + '</span>'); }
-  if (it.publish_date) { const d = dayDiff(it.publish_date); if (d <= 2) out.push('<span class="pill ' + (d < 0 ? 'late' : 'soon') + '">📅 نشر ' + (d < 0 ? 'فات' : d === 0 ? 'اليوم' : d === 1 ? 'بكرة' : fmtShort(it.publish_date)) + '</span>'); }
+  if (it.due_date) { const d = dayDiff(it.due_date); out.push('<span class="pill ' + (d < 0 ? 'late' : d <= 1 ? 'soon' : '') + '">' + ic('clock') + ' ' + (d < 0 ? 'متأخر ' + (-d) + ' يوم' : d === 0 ? 'اليوم' : d === 1 ? 'بكرة' : fmtShort(it.due_date)) + '</span>'); }
+  if (it.publish_date) { const d = dayDiff(it.publish_date); if (d <= 2) out.push('<span class="pill ' + (d < 0 ? 'late' : 'soon') + '">نشر ' + (d < 0 ? 'فات' : d === 0 ? 'اليوم' : d === 1 ? 'بكرة' : fmtShort(it.publish_date)) + '</span>'); }
   return out.join('');
 }
 const isLate = it => !DONE_STAGES.includes(it.stage) && ((it.due_date && dayDiff(it.due_date) < 0) || (it.publish_date && dayDiff(it.publish_date) < 0));
 function itemThumb(it) {
   const img = (it.files || []).find(f => /\.(jpe?g|png|webp|gif|heic)$/i.test(f.name || f.url || ''));
   const u = (img && img.url) || it.ref_thumb || (typeof productThumb === 'function' && productThumb(it));
-  return u ? '<div class="thumb" style="background-image:url(\'' + esc(u) + '\')"></div>' : '<div class="thumb">' + (TYPE_IC[it.type] || '📄') + '</div>';
+  return u ? '<div class="thumb" style="background-image:url(\'' + esc(u) + '\')"></div>' : '<div class="thumb">' + typeIc(it.type, 20) + '</div>';
 }
 function ccard(it, opts = {}) {
   return '<div class="card ccard" data-open="' + it.id + '">' + itemThumb(it) +
     '<div class="grow"><div class="t">' + esc(it.title) + '</div><div class="meta">' +
     (opts.noStage ? '' : stageTag(it.stage)) +
-    '<span class="pill">' + (TYPE_IC[it.type] || '') + ' ' + (TYPES[it.type] || it.type) + '</span>' + dueInfo(it) +
-    (it.changes_note && it.stage === 'edit' ? '<span class="pill late">✏️ تعديلات</span>' : '') +
+    '<span class="pill">' + typeIc(it.type) + ' ' + (TYPES[it.type] || it.type) + '</span>' + dueInfo(it) +
+    (it.changes_note && it.stage === 'edit' ? '<span class="pill late">تعديلات</span>' : '') +
     '</div>' + (opts.extra || '') + '</div>' + (it.owner ? av(it.owner) : '') + '</div>';
 }
 function sheet(html, opts = {}) {
@@ -233,7 +235,7 @@ async function moveStage(it, to, opts = {}) {
   else if (to === 'approved') push(team, '✅ تمت الموافقة', it.title);
   else if (opts.changes) push(team, '✏️ مطلوب تعديلات', it.title + ' — ' + opts.changes);
   else if (to === 'posted') push([...team, ...approverIds()], '📣 تم النشر', it.title);
-  else push(team, SM[to].ic + ' ' + SM[to].n, it.title);
+  else push(team, SM[to].n, it.title);
   toast(opts.changes ? 'تم إرسال طلب التعديل' : 'اتنقل إلى «' + SM[to].n + '»');
   renderAll();
 }
@@ -241,7 +243,7 @@ async function updateItem(id, patch, silent) {
   const it = S.items.find(x => x.id === id); if (it) Object.assign(it, patch);
   const { error } = await sb.from('hq_content').update(patch).eq('id', id);
   if (error) { toast('لم يتم الحفظ — حاول مرة أخرى'); console.error(error); return false; }
-  if (!silent) toast('تم الحفظ ✓', 1100);
+  if (!silent) toast('تم الحفظ', 1100);
   return true;
 }
 
@@ -287,7 +289,7 @@ function renderChangePassword(forced, err) {
     $('#cb').disabled = true;
     const { error } = await sb.auth.updateUser({ password: a, data: { must_change_password: false } });
     if (error) return renderChangePassword(forced, /same|different/i.test(error.message) ? 'اختار كلمة مرور مختلفة عن القديمة' : 'تعذر الحفظ، حاول تاني');
-    toast('تم تغيير كلمة المرور ✓');
+    toast('تم تغيير كلمة المرور');
     afterSignIn();
   };
 }
@@ -324,9 +326,47 @@ const ICONS = {
   more: '<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
   bag: '<path d="M5 8h14l-1.2 12.1a1 1 0 0 1-1 .9H7.2a1 1 0 0 1-1-.9z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>',
-  bell: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>'
+  bell: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>',
+  x: '<path d="M18 6 6 18M6 6l12 12"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  msg: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  pen: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  edit: '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/>',
+  image: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/>',
+  link: '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
+  mic: '<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4"/>',
+  pin: '<path d="M12 17v5M9 3h6l-1 7 4 3v2H6v-2l4-3z"/>',
+  alert: '<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
+  film: '<rect x="2" y="3" width="20" height="18" rx="2"/><path d="M7 3v18M17 3v18M2 8h5M2 16h5M17 8h5M17 16h5"/>',
+  trash: '<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>',
+  clip: '<path d="m21.4 11-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/>',
+  stop: '<rect x="6" y="6" width="12" height="12" rx="1.5"/>',
+  star: '<path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/>',
+  eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  arrow: '<path d="M19 12H5M12 19l-7-7 7-7"/>',
+  zap: '<path d="M13 2 3 14h9l-1 8 10-12h-9z"/>',
+  flame: '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.4-.5-2-1-3-1.1-2.1-.2-4 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.2.4-2.3 1-3.3.3 1.6 1.4 2.8 2.5 2.8z"/>',
+  bulb: '<path d="M9 18h6M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.3h6c0-1 .4-1.8 1-2.3A7 7 0 0 0 12 2z"/>',
+  target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+  tag: '<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/><circle cx="7" cy="7" r="1.5"/>',
+  folder: '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
+  story: '<circle cx="12" cy="12" r="9" stroke-dasharray="3 2.4"/>',
+  send: '<path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/>',
+  phone: '<rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M11 18h2"/>',
+  copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+  camera: '<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>',
+  key: '<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/>',
+  music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+  play: '<path d="M6 4v16l14-8z"/>',
+  heart: '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21.2l8.8-8.8a5.5 5.5 0 0 0 0-7.8z"/>',
+  file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  scissors: '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/>',
+  reply: '<path d="m9 17-5-5 5-5"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/>'
 };
-const icon = (k, s = 20) => '<svg width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + (ICONS[k] || '') + '</svg>';
+/* Small inline icon for labels, pills and buttons: one size, one stroke. */
+function ic(k, s = 16) { return '<svg class="ic" width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[k] || '') + '</svg>'; }
+const icon = (k, s = 20) => '<svg width="' + s + '" height="' + s + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + (ICONS[k] || '') + '</svg>';
 
 function badges() {
   const me = S.me.id;
@@ -381,7 +421,7 @@ function renderShell() {
 }
 function setPageHeader() {
   const r = RM[S.route] || RM.home;
-  const t = S.route === 'home' ? (new Date().getHours() < 12 ? 'صباح الخير' : 'مساء الخير') + '، ' + firstName(S.me.id) : r.n;
+  const t = r.n;
   const sub = S.route === 'home' ? fmtDay(today()) : (SUBS[S.route] || '');
   ['#pgTitle', '#pgTitleM'].forEach(q => { const el = $(q); if (el) el.textContent = t; });
   ['#pgSub', '#pgSubM'].forEach(q => { const el = $(q); if (el) el.textContent = sub; });
@@ -439,7 +479,7 @@ function renderNav() {
 }
 function openMoreMenu() {
   const b = badges();
-  const root = sheet('<div class="sh"><b class="grow">كل الأقسام</b><button class="btn ghost sm" id="x">✕</button></div><div class="sb"><div class="menu-grid">' +
+  const root = sheet('<div class="sh"><b class="grow">كل الأقسام</b><button class="btn ghost sm" id="x">' + ic('x') + '</button></div><div class="sb"><div class="menu-grid">' +
     Object.entries(GROUPS).map(([g, gn]) => '<div class="mg-label">' + gn + '</div>' + ROUTES.filter(r => r.g === g).map(r =>
       '<button class="mg-item' + (S.route === r.k ? ' on' : '') + '" data-mgo="' + r.k + '">' + icon(r.ic, 24) + '<span>' + r.n + '</span>' + (b[r.k] ? '<i class="dot">' + b[r.k] + '</i>' : '') + '</button>').join('')).join('') +
     '</div></div>');
@@ -510,7 +550,7 @@ const canBrief = () => isApprover() || isAdmin();
 
 /* ───────── GLOBAL SEARCH ───────── */
 function openSearch() {
-  const root = sheet('<div class="sh"><input class="inp" id="gq" placeholder="ابحث في المحتوى، المنتجات، المهام، البريفات، الإعلانات، الشات…" autocomplete="off"><button class="btn ghost sm" id="x">✕</button></div><div class="sb" id="gres"><div class="muted small" style="padding:14px">اكتب كلمتين على الأقل</div></div>');
+  const root = sheet('<div class="sh"><input class="inp" id="gq" placeholder="ابحث في المحتوى، المنتجات، المهام، البريفات، الإعلانات، الشات…" autocomplete="off"><button class="btn ghost sm" id="x">' + ic('x') + '</button></div><div class="sb" id="gres"><div class="muted small" style="padding:14px">اكتب كلمتين على الأقل</div></div>');
   $('#x').onclick = closeSheet;
   const q = $('#gq'); q.focus();
   q.oninput = () => {
@@ -520,12 +560,12 @@ function openSearch() {
     const sec = (title, rows) => rows.length ? '<div class="sectitle">' + title + ' <span class="muted small">' + rows.length + '</span></div><div class="card">' + rows.slice(0, 8).join('') + '</div>' : '';
     const row = (attr, ic, title, sub) => '<button class="srow" ' + attr + '><span class="sic">' + ic + '</span><span class="grow"><b>' + esc(title) + '</b>' + (sub ? '<div class="muted small">' + esc(sub) + '</div>' : '') + '</span></button>';
     const html =
-      sec('المحتوى', S.items.filter(i => has(i.title, i.brief, i.caption, i.script, i.product)).map(i => row('data-sitem="' + i.id + '"', TYPE_IC[i.type] || '📄', i.title, SM[i.stage].n + (i.owner ? ' · ' + firstName(i.owner) : '')))) +
-      sec('المنتجات', (S.products || []).filter(p => has(p.title, p.handle, ...(p.collections || []), ...(p.variants || []).map(x => x.sku))).map(p => row('data-sprod="' + esc(p.id) + '"', '🛍', p.title, prodPrice(p) + ((p.collections || [])[0] ? ' · ' + p.collections[0] : '')))) +
-      sec('المهام', S.tasks.filter(x => has(x.title, x.description)).map(x => row('data-stask="' + x.id + '"', '☑️', x.title, statusAr(x.status) + ' · ' + assigneesOf(x).map(firstName).join('، ')))) +
-      sec('البريفات', S.briefs.filter(x => has(x.text, x.notes)).map(x => row('data-sbrief="' + x.id + '"', '👑', (x.text || 'بريف صوتي').slice(0, 70), fmtTime(x.created_at)))) +
-      sec('الإعلانات', (S.ads || []).filter(a => has(a.advertiser, a.headline, a.body)).map(a => row('data-sad="' + a.id + '"', '📢', a.advertiser || a.landing_domain || 'إعلان', (a.headline || a.body || '').slice(0, 60)))) +
-      sec('الشات', S.chat.filter(m => has(m.text)).slice(-20).reverse().map(m => row('data-schat="1"', '💬', (m.text || '').slice(0, 70), firstName(m.author) + ' · ' + fmtTime(m.created_at))));
+      sec('المحتوى', S.items.filter(i => has(i.title, i.brief, i.caption, i.script, i.product)).map(i => row('data-sitem="' + i.id + '"', typeIc(i.type), i.title, SM[i.stage].n + (i.owner ? ' · ' + firstName(i.owner) : '')))) +
+      sec('المنتجات', (S.products || []).filter(p => has(p.title, p.handle, ...(p.collections || []), ...(p.variants || []).map(x => x.sku))).map(p => row('data-sprod="' + esc(p.id) + '"', ic('bag'), p.title, prodPrice(p) + ((p.collections || [])[0] ? ' · ' + p.collections[0] : '')))) +
+      sec('المهام', S.tasks.filter(x => has(x.title, x.description)).map(x => row('data-stask="' + x.id + '"', ic('tasks'), x.title, statusAr(x.status) + ' · ' + assigneesOf(x).map(firstName).join('، ')))) +
+      sec('البريفات', S.briefs.filter(x => has(x.text, x.notes)).map(x => row('data-sbrief="' + x.id + '"', ic('crown'), (x.text || 'بريف صوتي').slice(0, 70), fmtTime(x.created_at)))) +
+      sec('الإعلانات', (S.ads || []).filter(a => has(a.advertiser, a.headline, a.body)).map(a => row('data-sad="' + a.id + '"', ic('ads'), a.advertiser || a.landing_domain || 'إعلان', (a.headline || a.body || '').slice(0, 60)))) +
+      sec('الشات', S.chat.filter(m => has(m.text)).slice(-20).reverse().map(m => row('data-schat="1"', ic('msg'), (m.text || '').slice(0, 70), firstName(m.author) + ' · ' + fmtTime(m.created_at))));
     out.innerHTML = html || '<div class="empty" style="margin:14px">مفيش نتائج</div>';
     $$('[data-sitem]', out).forEach(b => b.onclick = () => openItem(b.dataset.sitem));
     $$('[data-stask]', out).forEach(b => b.onclick = () => openTask(b.dataset.stask));

@@ -30,7 +30,7 @@ async function syncProducts(quiet) {
     const { data, error } = await sb.functions.invoke('shopify-products', { body: { action: 'sync' } });
     if (error || (data && data.error)) throw new Error((data && data.error) || (error && error.message) || 'sync failed');
     await loadProducts();
-    if (!quiet) toast('اتحدث ' + data.synced + ' منتج ✓');
+    if (!quiet) toast('اتحدث ' + data.synced + ' منتج');
   } catch (e) {
     console.error('product sync', e);
     if (!quiet) toast('تعذر التحديث من Shopify — حاول تاني', 3500);
@@ -92,7 +92,7 @@ function prodCard(p) {
     (p.status !== 'ACTIVE' ? '<span class="er">' + esc(PROD_STATUS_AR[p.status] || p.status) + '</span>' : '') + '</div>' +
     '<div class="bd"><div class="pt" dir="auto">' + esc(p.title) + '</div>' +
     '<div class="st"><b>' + esc(prodPrice(p)) + '</b>' + (p.inventory != null ? '<span>' + (p.inventory <= 0 ? 'نفد' : 'مخزون ' + p.inventory) + '</span>' : '') + '</div>' +
-    ((nc || nt) ? '<div class="st">' + (nc ? '<span>🎬 ' + nc + ' محتوى</span>' : '') + (nt ? '<span>☑ ' + nt + ' مهمة</span>' : '') + '</div>' : '') + '</div></div>';
+    ((nc || nt) ? '<div class="st">' + (nc ? '<span>' + ic('film') + ' ' + nc + ' محتوى</span>' : '') + (nt ? '<span>' + ic('tasks') + ' ' + nt + ' مهمة</span>' : '') + '</div>' : '') + '</div></div>';
 }
 
 /* ───────── PRODUCT SHEET ───────── */
@@ -101,19 +101,19 @@ function openProduct(id) {
   const imgs = prodImgs(p), cs = contentFor(id), ts = tasksFor(id);
   const root = sheet('<div class="sh"><b class="grow" dir="auto">' + esc(p.title) + '</b>' +
     (safeUrl(p.url) ? '<a class="btn ghost sm" href="' + esc(safeUrl(p.url)) + '" target="_blank" rel="noopener">المتجر ↗</a>' : '') +
-    '<button class="btn ghost sm" id="x">✕</button></div><div class="sb">' +
+    '<button class="btn ghost sm" id="x">' + ic('x') + '</button></div><div class="sb">' +
     '<div class="meta" style="margin:10px 0"><span class="pill"><b>' + esc(prodPrice(p)) + '</b></span>' + (p.compare_at ? '<span class="pill" style="text-decoration:line-through">' + esc(egp(p.compare_at)) + '</span>' : '') +
       stockPill(p) + '<span class="pill">' + esc(PROD_STATUS_AR[p.status] || p.status || '') + '</span>' + (p.product_type ? '<span class="pill">' + esc(p.product_type) + '</span>' : '') + '</div>' +
     ((p.collections || []).length ? '<div class="row wrap" style="gap:6px">' + p.collections.map(c => '<span class="chip-link">' + esc(c) + '</span>').join('') + '</div>' : '') +
     '<div class="sectitle">الصور <span class="muted small">' + imgs.length + '</span></div>' +
     (imgs.length ? '<div class="muted small" style="margin-bottom:6px">اختار صور واستخدمها في كارت محتوى، مهمة أو الشات.</div><div class="pimgs" id="pImgs">' + imgs.map((im, i) =>
-      '<button class="pimg" data-pi="' + i + '" style="background-image:url(\'' + esc(shopImg(im.url, 400)) + '\')"><i>✓</i></button>').join('') + '</div>' +
-      '<div class="row wrap" style="gap:6px;margin-top:10px" id="pImgAct"><button class="btn sm" data-pimg="all">تحديد الكل</button><button class="btn sm" data-pimg="content">🎬 لكارت محتوى</button><button class="btn sm" data-pimg="task">☑ لمهمة</button><button class="btn sm" data-pimg="chat">💬 للشات</button><button class="btn sm" data-pimg="copy">🔗 نسخ الروابط</button><button class="btn sm" data-pimg="open">⬇ فتح الأصل</button></div>'
+      '<button class="pimg" data-pi="' + i + '" style="background-image:url(\'' + esc(shopImg(im.url, 400)) + '\')"><i>' + ic('check') + '</i></button>').join('') + '</div>' +
+      '<div class="row wrap" style="gap:6px;margin-top:10px" id="pImgAct"><button class="btn sm" data-pimg="all">تحديد الكل</button><button class="btn sm" data-pimg="content">لكارت محتوى</button><button class="btn sm" data-pimg="task">لمهمة</button><button class="btn sm" data-pimg="chat">للشات</button><button class="btn sm" data-pimg="copy">نسخ الروابط</button><button class="btn sm" data-pimg="open">⬇ فتح الأصل</button></div>'
       : '<div class="muted small">المنتج ده مفيهوش صور على Shopify</div>') +
     ((p.variants || []).length > 1 || ((p.variants || [])[0] || {}).sku ? '<div class="sectitle">المقاسات / الألوان</div><div class="list">' + p.variants.map(x => '<div class="lrow"><span class="grow" dir="auto"><b>' + esc(x.title) + '</b>' + (x.sku ? ' <span class="muted small" dir="ltr">' + esc(x.sku) + '</span>' : '') + '</span><span class="muted small">' + esc(egp(x.price)) + (x.inventory != null ? ' · ' + x.inventory + ' قطعة' : '') + '</span></div>').join('') + '</div>' : '') +
-    '<div class="sectitle">🎬 المحتوى عن المنتج <span class="muted small">' + cs.length + '</span></div>' +
+    '<div class="sectitle">المحتوى عن المنتج <span class="muted small">' + cs.length + '</span></div>' +
     (cs.length ? '<div class="list">' + cs.map(i => ccard(i)).join('') + '</div>' : '<div class="muted small">مفيش محتوى لسه</div>') +
-    '<div class="sectitle">☑ المهام <span class="muted small">' + ts.length + '</span></div>' +
+    '<div class="sectitle">المهام <span class="muted small">' + ts.length + '</span></div>' +
     (ts.length ? '<div class="list">' + ts.map(t => taskCard(t, { compact: true })).join('') + '</div>' : '<div class="muted small">مفيش مهام لسه</div>') +
     '</div><div class="sf"><button class="btn pri" id="pNewC">+ محتوى للمنتج ده</button>' + (isAdmin() ? '<button class="btn" id="pNewT">+ مهمة للمنتج ده</button>' : '') + '</div>', { wide: true });
   $('#x').onclick = closeSheet;
@@ -139,7 +139,7 @@ function chooseTarget(kind, p, files) {
   const linked = kind === 'content' ? contentFor(p.id) : tasksFor(p.id);
   const rest = kind === 'content' ? S.items.filter(i => !linked.includes(i) && i.stage !== 'posted') : S.tasks.filter(t => !linked.includes(t) && t.status !== 'Done');
   const opt = x => '<option value="' + x.id + '">' + esc(x.title) + '</option>';
-  const ov = stackOverlay('<div class="sh"><b class="grow">' + (kind === 'content' ? 'أضف الصور لكارت محتوى' : 'أضف الصور لمهمة') + '</b><button class="btn ghost sm" data-close>✕</button></div><div class="sb">' +
+  const ov = stackOverlay('<div class="sh"><b class="grow">' + (kind === 'content' ? 'أضف الصور لكارت محتوى' : 'أضف الصور لمهمة') + '</b><button class="btn ghost sm" data-close>' + ic('x') + '</button></div><div class="sb">' +
     '<div class="files" style="margin:10px 0">' + files.map(f => '<span class="file" style="background-image:url(\'' + esc(shopImg(f.url, 200)) + '\')"></span>').join('') + '</div>' +
     '<label class="lb">اختار</label><select class="inp" id="ctSel">' + (linked.length ? '<optgroup label="مرتبط بالمنتج">' + linked.map(opt).join('') + '</optgroup>' : '') + '<optgroup label="الباقي">' + rest.map(opt).join('') + '</optgroup></select>' +
     '</div><div class="sf"><button class="btn pri" id="ctGo">إضافة</button>' + (kind === 'content' || isAdmin() ? '<button class="btn" id="ctNew">+ ' + (kind === 'content' ? 'كارت جديد' : 'مهمة جديدة') + ' بالصور دي</button>' : '') + '</div>');
@@ -188,14 +188,14 @@ function pickProducts(selected, title) {
   return new Promise(res => {
     const sel = new Set(selected || []);
     let done = false;
-    const ov = stackOverlay('<div class="sh"><input class="inp" id="ppQ" placeholder="ابحث عن منتج…" autocomplete="off"><button class="btn ghost sm" data-close>✕</button></div>' +
+    const ov = stackOverlay('<div class="sh"><input class="inp" id="ppQ" placeholder="ابحث عن منتج…" autocomplete="off"><button class="btn ghost sm" data-close>' + ic('x') + '</button></div>' +
       '<div class="sb"><div class="muted small" style="margin:8px 0">' + esc(title || 'اختار منتج أو أكتر') + '</div><div class="ppick" id="ppList"></div></div>' +
       '<div class="sf"><button class="btn pri" id="ppOk">تم <span id="ppN"></span></button></div>');
     const draw = () => {
       const q = $('#ppQ', ov).value.trim().toLowerCase();
       const list = S.products.filter(p => sel.has(p.id) || ((p.status === 'ACTIVE' || q) && (!q || [p.title, ...(p.collections || []), ...(p.variants || []).map(x => x.sku)].some(x => String(x || '').toLowerCase().includes(q)))))
         .sort((a, b) => (sel.has(b.id) ? 1 : 0) - (sel.has(a.id) ? 1 : 0)).slice(0, 120);
-      $('#ppList', ov).innerHTML = list.length ? list.map(p => '<button class="pprow' + (sel.has(p.id) ? ' on' : '') + '" data-pp="' + esc(p.id) + '"><span class="pth" style="background-image:url(\'' + esc(shopImg(p.image, 120) || '') + '\')"></span><span class="grow"><b dir="auto">' + esc(p.title) + '</b><span class="muted small">' + esc(prodPrice(p)) + ((p.collections || [])[0] ? ' · ' + esc(p.collections[0]) : '') + '</span></span><i>✓</i></button>').join('')
+      $('#ppList', ov).innerHTML = list.length ? list.map(p => '<button class="pprow' + (sel.has(p.id) ? ' on' : '') + '" data-pp="' + esc(p.id) + '"><span class="pth" style="background-image:url(\'' + esc(shopImg(p.image, 120) || '') + '\')"></span><span class="grow"><b dir="auto">' + esc(p.title) + '</b><span class="muted small">' + esc(prodPrice(p)) + ((p.collections || [])[0] ? ' · ' + esc(p.collections[0]) : '') + '</span></span><i>' + ic('check') + '</i></button>').join('')
         : '<div class="empty">' + (S.products.length ? 'مفيش نتائج' : 'المنتجات لسه بتتحمل من Shopify…') + '</div>';
       $('#ppN', ov).textContent = sel.size ? '(' + sel.size + ')' : '';
       $$('[data-pp]', ov).forEach(b => b.onclick = () => { const id = b.dataset.pp; sel.has(id) ? sel.delete(id) : sel.add(id); b.classList.toggle('on', sel.has(id)); $('#ppN', ov).textContent = sel.size ? '(' + sel.size + ')' : ''; });
@@ -212,17 +212,17 @@ function pickProductImages(productIds, title) {
   return new Promise(res => {
     const chosen = new Map();     // url -> file
     let cur = (productIds || []).find(id => prod(id)) || null, done = false;
-    const ov = stackOverlay('<div class="sh"><b class="grow">' + esc(title || 'صور المنتجات') + '</b><button class="btn ghost sm" data-close>✕</button></div><div class="sb" id="piBody"></div>' +
+    const ov = stackOverlay('<div class="sh"><b class="grow">' + esc(title || 'صور المنتجات') + '</b><button class="btn ghost sm" data-close>' + ic('x') + '</button></div><div class="sb" id="piBody"></div>' +
       '<div class="sf"><button class="btn pri" id="piOk">استخدام الصور <span id="piN"></span></button></div>');
     const count = () => { $('#piN', ov).textContent = chosen.size ? '(' + chosen.size + ')' : ''; };
     const draw = () => {
       const body = $('#piBody', ov), linked = (productIds || []).map(prod).filter(Boolean);
       let h = '<div class="chips" style="margin-top:10px">' + linked.map(p => '<button class="chip' + (cur === p.id ? ' on' : '') + '" data-pic="' + esc(p.id) + '">' + esc(p.title.slice(0, 28)) + '</button>').join('') +
-        '<button class="chip' + (!cur ? ' on' : '') + '" data-pic="">🔍 كل المنتجات</button></div>';
+        '<button class="chip' + (!cur ? ' on' : '') + '" data-pic="">كل المنتجات</button></div>';
       if (cur) {
         const p = prod(cur), imgs = prodImgs(p);
         h += '<div class="row" style="margin:6px 0 8px"><b class="grow" dir="auto">' + esc(p.title) + '</b><button class="btn sm ghost" data-piall>تحديد الكل</button></div>' +
-          (imgs.length ? '<div class="pimgs">' + imgs.map((im, i) => '<button class="pimg' + (chosen.has(im.url) ? ' on' : '') + '" data-pimgi="' + i + '" style="background-image:url(\'' + esc(shopImg(im.url, 400)) + '\')"><i>✓</i></button>').join('') + '</div>' : '<div class="muted small">مفيش صور للمنتج ده</div>');
+          (imgs.length ? '<div class="pimgs">' + imgs.map((im, i) => '<button class="pimg' + (chosen.has(im.url) ? ' on' : '') + '" data-pimgi="' + i + '" style="background-image:url(\'' + esc(shopImg(im.url, 400)) + '\')"><i>' + ic('check') + '</i></button>').join('') + '</div>' : '<div class="muted small">مفيش صور للمنتج ده</div>');
       } else {
         h += '<input class="inp" id="piQ" placeholder="ابحث عن منتج…" value="' + esc(S._piQ || '') + '" style="margin-bottom:8px">';
         const q = (S._piQ || '').trim().toLowerCase();
@@ -246,13 +246,13 @@ function pickProductImages(productIds, title) {
 /* ───────── BLOCKS used by content and task sheets ───────── */
 function productsBlock(ids, key) {
   const ps = (ids || []).map(id => prod(id) || { id, title: 'منتج #' + id, missing: true });
-  return '<div class="sectitle">🛍 المنتجات <span class="muted small">' + ps.length + '</span></div>' +
+  return '<div class="sectitle">المنتجات <span class="muted small">' + ps.length + '</span></div>' +
     (ps.length ? '<div class="plinks">' + ps.map(p => '<div class="plink">' +
       '<button class="pth" data-goprod="' + esc(p.id) + '" style="' + (p.image ? 'background-image:url(\'' + esc(shopImg(p.image, 160)) + '\')' : '') + '"></button>' +
       '<button class="grow plt" data-goprod="' + esc(p.id) + '"><b dir="auto">' + esc(p.title) + '</b><span class="muted small">' + (p.missing ? 'مش موجود في الكتالوج' : esc(prodPrice(p)) + (p.inventory != null ? ' · ' + (p.inventory <= 0 ? 'نفد' : 'مخزون ' + p.inventory) : '')) + '</span></button>' +
-      '<button class="xbtn" data-unprod="' + key + '|' + esc(p.id) + '" title="فك الربط">✕</button></div>').join('') + '</div>' : '') +
+      '<button class="xbtn" data-unprod="' + key + '|' + esc(p.id) + '" title="فك الربط">' + ic('x') + '</button></div>').join('') + '</div>' : '') +
     '<div class="row wrap" style="gap:6px;margin-top:8px"><button class="btn sm" data-linkprod="' + key + '">+ ربط منتج من Shopify</button>' +
-    (ps.some(p => prodImgs(p).length) ? '<button class="btn sm" data-useimgs="' + key + '">📸 استخدم صور المنتج</button>' : '') + '</div>';
+    (ps.some(p => prodImgs(p).length) ? '<button class="btn sm" data-useimgs="' + key + '">استخدم صور المنتج</button>' : '') + '</div>';
 }
 document.addEventListener('click', e => {
   const g = e.target.closest('[data-goprod]');
@@ -270,7 +270,7 @@ function bindProductsBlock(root, rerender) {
     const { k, x } = target(b.dataset.linkprod); if (!x) return;
     const ids = await pickProducts(x.product_ids || [], 'المنتجات اللي ' + (k === 'item' ? 'الكارت' : 'المهمة') + ' دي عنها');
     if (ids === null) return;
-    if (await save(k, x, ids)) { toast('تم الربط ✓', 1200); rerender(); renderAllBg(); }
+    if (await save(k, x, ids)) { toast('تم الربط', 1200); rerender(); renderAllBg(); }
   });
   $$('[data-unprod]', root).forEach(b => b.onclick = async () => {
     const [key, pid] = b.dataset.unprod.split('|'); const { k, x } = target(key); if (!x) return;
@@ -286,7 +286,7 @@ function bindProductsBlock(root, rerender) {
 }
 /* Product photo as the card thumbnail when the card has no image of its own. */
 function productThumb(it) { const p = (it.product_ids || []).map(prod).find(x => x && x.image); return p ? shopImg(p.image, 200) : null; }
-/* 🛍 button for any text box: inserts the chosen product photos as links (they show as images). */
+/* button for any text box: inserts the chosen product photos as links (they show as images). */
 async function insertProductImages(ta, productIds) {
   const files = await pickProductImages(productIds || [], 'إرسال صور منتج');
   if (!files || !files.length || !ta) return;

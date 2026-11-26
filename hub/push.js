@@ -30,7 +30,7 @@ function hqEnablePush() {
   const done = (perm) => {
     if (perm === 'granted' || perm === true) {
       window.registerUserWithOneSignal && window.registerUserWithOneSignal(S.me.id);
-      toast('✅ الإشعارات اتفعّلت على الجهاز ده', 2600);
+      toast('الإشعارات اتفعّلت على الجهاز ده', 2600);
       setTimeout(() => { loadPushStatus(); }, 4000);
     } else if (Notification.permission === 'denied') openPushHelp();
     else toast('لازم تضغط «سماح» عشان توصلك الإشعارات', 3000);
@@ -61,7 +61,7 @@ function pushHelpHtml() {
   return '';
 }
 function openPushHelp() {
-  sheet('<div class="sh"><button class="btn ghost sm" onclick="closeSheet()">✕</button><b class="grow">🔔 تفعيل الإشعارات</b></div><div class="pad">' + pushHelpHtml() +
+  sheet('<div class="sh"><button class="btn ghost sm" onclick="closeSheet()">' + ic('x') + '</button><b class="grow">تفعيل الإشعارات</b></div><div class="pad">' + pushHelpHtml() +
     '<button class="btn pri" style="width:100%;margin-top:12px" onclick="closeSheet()">تمام</button></div>');
 }
 
@@ -69,14 +69,14 @@ function openPushHelp() {
 function webPushBanner(force) {
   const st = pushState();
   if (st === 'on' && !force) return '';
-  if (st === 'on') return '<div class="card pad pushcard on"><div class="row"><div class="grow"><b>🔔 الإشعارات شغالة على الجهاز ده</b><div class="muted small">لو غيّرت الموبايل أو المتصفح، فعّلها تاني هناك.</div></div>' +
+  if (st === 'on') return '<div class="card pad pushcard on"><div class="row"><div class="grow"><b>الإشعارات شغالة على الجهاز ده</b><div class="muted small">لو غيّرت الموبايل أو المتصفح، فعّلها تاني هناك.</div></div>' +
     '<button class="btn sm" data-pushtest="1">إشعار تجريبي</button></div></div>';
   const title = st === 'denied' ? 'الإشعارات مقفولة على الجهاز ده' : st === 'ios-install' ? 'ثبّت Muhra HQ على الآيفون عشان توصلك الإشعارات' : 'فعّل الإشعارات عشان ميفوتكش أي شغل';
-  const btn = st === 'ios-install' ? 'إزاي؟' : st === 'denied' ? 'إزاي أفتحها؟' : st === 'unsupported' ? '' : '🔔 تفعيل الإشعارات';
-  return '<div class="card pad pushcard"><div class="row"><div style="font-size:26px">🔔</div><div class="grow"><b>' + title + '</b>' +
+  const btn = st === 'ios-install' ? 'إزاي؟' : st === 'denied' ? 'إزاي أفتحها؟' : st === 'unsupported' ? '' : 'تفعيل الإشعارات';
+  return '<div class="card pad pushcard"><div class="row"><span class="pb-ic">' + ic('bell', 18) + '</span><div class="grow"><b>' + title + '</b>' +
     '<div class="muted small">مهام جديدة، موافقات، تعديلات، منشن، وبريفات د. مها هتوصلك على الموبايل حتى والتطبيق مقفول.</div></div></div>' +
     '<div class="row wrap" style="margin-top:10px">' + (btn ? '<button class="btn pri sm" data-pushon="1">' + btn + '</button>' : '<span class="muted small">افتح الرابط من Chrome أو Safari.</span>') +
-    (_installEvt && !PUSH_ENV.standalone ? '<button class="btn sm" data-install="1">📲 ثبّت التطبيق</button>' : '') + '</div></div>';
+    (_installEvt && !PUSH_ENV.standalone ? '<button class="btn sm" data-install="1">ثبّت التطبيق</button>' : '') + '</div></div>';
 }
 function bindWebPush(v) {
   v.querySelectorAll('[data-pushon]').forEach(b => b.onclick = hqEnablePush);
@@ -88,7 +88,7 @@ async function sendTestPush() {
   toast('بنبعت إشعار تجريبي…');
   const { data, error } = await sb.functions.invoke('send-push', { body: { external_ids: [S.me.id], title: '🔔 Muhra HQ', body: 'تمام! الإشعارات شغالة على جهازك.', url: HUB_URL } });
   if (error || !data || !data.ok) toast('لسه الجهاز مش مسجّل. استنى دقيقة وجرّب تاني، أو فعّل الإشعارات من جديد', 4000);
-  else toast('اتبعت ✅ لو موصلش خلال دقيقة، فعّل الإشعارات تاني', 3500);
+  else toast('اتبعت لو موصلش خلال دقيقة، فعّل الإشعارات تاني', 3500);
 }
 
 /* Who on the team has notifications on (any device). */
@@ -101,8 +101,8 @@ async function loadPushStatus() {
 function webPushPill(id) {
   const r = S.pushStatus && S.pushStatus[id];
   if (!r) return '';
-  return r.devices > 0 ? '<span class="pill okp" title="آخر تحديث ' + esc(String(r.last_seen || '').slice(0, 10)) + '">🔔 الإشعارات شغالة' + (r.devices > 1 ? ' (' + r.devices + ' أجهزة)' : '') + '</span>'
-    : '<span class="pill badp">🔕 الإشعارات مش مفعّلة</span>';
+  return r.devices > 0 ? '<span class="pill okp" title="آخر تحديث ' + esc(String(r.last_seen || '').slice(0, 10)) + '">الإشعارات شغالة' + (r.devices > 1 ? ' (' + r.devices + ' أجهزة)' : '') + '</span>'
+    : '<span class="pill badp">الإشعارات مش مفعّلة</span>';
 }
 
 const HUB_URL = 'https://baydon-create.github.io/muhra/';
@@ -120,9 +120,9 @@ function maybeAskWebPush() {
   if (Date.now() - last < 20 * 3600e3) return;
   if ($('#sheetRoot').innerHTML) return;
   try { localStorage.setItem(k, String(Date.now())); } catch (e) {}
-  sheet('<div class="sh"><button class="btn ghost sm" onclick="closeSheet()">✕</button><b class="grow">🔔 خطوة مهمة</b></div><div class="pad">' +
+  sheet('<div class="sh"><button class="btn ghost sm" onclick="closeSheet()">' + ic('x') + '</button><b class="grow">خطوة مهمة</b></div><div class="pad">' +
     '<p style="margin:0 0 12px">فعّل الإشعارات عشان توصلك المهام والموافقات والتعديلات والمنشن على الموبايل فورًا.</p>' +
-    (st === 'off' ? '<button class="btn pri" id="pushNow" style="width:100%">🔔 تفعيل الإشعارات</button>' : pushHelpHtml()) +
+    (st === 'off' ? '<button class="btn pri" id="pushNow" style="width:100%">تفعيل الإشعارات</button>' : pushHelpHtml()) +
     '<button class="btn" style="width:100%;margin-top:8px" onclick="closeSheet()">بعدين</button></div>');
   const b = $('#pushNow'); if (b) b.onclick = () => { closeSheet(); hqEnablePush(); };
 }
@@ -138,7 +138,7 @@ async function loadTgStatus() {
   const before = JSON.stringify(S.tg), was = S.tg && S.me && S.tg[S.me.id];
   S.tg = {}; (data || []).forEach(r => S.tg[r.member_id] = r);
   const now = S.me && S.tg[S.me.id];
-  if (was && !was.linked && now && now.linked) { toast('✅ تليجرام اتربط! الإشعارات هتوصلك هناك', 3500); clearInterval(_tgPoll); if ($('.pushcard-in')) closeSheet(); }
+  if (was && !was.linked && now && now.linked) { toast('تليجرام اتربط، الإشعارات هتوصلك هناك', 3500); clearInterval(_tgPoll); if ($('.pushcard-in')) closeSheet(); }
   if (before !== JSON.stringify(S.tg)) hqPushChanged();
 }
 function tgLinked(id) { return !!(S.tg && S.tg[id || S.me.id] && S.tg[id || S.me.id].linked); }
@@ -162,15 +162,14 @@ function pushBanner(force) {
   if (tgLinked()) {
     if (!force) return '';
     const r = S.tg[S.me.id];
-    return '<div class="card pad pushcard on"><div class="row wrap"><div class="grow"><b>✅ تليجرام مربوط</b><div class="muted small">كل إشعارات HQ بتوصلك على بوت تليجرام <span dir="ltr">@' + TG_BOT + '</span>' + (r.linked_at ? ' · من ' + esc(String(r.linked_at).slice(0, 10)) : '') + '</div></div>' +
+    return '<div class="card pad pushcard on"><div class="row wrap"><div class="grow"><b>تليجرام مربوط</b><div class="muted small">كل إشعارات HQ بتوصلك على بوت تليجرام <span dir="ltr">@' + TG_BOT + '</span>' + (r.linked_at ? ' · من ' + esc(String(r.linked_at).slice(0, 10)) : '') + '</div></div>' +
       '<button class="btn sm" data-pushtest="1">إشعار تجريبي</button><button class="btn sm ghost" data-tgunlink="1">فصل</button></div></div>';
   }
   const href = _tgCode ? 'https://t.me/' + TG_BOT + '?start=' + _tgCode : 'https://t.me/' + TG_BOT;
   setTimeout(tgPrepareLink, 0);
-  return '<div class="card pad pushcard"><div class="row"><div style="font-size:26px">📨</div><div class="grow"><b>اربط تليجرام عشان توصلك الإشعارات</b>' +
-    '<div class="muted small">مهام جديدة، موافقات، تعديلات، منشن، وبريفات د. مها هتوصلك على تليجرام فورًا. خطوة واحدة.</div></div></div>' +
-    '<a class="btn pri" data-tglink="1" target="_blank" rel="noopener" href="' + href + '" style="width:100%;margin-top:10px;justify-content:center;text-decoration:none">📨 ربط تليجرام</a>' +
-    '<div class="muted small" style="margin-top:8px">هيفتح تليجرام ← اضغط <b>Start</b> ← ارجع هنا هتلاقيه اتربط.</div></div>';
+  return '<div class="card pushbar"><span class="pb-ic">' + ic('send', 18) + '</span><div class="grow"><b>اربط تليجرام عشان توصلك الإشعارات</b>' +
+    '<div class="muted small">مهام، موافقات، تعديلات، منشن وبريفات د. مها. هيفتح تليجرام، اضغط <b dir="ltr">Start</b> وارجع هنا</div></div>' +
+    '<a class="btn pri sm" data-tglink="1" target="_blank" rel="noopener" href="' + href + '">ربط تليجرام</a></div>';
 }
 function bindPushBanner(v) {
   v.querySelectorAll('a[data-tglink]').forEach(a => a.addEventListener('click', e => {
@@ -194,14 +193,14 @@ function bindPushBanner(v) {
 }
 function pushPill(id) {
   if (!S.tg || !S.tg[id]) return '';
-  return S.tg[id].linked ? '<span class="pill okp">📨 تليجرام مربوط</span>' : '<span class="pill badp">🔕 تليجرام مش مربوط</span>';
+  return S.tg[id].linked ? '<span class="pill okp">تليجرام مربوط</span>' : '<span class="pill badp">تليجرام مش مربوط</span>';
 }
 async function sendTestPush() {
   toast('بنبعت إشعار تجريبي…');
   const { data, error } = await sb.functions.invoke('send-push', { body: { external_ids: [S.me.id], title: '🔔 إشعار تجريبي من Muhra HQ', body: 'تمام! الإشعارات شغالة.', url: HUB_URL } });
   if (error || !data) return toast('حصلت مشكلة، جرّب تاني', 3000);
-  if (data.telegram) toast('✅ اتبعت على تليجرام', 3000);
-  else if (data.webpush) toast('✅ اتبعت إشعار للمتصفح', 3000);
+  if (data.telegram) toast('اتبعت على تليجرام', 3000);
+  else if (data.webpush) toast('اتبعت إشعار للمتصفح', 3000);
   else toast('مفيش جهاز مربوط. اربط تليجرام الأول', 3500);
 }
 function maybeAskPush() {
@@ -211,9 +210,9 @@ function maybeAskPush() {
   const k = 'hq_tg_ask_' + S.me.id, last = +localStorage.getItem(k) || 0;
   if (Date.now() - last < 20 * 3600e3 || $('#sheetRoot').innerHTML) return;
   try { localStorage.setItem(k, String(Date.now())); } catch (e) {}
-  const root = sheet('<div class="sh"><button class="btn ghost sm" onclick="closeSheet()">✕</button><b class="grow">📨 خطوة مهمة</b></div><div class="pad">' +
+  const root = sheet('<div class="sh"><button class="btn ghost sm" onclick="closeSheet()">' + ic('x') + '</button><b class="grow">خطوة مهمة</b></div><div class="pad">' +
     '<p style="margin:0 0 12px">كل إشعارات الفريق بقت على تليجرام. اربط حسابك مرة واحدة وهتوصلك المهام والموافقات والمنشن فورًا.</p>' +
-    pushBanner().replace('card pad pushcard', 'pushcard-in') + '<button class="btn" style="width:100%;margin-top:8px" onclick="closeSheet()">بعدين</button></div>');
+    pushBanner().replace('card pushbar', 'pushbar pushcard-in') + '<button class="btn" style="width:100%;margin-top:8px" onclick="closeSheet()">بعدين</button></div>');
   bindPushBanner(root);
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden && S.me && S.tg && !tgLinked()) loadTgStatus(); });
