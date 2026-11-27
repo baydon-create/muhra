@@ -231,10 +231,12 @@ async function moveStage(it, to, opts = {}) {
   if (!(await updateItem(it.id, patch, true))) return;
   await logAct(it.id, opts.changes ? 'changes' : 'stage', from, to, opts.changes || null);
   const team = [it.owner, ...(it.helpers || [])];
-  if (to === 'review') push(approverIds(), '👀 محتوى للمراجعة', it.title);
-  else if (to === 'approved') push(team, '✅ تمت الموافقة', it.title);
-  else if (opts.changes) push(team, '✏️ مطلوب تعديلات', it.title + ' — ' + opts.changes);
-  else if (to === 'posted') push([...team, ...approverIds()], '📣 تم النشر', it.title);
+  // Review / approved / changes / posted: approvers get the detailed Telegram card from the database trigger, so skip them here.
+  const appr = new Set(approverIds()), noAppr = ids => ids.filter(id => !appr.has(id));
+  if (to === 'review') { /* approvers: Telegram card only */ }
+  else if (to === 'approved') push(noAppr(team), '✅ تمت الموافقة', it.title);
+  else if (opts.changes) push(noAppr(team), '✏️ مطلوب تعديلات', it.title + ' — ' + opts.changes);
+  else if (to === 'posted') push(noAppr(team), '📣 تم النشر', it.title);
   else push(team, SM[to].n, it.title);
   toast(opts.changes ? 'تم إرسال طلب التعديل' : 'اتنقل إلى «' + SM[to].n + '»');
   renderAll();

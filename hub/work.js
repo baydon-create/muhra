@@ -88,7 +88,7 @@ async function updateTask(id, patch, opts = {}) {
   const t = S.tasks.find(x => x.id === id); if (t) Object.assign(t, patch);
   const { error } = await sb.from('tasks').update(patch).eq('id', id);
   if (error) { toast('لم يتم الحفظ'); console.error(error); return false; }
-  if (t && 'status' in patch) push([...new Set([...assigneesOf(t), ...others()])], '☑️ ' + t.title, firstName(S.me.id) + ' غيّر الحالة إلى «' + statusAr(patch.status) + '»');
+  if (t && 'status' in patch) push([...new Set([...assigneesOf(t), t.created_by, ...adminIds()])], '☑️ ' + t.title, firstName(S.me.id) + ' غيّر الحالة إلى «' + statusAr(patch.status) + '»');
   if (!opts.silent) renderAll();
   return true;
 }
