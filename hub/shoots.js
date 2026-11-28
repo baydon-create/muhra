@@ -210,8 +210,10 @@ function shootTabHtml(sh, tab) {
 
   if (tab === 'shots') {
     const shots = sh.shots || [], stage = sh.stage, dayMode = stage === 'shoot_day', selMode = stage === 'selects';
-    const sel = S._shotSel && S._shotSel.id === sh.id ? S._shotSel.ids : new Set(shots.filter(x => x.done && !x.made_item).map(x => x.id));
-    S._shotSel = { id: sh.id, ids: sel };
+    // The selection is kept only while choosing selects; before that it would freeze as «nothing shot yet»
+    const keep = S._shotSel && S._shotSel.id === sh.id && S._shotSel.stage === stage;
+    const sel = keep ? S._shotSel.ids : new Set(shots.filter(x => x.done && !x.made_item).map(x => x.id));
+    S._shotSel = { id: sh.id, stage, ids: sel };
     const view = selMode ? 'list' : shotViewOf(sh);
     const models = shootModels(sh);
     let h = '<div class="shview"><div class="seg" role="tablist">' + [['list', 'كل اللقطات'], ['piece', 'حسب القطعة'], ['model', 'حسب الموديل']].map(([k, n]) => '<button data-shview="' + k + '" class="' + (view === k ? 'on' : '') + '"' + (selMode && k !== 'list' ? ' disabled' : '') + '>' + n + '</button>').join('') + '</div></div>';
