@@ -128,8 +128,8 @@ function mentionsIn(text) {
   S.team.forEach(m => { const f = firstName(m.id); if (text.includes('@' + f) || text.includes('@' + m.name) || text.toLowerCase().includes('@' + m.id)) out.push(m.id); });
   return out;
 }
-/* Signature: a seam of 8 stitches, filled up to the card's stage (idea → posted). */
-function stageTag(k) { const s = SM[k] || STAGES[0], i = SI[s.k]; return '<span class="stage-tag" title="' + s.n + ' · ' + (i + 1) + '/' + STAGES.length + '"><span class="seam">' + STAGES.map((_, j) => '<i' + (j <= i ? ' class="on"' : '') + '></i>').join('') + '</span>' + s.n + '</span>'; }
+/* Stage tag: each stage has its own colour token (--s-idea … --s-posted in hub.css). */
+function stageTag(k) { const s = SM[k] || STAGES[0], i = SI[s.k]; return '<span class="stage-tag" style="--c:var(--s-' + s.k + ')" title="' + s.n + ' · ' + (i + 1) + '/' + STAGES.length + '">' + s.n + '</span>'; }
 function dueInfo(it) {
   if (DONE_STAGES.includes(it.stage)) return '';
   const out = [];
@@ -249,7 +249,7 @@ async function updateItem(id, patch, silent) {
 
 /* ───────── LOGIN ───────── */
 function loginShell(inner) {
-  $('#app').innerHTML = '<div class="login"><div class="box"><img class="login-logo" src="assets/muhra-logo.png" alt="Muhra"><div class="muted" style="letter-spacing:.3em;font-size:11px;margin:6px 0 24px">HQ</div>' + inner + '</div></div>';
+  $('#app').innerHTML = '<div class="login"><div class="box"><span class="login-logo"><img class="lg-dk" src="assets/muhra-logo.png" alt="Muhra"><img class="lg-lt" src="assets/muhra-logo-light.png" alt="" aria-hidden="true"></span><div class="muted" style="letter-spacing:.3em;font-size:11px;margin:6px 0 24px">HQ</div>' + inner + '</div></div>';
 }
 function renderLogin(err) {
   loginShell('<form id="lf" class="card pad" style="text-align:right" autocomplete="on">' +
@@ -395,7 +395,7 @@ function renderShell() {
     '<aside class="side" id="side"></aside>' +
     '<div class="shell">' +
       '<header class="top">' +
-        '<a class="logo" href="#/home" aria-label="Muhra HQ"><img src="assets/muhra-logo.png" alt="Muhra"><span class="hq">HQ</span></a>' +
+        '<a class="logo" href="#/home" aria-label="Muhra HQ"><img class="lg-dk" src="assets/muhra-logo.png" alt="Muhra"><img class="lg-lt" src="assets/muhra-logo-light.png" alt="" aria-hidden="true"><span class="hq">HQ</span></a>' +
         '<div class="pgt"><h1 id="pgTitle"></h1><p id="pgSub"></p></div>' +
         '<div class="sp"></div>' +
         '<button class="searchbox" id="searchBtn" aria-label="بحث">' + icon('search', 17) + '<span>ابحث في كل حاجة…</span><kbd>/</kbd></button>' +
@@ -465,7 +465,7 @@ function navItem(r, b, cls) {
 function renderNav() {
   if (!$('#nav')) return;
   const b = badges();
-  $('#side').innerHTML = '<a class="sbrand" href="#/home"><img src="assets/muhra-logo.png" alt="Muhra"><span>HQ</span></a>' +
+  $('#side').innerHTML = '<a class="sbrand" href="#/home"><img class="lg-dk" src="assets/muhra-logo.png" alt="Muhra"><img class="lg-lt" src="assets/muhra-logo-light.png" alt="" aria-hidden="true"><span>HQ</span></a>' +
     '<button class="sfind" data-sfind="1">' + icon('search', 16) + '<span>بحث</span><kbd>/</kbd></button>' +
     '<div class="snav">' + Object.entries(GROUPS).map(([g, gn]) => '<div class="sgroup"><div class="sglabel">' + gn + '</div>' + ROUTES.filter(r => r.g === g).map(r => navItem(r, b, 'sitem')).join('') + '</div>').join('') + '</div>' +
     '<button class="sfoot" data-go="team">' + av(S.me.id) + '<span class="grow"><b>' + esc(S.me.name) + '</b><small>' + (S.me.role === 'admin' ? 'مدير' : 'عضو') + (S.me.title ? ' · ' + esc(S.me.title) : '') + '</small></span></button>';
@@ -607,7 +607,7 @@ async function boot() {
 sb.auth.onAuthStateChange(ev => { if (ev === 'SIGNED_OUT' && S.me) { S.me = null; localStorage.removeItem(UID_KEY); renderLogin('انتهت الجلسة، سجل الدخول تاني'); } });
 async function boot2() {
   renderShell();
-  $('#view').innerHTML = '<div class="empty">جاري التحميل…</div>';
+  $('#view').innerHTML = '<div class="kpis k4" aria-busy="true" aria-label="جاري التحميل">' + '<div class="card skel-card"><span class="skel" style="width:40%"></span><span class="skel" style="width:70%;height:20px"></span></div>'.repeat(4) + '</div>';
   await Promise.all([loadItems(), loadTasks(), loadBriefs(), loadChat(), loadAds(), loadProducts()]);
   subscribe();
   if (!S._listeners) {

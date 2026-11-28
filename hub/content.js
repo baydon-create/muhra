@@ -12,12 +12,12 @@ function viewHome(v) {
   const waitingMine = S.items.filter(i => i.stage === 'review' && i.owner === me);
   const shown = new Set([...mine, ...(isApprover() ? review : []), ...waitingMine].map(i => i.id));
   const notReady = S.items.filter(i => !shown.has(i.id) && i.publish_date && dayDiff(i.publish_date) >= 0 && dayDiff(i.publish_date) <= 2 && !DONE_STAGES.includes(i.stage));
-  const kpi = (v, l, cls, href) => '<a class="card kpi hk' + (cls ? ' ' + cls : '') + '" href="' + href + '"><div class="l">' + l + '</div><div class="v">' + v + '</div></a>';
+  const kpi = (v, l, cls, href, k) => '<a class="card kpi hk' + (cls ? ' ' + cls : '') + '" href="' + href + '"><span class="ki">' + ic(k, 17) + '</span><div class="v">' + v + '</div><div class="l">' + l + '</div></a>';
   let html = '<div class="kpis k4 homek">' +
-    kpi(mine.length, 'محتوى عليك', '', '#/content') +
-    kpi(openTasksN, 'مهام مفتوحة', '', '#/tasks') +
-    (isApprover() ? kpi(review.length, 'بانتظار موافقتك', review.length ? 'warnk' : '', '#/content') : kpi(waitingMine.length, 'مستني الموافقة', '', '#/content')) +
-    kpi(notReady.length, 'نشر قريب ومش جاهز', notReady.length ? 'badk' : '', '#/calendar') + '</div>';
+    kpi(mine.length, 'محتوى عليك', '', '#/content', 'board') +
+    kpi(openTasksN, 'مهام مفتوحة', 't-info', '#/tasks', 'tasks') +
+    (isApprover() ? kpi(review.length, 'بانتظار موافقتك', review.length ? 'warnk' : 't-ok', '#/content', 'crown') : kpi(waitingMine.length, 'مستني الموافقة', waitingMine.length ? 'warnk' : 't-ok', '#/content', 'crown')) +
+    kpi(notReady.length, 'نشر قريب ومش جاهز', notReady.length ? 'badk' : 't-ok', '#/calendar', 'cal') + '</div>';
   html += (typeof pushBanner === 'function' ? pushBanner() : '');
   html += weekStrip();
   if (isApprover()) {
@@ -49,8 +49,8 @@ function viewHome(v) {
 function weekStrip() {
   const t = today(); let cells = '';
   for (let d = 0; d < 7; d++) {
-    const k = addDays(t, d), n = S.items.filter(i => i.publish_date === k).length, dt = new Date(k + 'T12:00:00');
-    cells += '<div class="wd ' + (n ? '' : 'gap ') + (d === 0 ? 'today' : '') + '" data-day="' + k + '"><div class="d">' + AR_DAYS[dt.getDay()].replace('ال', '') + '</div><div class="n">' + dt.getDate() + '</div><div class="c">' + (n ? n + ' منشور' : 'فاضي') + '</div><div class="pips">' + '<i></i>'.repeat(Math.min(n, 4)) + '</div></div>';
+    const k = addDays(t, d), day = S.items.filter(i => i.publish_date === k), n = day.length, dt = new Date(k + 'T12:00:00');
+    cells += '<div class="wd ' + (n ? '' : 'gap ') + (d === 0 ? 'today' : '') + '" data-day="' + k + '"><div class="d">' + AR_DAYS[dt.getDay()].replace('ال', '') + '</div><div class="n">' + dt.getDate() + '</div><div class="c">' + (n ? n + ' منشور' : 'فاضي') + '</div><div class="pips">' + day.slice(0, 4).map(i => '<i style="background:var(--s-' + (SM[i.stage] ? i.stage : 'idea') + ')"></i>').join('') + '</div></div>';
   }
   return '<div class="week">' + cells + '</div>';
 }
@@ -88,7 +88,7 @@ function viewBoard(v) {
     html += '<button class="postedbar" data-golist="posted">' + ic('ads') + '<span>منشور</span><b>' + posted.length + '</b><span class="muted">في آخر ' + (f.period || 30) + ' يوم</span><span class="grow"></span><span class="seeall">عرض في القائمة ←</span></button>';
     html += '<div class="kanban fit">' + BOARD_COLS.map(c => {
       const col = sortCol(pool.filter(i => c.st.includes(i.stage)), c.k);
-      return '<section class="kcol"><h3><span>' + c.n + '</span><span class="kn">' + col.length + '</span></h3><div class="kbody">' +
+      return '<section class="kcol" style="--c:var(--s-' + (c.k === 'ready' ? 'approved' : c.k) + ')"><h3><span>' + c.n + '</span><span class="kn">' + col.length + '</span></h3><div class="kbody">' +
         (col.map(i => ccard(i, { compact: true, noStage: c.k !== 'ready' })).join('') || '<div class="kempty">لا يوجد</div>') + '</div></section>';
     }).join('') + '</div>';
   } else {
@@ -105,7 +105,7 @@ function viewBoard(v) {
     if (!total) html += '<div class="empty">مفيش محتوى هنا</div>';
     else if (wide) {
       html += '<div class="card ptable"><table class="tb"><thead><tr>' + th('title', 'العنوان') + th('stage', 'المرحلة') + th('type', 'النوع') + th('owner', 'المسؤول') + th('date', tab.k === 'posted' ? 'اتنشر' : 'النشر', 'dcol') + '</tr></thead><tbody>' +
-        rows.map(i => '<tr data-open="' + i.id + '"><td class="tt"><bdi>' + esc(i.title) + '</bdi>' + (isLate(i) ? ' <span class="pill late">متأخر</span>' : '') + (i.changes_note && !DONE_STAGES.includes(i.stage) ? ' <span class="pill soon">تعديلات</span>' : '') + '</td><td>' + stageTag(i.stage) + '</td><td class="muted">' + typeIc(i.type) + ' ' + (TYPES[i.type] || '') + '</td><td>' + (i.owner ? '<span class="who">' + av(i.owner) + esc(firstName(i.owner)) + '</span>' : '<span class="muted">—</span>') + '</td><td class="dcol">' + (kf(i) && kf(i) !== '9999' ? fmtShort(kf(i)) : '<span class="muted">—</span>') + '</td></tr>').join('') +
+        rows.map(i => '<tr data-open="' + i.id + '"' + (isLate(i) ? ' class="is-late"' : '') + '><td class="tt"><bdi>' + esc(i.title) + '</bdi>' + (isLate(i) ? ' <span class="pill late">متأخر</span>' : '') + (i.changes_note && !DONE_STAGES.includes(i.stage) ? ' <span class="pill soon">تعديلات</span>' : '') + '</td><td>' + stageTag(i.stage) + '</td><td class="muted">' + typeIc(i.type) + ' ' + (TYPES[i.type] || '') + '</td><td>' + (i.owner ? '<span class="who">' + av(i.owner) + esc(firstName(i.owner)) + '</span>' : '<span class="muted">—</span>') + '</td><td class="dcol">' + (kf(i) && kf(i) !== '9999' ? fmtShort(kf(i)) : '<span class="muted">—</span>') + '</td></tr>').join('') +
         '</tbody></table></div>';
     } else html += '<div class="list">' + rows.map(i => ccard(i)).join('') + '</div>';
     if (total > rows.length) html += '<button class="btn more" id="moreRows">عرض المزيد · ' + (total - rows.length) + ' باقي</button>';

@@ -5,17 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Media Compressor</title>
 <meta name="description" content="Bulk image and video compression for Shopify. Runs entirely on your device.">
-<meta name="theme-color" content="#FFFFFF">
+<meta name="theme-color" content="#F5F0EB" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#120E0B" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232952CC'/%3E%3Cpath d='M11 7v6h-4M21 7v6h4M11 25v-6h-4M21 25v-6h4' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#FFFFFF; --surface:#FFFFFF; --surface-2:#F5F4F4; --surface-3:#EBEAEA;
-  --ink:#1A1410; --ink-2:#3F3A36; --muted:#6C6966; --line:#E6E5E5; --line-strong:#D1D0CF;
-  --accent:#4A3226; --accent-hover:#3D291F; --accent-ink:#FFFFFF; --accent-soft:#F1EFEE; --accent-line:#D4CECB;
-  --ok:#4A3226; --ok-soft:#F1EFEE; --warn:#4A3226; --warn-soft:#F1EFEE; --bad:#1A1410; --bad-soft:#F5F4F4;
+  --bg:#F5F0EB; --surface:#FFFFFF; --surface-2:#FAF6F2; --surface-3:#F1EAE3;
+  --ink:#1C1410; --ink-2:#3D3029; --muted:#6B5D53; --line:#E6DCD3; --line-strong:#D3C5B8;
+  --accent:#4A3226; --accent-hover:#5E4132; --accent-ink:#FFFFFF; --accent-soft:#F6ECE1; --accent-line:#E0CDB9;
+  --ok:#1B7A4B; --ok-soft:#E5F4EB; --warn:#9A5200; --warn-soft:#FCEFD9; --bad:#BE342A; --bad-soft:#FCE8E6;
   --shadow-sm:0 1px 2px rgba(29,24,20,.04);
   --shadow:0 1px 2px rgba(29,24,20,.04),0 4px 16px -4px rgba(29,24,20,.07);
   --shadow-lg:0 24px 64px -16px rgba(29,24,20,.3);
@@ -23,7 +24,23 @@
   --font:"IBM Plex Sans Arabic","Inter",system-ui,-apple-system,"Segoe UI",Roboto,Tahoma,Arial,sans-serif;
   color-scheme:light;
 }
-/* Dark theme removed: the hub is white everywhere */
+/* Dark theme: follows the device, or the hub's saved choice */
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#120E0B; --surface:#1C1612; --surface-2:#231C17; --surface-3:#2A221C;
+  --ink:#F4EDE7; --ink-2:#DDD1C7; --muted:#B6A79B; --line:#33281F; --line-strong:#46382D;
+  --accent:#D2AC85; --accent-hover:#DFBC98; --accent-ink:#1C1410; --accent-soft:#2E241B; --accent-line:#4A3D31;
+  --ok:#4CC38A; --ok-soft:#15281E; --warn:#F0A848; --warn-soft:#2C2112; --bad:#F2766B; --bad-soft:#2E1715;
+  --shadow-sm:none; --shadow:0 1px 2px rgba(0,0,0,.45); --shadow-lg:0 24px 64px -12px rgba(0,0,0,.7);
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#120E0B; --surface:#1C1612; --surface-2:#231C17; --surface-3:#2A221C;
+  --ink:#F4EDE7; --ink-2:#DDD1C7; --muted:#B6A79B; --line:#33281F; --line-strong:#46382D;
+  --accent:#D2AC85; --accent-hover:#DFBC98; --accent-ink:#1C1410; --accent-soft:#2E241B; --accent-line:#4A3D31;
+  --ok:#4CC38A; --ok-soft:#15281E; --warn:#F0A848; --warn-soft:#2C2112; --bad:#F2766B; --bad-soft:#2E1715;
+  --shadow-sm:none; --shadow:0 1px 2px rgba(0,0,0,.45); --shadow-lg:0 24px 64px -12px rgba(0,0,0,.7);
+  color-scheme:dark;
+}
 *,*::before,*::after{box-sizing:border-box}
 html,body{margin:0;height:auto}
 body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14.5px;line-height:1.55;-webkit-font-smoothing:antialiased;
@@ -210,9 +227,10 @@ dialog::backdrop{background:rgba(9,12,20,.6);backdrop-filter:blur(2px)}
 
 /* Inside Muhra HQ: the hub owns the header; same font everywhere */
 html.embed header.top{display:none}
-html.embed body{font-family:"IBM Plex Sans Arabic",system-ui,sans-serif;background:#FFFFFF}
+html.embed body{font-family:"IBM Plex Sans Arabic",system-ui,sans-serif;background:var(--bg)}
 </style>
-<script>if(/[?&]embed/.test(location.search)&&window.parent!==window){document.documentElement.classList.add('embed');document.documentElement.dataset.theme='light';}</script>
+<script>try{var t0=localStorage.getItem('hq-theme');if(!/[?&]embed/.test(location.search)&&(t0==='light'||t0==='dark'))document.documentElement.dataset.theme=t0;}catch(e){}
+if(/[?&]embed/.test(location.search)&&window.parent!==window){document.documentElement.classList.add('embed');try{var t=localStorage.getItem('hq-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}}</script>
 </head>
 <body>
 

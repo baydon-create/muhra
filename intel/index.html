@@ -466,12 +466,14 @@ html.embed th,html.embed td{text-align:start}
 html.embed td.num,html.embed th.num{text-align:end}
 html.embed .card,html.embed .panel{border-radius:14px}
 html.embed body{background:var(--paper)}
-/* Embedded in the hub: same neutral ramp and accent as hub/hub.css, so the frame reads as one app */
-html.embed{--paper:#FFFFFF;--surface:#FFFFFF;--ink:#1A1410;--muted:#6C6966;--line:#E6E5E5;--brand:#4A3226;--brand-soft:#F1EFEE;--on-brand:#FFFFFF;--accent:#4A3226;--slate:#6C6966;--link:#4A3226;--good:#4A3226;--good-soft:#F1EFEE;--warn:#4A3226;--warn-soft:#F1EFEE;--bad:#1A1410;--bad-soft:#F5F4F4}
+/* Embedded in the hub: the hub's v3 palette (hub/hub.css), following the hub's theme setting */
+html.embed{--paper:#F5F0EB;--surface:#FFFFFF;--ink:#1C1410;--muted:#6B5D53;--line:#E6DCD3;--brand:#4A3226;--brand-soft:#F3ECE6;--on-brand:#FFFFFF;--accent:#B8875A;--slate:#8A5C33;--link:#8A5C33;--good:#1B7A4B;--good-soft:#E5F4EB;--warn:#9A5200;--warn-soft:#FCEFD9;--bad:#BE342A;--bad-soft:#FCE8E6}
+@media (prefers-color-scheme:dark){html.embed:not([data-theme="light"]){--paper:#120E0B;--surface:#1C1612;--ink:#F4EDE7;--muted:#B6A79B;--line:#33281F;--brand:#D2AC85;--brand-soft:#2E241B;--on-brand:#1C1410;--accent:#D2AC85;--slate:#E2C29F;--link:#E2C29F;--good:#4CC38A;--good-soft:#15281E;--warn:#F0A848;--warn-soft:#2C2112;--bad:#F2766B;--bad-soft:#2E1715}}
+html.embed[data-theme="dark"]{--paper:#120E0B;--surface:#1C1612;--ink:#F4EDE7;--muted:#B6A79B;--line:#33281F;--brand:#D2AC85;--brand-soft:#2E241B;--on-brand:#1C1410;--accent:#D2AC85;--slate:#E2C29F;--link:#E2C29F;--good:#4CC38A;--good-soft:#15281E;--warn:#F0A848;--warn-soft:#2C2112;--bad:#F2766B;--bad-soft:#2E1715}
 html.embed h1,html.embed h2,html.embed h3{letter-spacing:0}
 html.embed .side{top:0}
 </style>
-<script>if(/[?&]embed/.test(location.search)&&window.parent!==window){document.documentElement.classList.add('embed');document.documentElement.dataset.theme='light';}</script>
+<script>if(/[?&]embed/.test(location.search)&&window.parent!==window){document.documentElement.classList.add('embed');try{var t=localStorage.getItem('hq-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t;}catch(e){}}</script>
 </head>
 <body>
 
@@ -532,7 +534,7 @@ const WEBHOOK_URL = 'https://vmi3437039.contaboserver.net/webhook/ci-fetch';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { storageKey: 'muhra-team-auth', persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } });
 const EMBED = new URLSearchParams(location.search).has('embed') && window.parent !== window;
 const hqPost = msg => { if (EMBED) try { window.parent.postMessage(msg, location.origin); } catch (e) {} };
-if (EMBED) { document.documentElement.dataset.theme = 'light'; document.documentElement.classList.add('embed'); }
+if (EMBED) { document.documentElement.classList.add('embed'); try { const t = localStorage.getItem('hq-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme; } catch (e) {} }
 const DAY = 864e5;
 const DAYS = EMBED ? ['السبت','الأحد','الاتنين','التلات','الأربع','الخميس','الجمعة'] : ['Sat','Sun','Mon','Tue','Wed','Thu','Fri'];
 const L = (en, ar) => EMBED ? ar : en;
