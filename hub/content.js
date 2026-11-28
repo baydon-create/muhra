@@ -317,6 +317,7 @@ function renderSheet(it) {
     '<div><label class="lb">المنتج / الكوليكشن</label><input class="inp" data-f="product" value="' + esc(it.product || '') + '" placeholder="مثال: Formal"></div></div>' +
     '</details>' +
     productsBlock(it.product_ids, 'item:' + it.id) +
+    footageBlock(it) +
     stageWorkspace(it) +
     linkedTasksBlock(it) +
     '<div class="sectitle">التعليقات</div><div id="thread"><div class="muted small">…</div></div>' +
@@ -360,6 +361,7 @@ function renderSheet(it) {
     b.classList.toggle('on'); await updateItem(it.id, { platforms: [...p] }, true);
   });
   bindStageWorkspace(it);
+  bindFootage(it);
   bindProductsBlock(root, () => { const sc = $('#sheetRoot .sb'), top = sc ? sc.scrollTop : 0; renderSheet(it); loadThread(it.id); const s2 = $('#sheetRoot .sb'); if (s2) s2.scrollTop = top; });
   if ($('#addFile')) $('#addFile').onclick = () => { const fp = $('#filePick'); fp.value = ''; fp.onchange = () => uploadFiles(it, [...fp.files]); fp.click(); };
   root.querySelectorAll('[data-rmfile]').forEach(b => b.onclick = async e => {
@@ -449,6 +451,8 @@ function actText(a) {
   if (a.action === 'owner') return 'غيّر المسؤول إلى ' + esc(a.note || '');
   if (a.action === 'files') return 'رفع ' + esc(a.note || 'ملفات');
   if (a.action === 'archived') return 'أرشفه';
+  if (a.action === 'shoot') return ic('camera') + esc(a.note || 'من خطة تصوير');
+  if (a.action === 'needs_shoot') return ic('camera') + esc(a.note || 'الفوتيج مش كفاية');
   if (a.action === 'publish') return ic('folder') + esc(a.note || 'تحديث من طابور النشر');
   return esc(a.action);
 }
@@ -475,6 +479,56 @@ function renderAllBg() { const id = S.openId; S.openId = null; renderAll(); S.op
 
 
 /* ───────── LINKS: content ↔ tasks / briefs / ads ───────── */
+/* ───────── FOOTAGE SOURCE ─────────
+   Where the edit's footage comes from: a new shoot, or footage we already have.
+   Old footage was shot for a specific edit, so a card that re-uses it says which footage
+   and what the new edit should look like; if it isn't enough, the editor sends the card
+   back to a shoot plan in one tap (hq_content_needs_shoot). */
+const FOOTAGE = { new_shoot: 'تصوير جديد', existing: 'فوتيج قديم موجود' };
+function footageBlock(it) {
+  const s = it.stage;
+  if (!['shoot', 'edit', 'review'].includes(s) && !it.footage_source) return '';
+  const src = it.footage_source || (it.shoot_id ? 'new_shoot' : '');
+  const sh = it.shoot_id && typeof shootById === 'function' ? shootById(it.shoot_id) : null;
+  let h = '<div class="sectitle">الفوتيج</div><div class="card ftblock"><div class="seg" id="ftSrc">' +
+    Object.entries(FOOTAGE).map(([k, n]) => '<button data-fs="' + k + '" class="' + (src === k ? 'on' : '') + '">' + n + '</button>').join('') + '</div>';
+  if (!src && s === 'edit') h += '<div class="alert warn" style="margin:10px 0 0">حدد الفوتيج منين — عشان اللي بيعمل المونتاج يعرف هيشتغل على إيه.</div>';
+  if (src === 'new_shoot') {
+    h += sh ? '<button class="linkbtn" data-ftshoot="' + sh.id + '" style="margin-top:10px">' + ic('camera', 14) + ' من خطة التصوير: ' + esc(sh.title) + '</button>' : '<div class="muted small" style="margin-top:10px">لسه مش مربوط بخطة تصوير.</div>';
+    if (it.footage_note) h += '<div class="alert warn" style="margin:10px 0 0"><b>ناقص:</b> ' + esc(it.footage_note) + '</div>';
+  }
+  if (src === 'existing') {
+    h += '<label class="lb">أنهي فوتيج؟ (من أنهي تصوير، فين على Drive)</label><textarea dir="auto" class="inp" data-f="footage_note" rows="2" placeholder="مثال: خام تصوير الشتاء — فولدر Basic dress، اللقطات من 3 لـ 9">' + esc(it.footage_note || '') + '</textarea>' +
+      '<label class="lb">شكل المونتاج الجديد (مرجع)</label>' + (safeUrl(it.ref_url) ? linkCard(it.ref_url) : '') +
+      '<input class="inp" data-f="ref_url" dir="ltr" style="margin-top:8px" value="' + esc(it.ref_url || '') + '" placeholder="رابط ريل أو بوست بالشكل المطلوب">';
+  }
+  if (['edit', 'review'].includes(s) || (s === 'shoot' && !it.shoot_id)) h += '<button class="btn sm" data-ftneed style="margin-top:12px;width:100%">' + ic('camera', 15) + ' الفوتيج مش كفاية — محتاج تصوير</button>';
+  return h + '</div>';
+}
+function bindFootage(it) {
+  const root = $('#sheetRoot'), rer = () => { const sc = $('#sheetRoot .sb'), top = sc ? sc.scrollTop : 0; renderSheet(it); loadThread(it.id); const s2 = $('#sheetRoot .sb'); if (s2) s2.scrollTop = top; };
+  root.querySelectorAll('[data-fs]').forEach(b => b.onclick = async () => {
+    const v = b.dataset.fs; if (it.footage_source === v) return;
+    if (await updateItem(it.id, { footage_source: v }, true)) { rer(); renderAllBg(); }
+  });
+  const fsh = root.querySelector('[data-ftshoot]'); if (fsh) fsh.onclick = () => { closeSheet(); openShoot(fsh.dataset.ftshoot); };
+  const need = root.querySelector('[data-ftneed]');
+  if (need) need.onclick = () => {
+    const note = prompt('إيه اللي ناقص في الفوتيج؟ (زوايا، لقطات، قطع…)', it.footage_note || '');
+    if (note === null) return;
+    chooseShoot('ابعت الكارت لخطة تصوير', async sh => {
+      if (!sh) return;
+      const { data, error } = await sb.rpc('hq_content_needs_shoot', { p_item: it.id, p_shoot: sh.id, p_note: note.trim() || null });
+      if (error) { console.error(error); return toast(/shoot_not_open/.test(error.message) ? 'خطة التصوير دي مقفولة' : 'تعذر الإرسال — حاول مرة أخرى'); }
+      Object.assign(it, { shoot_id: sh.id, footage_source: 'new_shoot', footage_note: note.trim() || null, stage: (data && data.stage) || it.stage });
+      push([sh.owner, it.created_by], '🎥 كارت محتاج تصوير', it.title + (note.trim() ? ' — ناقص: ' + note.trim() : '') + ' → ' + sh.title);
+      await loadShoots();
+      toast('اتبعت لخطة «' + sh.title + '»');
+      if (S.openId === it.id) { renderSheet(it); loadThread(it.id); }
+      renderAllBg();
+    });
+  };
+}
 function linkedTasksBlock(it) {
   const ts = S.tasks.filter(t => t.content_id === it.id);
   const src = [];

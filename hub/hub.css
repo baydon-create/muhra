@@ -1070,7 +1070,33 @@ input.inp.shot-t:focus{background:var(--surface);border-color:var(--accent)}
 .shot.big .chk svg{width:20px;height:20px}
 .shot.big input.inp.shot-t{font-size:16px;padding:0;cursor:default}
 .shot.big.is-done input.inp.shot-t{text-decoration:line-through;color:var(--muted)}
+/* References ↔ pieces ↔ models */
+.pchips{display:inline-flex;flex-wrap:wrap;gap:6px}
+.pchip{display:inline-flex;align-items:center;gap:6px;max-width:220px;padding:2px 8px 2px 3px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font-size:12px;font-weight:500}
+.pchip .pth{width:22px;height:28px;border-radius:5px;cursor:default}
+.pchip span[dir]{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pill.mdl{background:var(--accent-bg);color:var(--accent-ink);border:0;font-weight:600}
+.shwarn{display:flex;gap:8px;align-items:flex-start;margin:0 0 10px}
+.shwarn svg{flex:none;margin-top:2px}
+.shview{margin:2px 0 8px}
+.shview .seg button:disabled{opacity:.4;cursor:not-allowed}
+.shgrp{border:1px solid var(--line);border-radius:14px;padding:10px;margin-bottom:12px;background:var(--surface-2)}
+.shgrp-h{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.shgrp-h .grow{display:flex;flex-direction:column;gap:4px;min-width:0}
+.shgrp-h b{font-size:15px}
+.pth.big{width:64px;height:80px;border-radius:10px;cursor:default}
+.av.shgrp-q{background:var(--faint);color:var(--ink-2)}
+.shgrp-e{padding:4px 2px}
+.shot.mini{align-items:flex-start;padding:10px}
+.shot.mini .shot-tt{font-size:14.5px;font-weight:600}
+.shot.mini.is-done .shot-tt{text-decoration:line-through;color:var(--muted)}
+.shot.mini.idea{background:transparent;border-style:dashed}
+.shot.mini .chk{width:36px;height:36px;border-radius:10px;margin-top:0}
+.shico{flex:none;width:36px;height:36px;display:grid;place-items:center;color:var(--muted)}
+@media(max-width:700px){.shot.mini.idea{flex-wrap:wrap}.shot.mini.idea>.btn{margin-inline-start:46px}}
 .crewadd{display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:8px;margin-top:10px}
 @media(max-width:700px){.crewadd{grid-template-columns:1fr 1fr}.crewadd .btn{grid-column:1/-1}}
 table.tb tfoot td{padding:10px 12px;border-top:1px solid var(--line-2);background:var(--surface-2)}
 .sheet .stepper button:disabled{cursor:not-allowed}
+.ftblock{padding:12px}
+.ftblock .seg{flex-wrap:wrap}
