@@ -24,6 +24,18 @@ function credCard(username, password) {
 }
 function bindCopy(root) { root.querySelectorAll('[data-copy]').forEach(b => b.onclick = () => { const t = b.dataset.copy; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast('تم النسخ'), () => prompt('انسخ:', t)); }); }
 
+/* Theme: '' follows the device, 'light' or 'dark' is a saved choice. Embedded pages read the same key. */
+function getTheme() { try { return localStorage.getItem('hq-theme') || ''; } catch (e) { return ''; } }
+function setTheme(t) {
+  try { t ? localStorage.setItem('hq-theme', t) : localStorage.removeItem('hq-theme'); } catch (e) {}
+  if (t) document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme');
+  const dark = t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches);
+  const mc = document.querySelector('meta[name="theme-color"]'); if (mc) mc.setAttribute('content', dark ? '#120E0B' : '#F5F0EB');
+  document.querySelectorAll('#frames iframe').forEach(f => { try { const r = f.contentDocument.documentElement; t ? r.setAttribute('data-theme', t) : r.removeAttribute('data-theme'); } catch (e) {} });
+}
+function themeSwitch() { const cur = getTheme(); return '<div class="theme-seg" role="group" aria-label="المظهر">' + [['', 'تلقائي'], ['light', 'فاتح'], ['dark', 'داكن']].map(([k, n]) => '<button data-theme-set="' + k + '" class="' + (cur === k ? 'on' : '') + '" aria-pressed="' + (cur === k) + '">' + n + '</button>').join('') + '</div>'; }
+function bindThemeSwitch(root) { root.querySelectorAll('[data-theme-set]').forEach(b => b.onclick = () => { setTheme(b.dataset.themeSet); root.querySelectorAll('[data-theme-set]').forEach(x => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); }); }); }
+
 /* The Team page is a normal hub screen (#/team). Editing a member opens a sheet over it. */
 function openTeam(note) { S._teamNote = note || ''; closeSheet(); if (S.route !== 'team') go('team'); else renderAll(); }
 function viewTeam(v) {
@@ -37,6 +49,7 @@ function viewTeam(v) {
   v.innerHTML = '<h1 class="ptitle">الفريق والحساب</h1>' + note +
     '<div class="sectitle">حسابي</div><div class="card pad"><div class="row">' + av(S.me.id, true) + '<div class="grow"><b>' + esc(S.me.name) + '</b><div class="muted small" dir="ltr" style="text-align:right">' + esc(S.me.id) + '</div></div></div>' +
     '<div class="row wrap" style="margin-top:12px"><button class="btn sm" id="myPhoto">تغيير الصورة</button><button class="btn sm" id="myPw">تغيير كلمة المرور</button><button class="btn sm bad" id="myOut">خروج</button></div></div>' +
+    '<div class="sectitle">المظهر</div><div class="card pad row wrap" style="justify-content:space-between"><span class="muted small">فاتح أو داكن، أو حسب إعداد جهازك</span>' + themeSwitch() + '</div>' +
     '<div class="sectitle">الإشعارات</div>' + pushBanner(true) +
     '<details class="muted small" style="margin:6px 2px 0"><summary>إشعارات المتصفح (اختياري)</summary><div style="margin-top:8px">' + webPushBanner(true) + '</div></details>' +
     '<div class="sectitle">الأعضاء <span class="muted small">(' + S.team.length + ')</span></div><div class="card">' + S.team.map(row).join('') + '</div>' +
@@ -45,6 +58,7 @@ function viewTeam(v) {
   $('#myPw').onclick = () => renderChangePassword(false);
   $('#myOut').onclick = () => { if (confirm('تسجيل الخروج؟')) signOut(); };
   $('#myPhoto').onclick = () => pickPhoto(S.me.id);
+  bindThemeSwitch(v);
   bindPushBanner(v);
   if (!S._pushLoaded) { S._pushLoaded = true; loadTgStatus(); }
   v.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => editMember(b.dataset.edit));
