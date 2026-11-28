@@ -43,6 +43,7 @@ const AR_DAYS = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأرب
 const ROUTES = [
   { k: 'home', n: 'اليوم', ic: 'home', g: 'work' },
   { k: 'content', n: 'المحتوى', ic: 'board', g: 'work' },
+  { k: 'shoots', n: 'التصوير', ic: 'camera', g: 'work' },
   { k: 'calendar', n: 'التقويم', ic: 'cal', g: 'work' },
   { k: 'products', n: 'المنتجات', ic: 'bag', g: 'work' },
   { k: 'tasks', n: 'المهام', ic: 'tasks', g: 'work' },
@@ -149,6 +150,7 @@ function ccard(it, opts = {}) {
     (opts.noStage ? '' : stageTag(it.stage)) +
     '<span class="pill">' + typeIc(it.type) + ' ' + (TYPES[it.type] || it.type) + '</span>' + dueInfo(it) +
     (it.changes_note && it.stage === 'edit' ? '<span class="pill late">تعديلات</span>' : '') +
+    (it.shoot_id && typeof shootById === 'function' && shootById(it.shoot_id) ? '<span class="pill shtag" title="من خطة تصوير">' + ic('camera', 13) + ' ' + esc(shootById(it.shoot_id).title) + '</span>' : '') +
     '</div>' + (opts.extra || '') + '</div>' + (it.owner ? av(it.owner) : '') + '</div>';
 }
 function sheet(html, opts = {}) {
@@ -157,7 +159,7 @@ function sheet(html, opts = {}) {
   $('#ov').onclick = e => { if (e.target.id === 'ov') (opts.onClose || closeSheet)(); };
   return root;
 }
-function closeSheet() { S.openId = null; S.openTaskId = null; $('#sheetRoot').innerHTML = ''; if (/^#(item|task)=/.test(location.hash)) history.replaceState(null, '', '#/' + S.route); }
+function closeSheet() { S.openId = null; S.openTaskId = null; S.openShootId = null; $('#sheetRoot').innerHTML = ''; if (/^#(item|task|shoot)=/.test(location.hash)) history.replaceState(null, '', '#/' + S.route); }
 async function uploadFile(file, folder) {
   const clean = (file.name || 'file').replace(/[^\w.\-]+/g, '_').slice(-60);
   const path = folder + '/' + Date.now().toString(36) + '_' + clean;
@@ -379,17 +381,18 @@ function badges() {
   b.chat = S.chat.filter(m => m.author !== me && new Date(m.created_at).getTime() > S.chatSeen).length;
   b.briefs = S.briefs.filter(x => (!x.assignees || !x.assignees.length || x.assignees.includes(me)) && dayDiff(x.created_at.slice(0, 10)) >= -1 && x.created_by !== me).length;
   b.ads = (S.ads || []).filter(a => a.status === 'new').length;
+  b.shoots = (S.shoots || []).filter(s => s.stage === 'planning' && ((s.submitted_at && !s.approved_at && (isApprover() || isAdmin())) || (s.changes_note && s.owner === me))).length;
   return b;
 }
 const assigneesOf = t => (Array.isArray(t.assigned_to) ? t.assigned_to : [t.assigned_to]).filter(Boolean);
 
 const SUBS = {
-  home: '', content: 'كل الكروت من الفكرة للنشر', calendar: 'خطة النشر والأيام الفاضية', products: 'منتجات Shopify وصورها، مربوطة بالمحتوى والمهام', tasks: 'مهام الفريق بالحالة والأولوية',
+  home: '', content: 'كل الكروت من الفكرة للنشر', shoots: 'خطط التصوير: من الأفكار ليوم التصوير لحد النشر', calendar: 'خطة النشر والأيام الفاضية', products: 'منتجات Shopify وصورها، مربوطة بالمحتوى والمهام', tasks: 'مهام الفريق بالحالة والأولوية',
   briefs: 'تعليمات صاحبة البراند والإدارة للفريق', chat: 'شات الفريق', intel: 'رصد المنافسين وأفضل بوستاتهم', ugc: 'متابعة صنّاع المحتوى',
   ads: 'إعلانات المنافسين من إضافة Adlumi', ideas: 'أفكار سريعة من أبحاث المنافسين', publish: 'طابور النشر التلقائي من Google Drive',
   tools: 'ضغط الصور والفيديو وإرفاقها بالكروت', stats: 'أرقام الأسبوع وأداء الفريق', team: 'الحساب، الإشعارات، والأعضاء'
 };
-const NEW_LBL = { content: 'محتوى جديد', task: 'مهمة جديدة', brief: 'بريف جديد' };
+const NEW_LBL = { content: 'محتوى جديد', task: 'مهمة جديدة', brief: 'بريف جديد', shoot: 'خطة تصوير' };
 function renderShell() {
   $('#app').innerHTML =
     '<aside class="side" id="side"></aside>' +
@@ -494,6 +497,8 @@ function go(route, arg) {
 function applyHash() {
   const h = location.hash || '';
   let m;
+  const sdeep = h.match(/^#shoot=([0-9a-f-]{36})/);
+  if (sdeep) { if (!S._rendered) { S._rendered = true; setRoute('shoots'); } if (S.openShootId !== sdeep[1]) openShoot(sdeep[1]); return; }
   const deep = h.match(/^#(item|task)=([0-9a-f-]{36})/);
   if (deep) {
     if (!S._rendered) { S._rendered = true; setRoute(deep[1] === 'task' ? 'tasks' : S.route); }
@@ -509,7 +514,7 @@ function applyHash() {
 function setRoute(route, arg) {
   const changed = route !== S.route;
   S.route = route; S.routeArg = arg || null;
-  if (changed) { $('#sheetRoot').innerHTML = ''; S.openId = null; S.openTaskId = null; }
+  if (changed) { $('#sheetRoot').innerHTML = ''; S.openId = null; S.openTaskId = null; S.openShootId = null; }
   document.body.dataset.route = route;
   renderAll();
   if (changed) window.scrollTo(0, 0);
@@ -536,6 +541,7 @@ function renderAll() {
 }
 function fabFor() {
   if (['home', 'content', 'calendar', 'ideas', 'products'].includes(S.route)) return 'content';
+  if (S.route === 'shoots') return 'shoot';
   if (S.route === 'tasks' && isAdmin()) return 'task';
   if (S.route === 'briefs' && canBrief()) return 'brief';
   return null;
@@ -545,6 +551,7 @@ function fabAction() {
   if (f === 'content') newItem();
   else if (f === 'task') newTask();
   else if (f === 'brief') newBrief();
+  else if (f === 'shoot') newShoot();
 }
 const canBrief = () => isApprover() || isAdmin();
 
@@ -592,9 +599,14 @@ function subscribe() {
     .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat' }, p => { if (p.new && !S.chat.find(m => m.id === p.new.id)) { S.chat.push(p.new); if (S.route === 'chat') markChatSeen(); renderAll(); } })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'hq_ads' }, () => debounce('a', async () => { await loadAds(); renderAll(); }, 800))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'hq_products' }, () => debounce('pr', async () => { if (S._prodSyncing) return; await loadProducts(); renderAll(); }, 2500))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'hq_shoots' }, () => debounce('sh', async () => {
+      await loadShoots(); renderAll();
+      const s = S.openShootId && shootById(S.openShootId), ae = document.activeElement;
+      if (s && !(ae && ae.closest && ae.closest('#sheetRoot') && /INPUT|TEXTAREA|SELECT/.test(ae.tagName))) renderShoot(s);
+    }, 700))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => debounce('p', async () => { await loadTeam(); renderAll(); }, 800))
     .subscribe();
-  document.addEventListener('visibilitychange', async () => { if (!document.hidden && S.me) { await Promise.all([loadItems(), loadTasks(), loadBriefs(), loadChat()]); renderAll(); } });
+  document.addEventListener('visibilitychange', async () => { if (!document.hidden && S.me) { await Promise.all([loadItems(), loadTasks(), loadBriefs(), loadChat(), loadShoots()]); renderAll(); } });
 }
 
 /* ───────── BOOT ───────── */
@@ -608,7 +620,7 @@ sb.auth.onAuthStateChange(ev => { if (ev === 'SIGNED_OUT' && S.me) { S.me = null
 async function boot2() {
   renderShell();
   $('#view').innerHTML = '<div class="kpis k4" aria-busy="true" aria-label="جاري التحميل">' + '<div class="card skel-card"><span class="skel" style="width:40%"></span><span class="skel" style="width:70%;height:20px"></span></div>'.repeat(4) + '</div>';
-  await Promise.all([loadItems(), loadTasks(), loadBriefs(), loadChat(), loadAds(), loadProducts()]);
+  await Promise.all([loadItems(), loadTasks(), loadBriefs(), loadChat(), loadAds(), loadProducts(), loadShoots()]);
   subscribe();
   if (!S._listeners) {
     S._listeners = true;
