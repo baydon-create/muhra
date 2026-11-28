@@ -76,12 +76,13 @@ function viewBoard(v) {
   const f = S.board;
   const wide = window.innerWidth >= 1000;
   const view = wide ? f.view : 'list';
-  const pool = S.items.filter(i => (!f.mine || i.owner === S.me.id || (i.helpers || []).includes(S.me.id)) && (!f.type || i.type === f.type));
+  const pool = S.items.filter(i => (!f.mine || i.owner === S.me.id || (i.helpers || []).includes(S.me.id)) && (!f.type || i.type === f.type) && (!f.src || (f.src === 'shoot' ? !!i.shoot_id : !i.shoot_id)));
   const posted = pool.filter(i => i.stage === 'posted' && inPeriod(i, f.period || 30));
   let html = '<div class="toolbar ptool">' +
     (wide ? '<div class="seg" role="tablist"><button class="' + (view === 'board' ? 'on' : '') + '" data-view="board">' + ic('board') + 'لوحة</button><button class="' + (view === 'list' ? 'on' : '') + '" data-view="list">' + ic('tasks') + 'قائمة</button></div>' : '') +
     '<div class="seg"><button class="' + (f.mine ? '' : 'on') + '" data-mine="0">الكل</button><button class="' + (f.mine ? 'on' : '') + '" data-mine="1">شغلي</button></div>' +
     '<select class="mini" id="typeF"><option value="">كل الأنواع</option>' + Object.entries(TYPES).map(([k, n]) => '<option value="' + k + '"' + (f.type === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select>' +
+    '<select class="mini" id="srcF" aria-label="المصدر"><option value="">عادي + تصوير</option><option value="regular"' + (f.src === 'regular' ? ' selected' : '') + '>محتوى عادي</option><option value="shoot"' + (f.src === 'shoot' ? ' selected' : '') + '>من خطط التصوير</option></select>' +
     '<span class="muted small ptool-sum">' + pool.filter(i => !DONE_STAGES.includes(i.stage)).length + ' شغال · <span' + (pool.some(isLate) ? ' class="late-n"' : '') + '>' + pool.filter(isLate).length + ' متأخر</span></span></div>';
 
   if (view === 'board') {
@@ -119,6 +120,7 @@ function viewBoard(v) {
   const pf = $('#periodF'); if (pf) pf.onchange = e => { f.period = +e.target.value; f.limit = 50; renderAll(); };
   const mr = $('#moreRows'); if (mr) mr.onclick = () => { f.limit += 50; renderAll(); };
   $('#typeF').onchange = e => { f.type = e.target.value; f.limit = 50; renderAll(); };
+  $('#srcF').onchange = e => { f.src = e.target.value; f.limit = 50; renderAll(); };
 }
 function sortCol(arr, stage) {
   if (stage === 'posted') return arr.sort((a, b) => (b.posted_at || '').localeCompare(a.posted_at || '')).slice(0, 40);
@@ -135,7 +137,7 @@ function viewCal(v) {
   for (let d = 0; d < 7; d++) {
     const k = addDays(st, d), list = S.items.filter(i => i.publish_date === k), past = dayDiff(k) < 0;
     html += '<div class="card calday ' + (!list.length && !past ? 'gap' : '') + '" id="day-' + k + '"><div class="hd"><b>' + fmtDay(k) + '</b>' + (k === today() ? '<span class="pill okp">النهارده</span>' : '') +
-      publishChips(k) + '<span class="grow"></span>' + (!list.length && !past ? '<span class="small" style="color:var(--bad);font-weight:700">مفيش محتوى</span>' : '') + (past ? '' : '<button class="btn sm" data-addday="' + k + '">+ إضافة</button>') + '</div>' +
+      publishChips(k) + (S.shoots || []).filter(s => s.shoot_date === k && s.stage !== 'done').map(s => '<button class="pill shtag" data-calshoot="' + s.id + '">' + ic('camera', 13) + ' تصوير: ' + esc(s.title) + '</button>').join('') + '<span class="grow"></span>' + (!list.length && !past ? '<span class="small" style="color:var(--bad);font-weight:700">مفيش محتوى</span>' : '') + (past ? '' : '<button class="btn sm" data-addday="' + k + '">+ إضافة</button>') + '</div>' +
       (list.length ? '<div class="bd">' + list.map(i => ccard(i)).join('') + '</div>' : '') + '</div>';
   }
   const unsched = S.items.filter(i => !i.publish_date && !['posted'].includes(i.stage));
@@ -145,6 +147,7 @@ function viewCal(v) {
   $('#nextW').onclick = () => { S.calStart = addDays(st, 7); renderAll(); };
   $('#thisW').onclick = () => { S.calStart = weekStart(today()); renderAll(); };
   v.querySelectorAll('[data-addday]').forEach(b => b.onclick = () => newItem({ publish_date: b.dataset.addday }));
+  v.querySelectorAll('[data-calshoot]').forEach(b => b.onclick = () => openShoot(b.dataset.calshoot));
 }
 
 /* ───────── VIEW: RESEARCH ───────── */
@@ -169,7 +172,7 @@ function viewResearch(v) {
     const isSaved = saved.has(p.permalink);
     return '<div class="card rcard"><div class="img" data-img="' + esc(p.thumb || '') + '"><span class="fmt">' + esc(p.format || '') + '</span>' + (p.er != null ? '<span class="er">' + Number(p.er).toFixed(1) + '%</span>' : '') + '</div>' +
       '<div class="bd"><div class="u">@' + esc(p.username) + '</div><div class="cap">' + esc(p.caption || '') + '</div><div class="st"><span>' + ic('heart') + ' ' + num(p.likes) + '</span><span>' + ic('msg') + ' ' + num(p.comments) + '</span>' + (p.views ? '<span>' + ic('play') + ' ' + num(p.views) + '</span>' : '') + '</div>' +
-      '<div class="row"><a class="btn sm grow" href="' + esc(safeUrl(p.permalink)) + '" target="_blank" rel="noopener">فتح</a><button class="btn sm grow ' + (isSaved ? '' : 'pri') + '" data-save="' + idx + '"' + (isSaved ? ' disabled' : '') + '>' + (isSaved ? 'محفوظ ' + ic('check') : 'حفظ كفكرة') + '</button></div></div></div>';
+      '<div class="row"><a class="btn sm grow" href="' + esc(safeUrl(p.permalink)) + '" target="_blank" rel="noopener">فتح</a><button class="btn sm grow ' + (isSaved ? '' : 'pri') + '" data-save="' + idx + '"' + (isSaved ? ' disabled' : '') + '>' + (isSaved ? 'محفوظ ' + ic('check') : 'حفظ كفكرة') + '</button></div><button class="btn sm ghost" data-toshoot="' + idx + '">' + ic('camera', 14) + ' لخطة تصوير</button></div></div>';
   }).join('') + '</div>';
   html += '<div class="row wrap" style="margin-top:16px"><a class="btn" href="#/intel">Competitor Intel كامل</a><a class="btn" href="#/ads">إعلانات Adlumi</a></div>';
   v.innerHTML = html;
@@ -181,6 +184,10 @@ function viewResearch(v) {
     const p = r.rows[+b.dataset.save]; b.disabled = true;
     await createItem({ title: 'فكرة من @' + p.username + (p.format === 'Reel' ? ' (ريل)' : ''), type: p.format === 'Reel' ? 'reel' : p.format === 'Carousel' ? 'carousel' : 'post', ref_url: p.permalink, ref_thumb: p.thumb, ref_source: '@' + p.username, brief: p.caption ? 'الكابشن الأصلي:\n' + p.caption : null }, { open: false });
     toast('اتحفظت في «فكرة»');
+  });
+  v.querySelectorAll('[data-toshoot]').forEach(b => b.onclick = () => {
+    const p = r.rows[+b.dataset.toshoot];
+    chooseShoot('أضف المرجع لخطة تصوير', async sh => { if (sh && await shootPatch(sh, 'ideas', 'add', { title: 'مرجع من @' + p.username, url: p.permalink, note: (p.caption || '').slice(0, 300) })) toast('اتضاف لأفكار «' + sh.title + '»'); });
   });
   $('#refAdd').onclick = async () => {
     const u = safeUrl($('#refLink').value.trim()); if (!u) return toast('الصق رابط صحيح');
@@ -316,7 +323,7 @@ function renderSheet(it) {
     '<div class="linkrow" style="margin-top:8px"><textarea dir="auto" class="inp" id="cText" rows="1" placeholder="اكتب تعليق… (اذكر الشخص بـ @)" style="min-height:44px"></textarea><button class="btn pri" id="cSend">إرسال</button></div>' +
     '<div class="sectitle">السجل</div><div id="acts" class="small"></div>' +
     ((isAdmin() || it.created_by === S.me.id) ? '<div style="margin-top:22px"><button class="btn bad sm" id="archive">أرشفة</button></div>' : '') +
-    '</div><div class="sf" id="actions">' + actionButtons(it) + '</div></div></div>';
+    '</div><div class="sf" id="actions">' + actionButtons(it) + (it.stage === 'idea' && !it.shoot_id ? '<button class="btn" data-act="toshoot">' + ic('camera', 15) + ' لخطة تصوير</button>' : '') + '</div></div></div>';
 
   $('#x').onclick = closeSheet;
   $('#ov').onclick = e => { if (e.target.id === 'ov') closeSheet(); };
@@ -405,6 +412,7 @@ function bindActions(it) {
     else if (a === 'review') return sendToReview(it);
     else if (a === 'posted') { const u = prompt('رابط البوست (اختياري):', it.post_url || ''); if (u === null) return; await moveStage(it, 'posted', { post_url: safeUrl(u.trim()) || null }); }
     else if (a === 'next') { const nx = STAGES[SI[it.stage] + 1]; if (nx) await moveStage(it, nx.k); }
+    else if (a === 'toshoot') return chooseShoot('أضف الفكرة لخطة تصوير', async sh => { if (sh && await addIdeaCardToShoot(sh, it)) { if (S.openId === it.id) { renderSheet(it); loadThread(it.id); } } });
     if (S.openId === it.id) { renderSheet(it); loadThread(it.id); }
   });
 }
