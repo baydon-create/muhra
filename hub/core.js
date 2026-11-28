@@ -150,6 +150,8 @@ function ccard(it, opts = {}) {
     (opts.noStage ? '' : stageTag(it.stage)) +
     '<span class="pill">' + typeIc(it.type) + ' ' + (TYPES[it.type] || it.type) + '</span>' + dueInfo(it) +
     (it.changes_note && it.stage === 'edit' ? '<span class="pill late">تعديلات</span>' : '') +
+    (it.footage_source === 'existing' && !DONE_STAGES.includes(it.stage) ? '<span class="pill" title="مونتاج من فوتيج قديم">' + ic('film', 13) + ' فوتيج قديم</span>' : '') +
+    (it.footage_source === 'new_shoot' && it.footage_note && it.stage === 'shoot' ? '<span class="pill soon" title="' + esc(it.footage_note) + '">' + ic('camera', 13) + ' محتاج تصوير</span>' : '') +
     (it.shoot_id && typeof shootById === 'function' && shootById(it.shoot_id) ? '<span class="pill shtag" title="من خطة تصوير">' + ic('camera', 13) + ' ' + esc(shootById(it.shoot_id).title) + '</span>' : '') +
     '</div>' + (opts.extra || '') + '</div>' + (it.owner ? av(it.owner) : '') + '</div>';
 }

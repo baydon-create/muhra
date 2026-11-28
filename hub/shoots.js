@@ -59,6 +59,42 @@ function shootProgress(sh) {
   if (SHI[sh.stage] >= SHI.shoot_day) return shots.length ? { n: shots.filter(x => x.done).length, of: shots.length, l: 'لقطة اتصورت' } : null;
   return shots.length ? { n: shots.length, of: 0, l: 'لقطة في الخطة' } : null;
 }
+/* References ↔ pieces ↔ models (Donia: «كل قطعة قدامها المراجع بتاعتها», «كل موديل لابسة إيه»).
+   ideas[].product_ids and shots[].product_ids say which pieces a reference is shot on (one reference can cover several pieces);
+   shots[].ref_url keeps the reference link; shots[].model is the id of a crew entry whose role is a model. */
+const isModelRole = r => /موديل|مودل|model/i.test(r || '');
+const shootModels = sh => (sh.crew || []).filter(c => isModelRole(c.role));
+const crewName = c => !c ? '' : c.member_id ? nameOf(c.member_id) : (c.name || '');
+// Older shots kept the reference link in the note
+const shotRef = x => safeUrl(x.ref_url) || (/^https?:\/\/\S+$/.test((x.note || '').trim()) ? safeUrl(x.note.trim()) : '');
+const openIdeas = sh => (sh.ideas || []).filter(x => !x.shot);
+const shootPieces = sh => [...new Set([...(sh.product_ids || []), ...(sh.shots || []).flatMap(x => x.product_ids || []), ...openIdeas(sh).flatMap(x => x.product_ids || [])])].filter(id => prod(id));
+function shootWarnings(sh) {
+  const shots = sh.shots || [], ideas = openIdeas(sh);
+  const used = new Set([...shots.flatMap(x => x.product_ids || []), ...ideas.flatMap(x => x.product_ids || [])]);
+  return {
+    refsNoPiece: ideas.filter(x => !(x.product_ids || []).length).length + shots.filter(x => !(x.product_ids || []).length).length,
+    piecesNoRef: (sh.product_ids || []).filter(id => !used.has(id) && prod(id)),
+    noModel: shootModels(sh).length > 1 ? shots.filter(x => !x.model).length : 0
+  };
+}
+function warnLines(sh) {
+  const w = shootWarnings(sh), out = [];
+  if (w.refsNoPiece) out.push(w.refsNoPiece + ' مرجع/لقطة من غير قطعة');
+  if (w.piecesNoRef.length) out.push(w.piecesNoRef.length + ' قطعة من غير مرجع: ' + w.piecesNoRef.slice(0, 3).map(id => prod(id).title).join('، ') + (w.piecesNoRef.length > 3 ? '…' : ''));
+  if (w.noModel) out.push(w.noModel + ' لقطة من غير موديل');
+  return out;
+}
+const warnHtml = sh => { const l = warnLines(sh); return l.length ? '<div class="alert warn shwarn">' + ic('alert', 15) + ' <span>' + l.map(esc).join(' · ') + '</span></div>' : ''; };
+// Pieces picked on a reference or a shot are added to the plan's «القطع اللي هتتصور» too
+async function syncPlanPieces(sh, ids) {
+  const cur = sh.product_ids || [], add = (ids || []).filter(id => !cur.includes(id));
+  if (add.length) await shootUpdate(sh, { product_ids: [...cur, ...add] }, true);
+}
+const pieceChip = id => { const p = prod(id); return p ? '<span class="pchip"><span class="pth" style="background-image:url(\'' + esc(shopImg(p.image, 120) || '') + '\')"></span><span dir="auto">' + esc(p.title) + '</span></span>' : ''; };
+const modelPill = (sh, x) => { const c = (sh.crew || []).find(k => k.id === x.model); return c ? '<span class="pill mdl">' + ic('team', 13) + ' ' + esc(crewName(c)) + '</span>' : ''; };
+const refBlock = url => !url ? '' : isSocialLink(url) ? linkCard(url, { compact: true }) : '<a class="small" href="' + esc(url) + '" target="_blank" rel="noopener" dir="ltr">' + ic('link', 13) + ' ' + esc(url.replace(/^https?:\/\//, '').slice(0, 50)) + '</a>';
+
 const progBar = p => !p ? '' : '<div class="shprog"><span class="muted small">' + p.n + (p.of ? ' من ' + p.of : '') + ' ' + p.l + '</span>' + (p.of ? '<div class="prog"><i style="width:' + Math.round(p.n / p.of * 100) + '%"></i></div>' : '') + '</div>';
 
 /* ───────── PAGE: board of shoot plans ───────── */
@@ -152,7 +188,7 @@ const prodThumbs = ids => (ids || []).map(id => { const p = prod(id); return p ?
 
 function shootTabHtml(sh, tab) {
   const rmBtn = (list, id) => '<button class="xbtn" data-shrm="' + list + '" data-id="' + esc(id) + '" title="حذف" aria-label="حذف">' + ic('x', 14) + '</button>';
-  if (tab === 'plan') return '<label class="lb">الفكرة والهدف</label><textarea dir="auto" class="inp" data-sf="brief" rows="4" placeholder="إيه اللي عايزين نطلع بيه من التصوير ده؟">' + esc(sh.brief || '') + '</textarea>' +
+  if (tab === 'plan') return warnHtml(sh) + '<label class="lb">الفكرة والهدف</label><textarea dir="auto" class="inp" data-sf="brief" rows="4" placeholder="إيه اللي عايزين نطلع بيه من التصوير ده؟">' + esc(sh.brief || '') + '</textarea>' +
     '<div class="g2"><div><label class="lb">المسؤول</label><select class="inp" data-sf="owner">' + memberOpts(sh.owner, '—') + '</select></div>' + fieldIn(sh, 'shoot_date', 'يوم التصوير', 'type="date"') + '</div>' +
     '<label class="lb">المنتجات والقطع اللي هتتصور</label><div class="plinks">' + (sh.product_ids || []).map(id => { const p = prod(id); return p ? '<div class="plink"><span class="pth" style="background-image:url(\'' + esc(shopImg(p.image, 160) || '') + '\')"></span><span class="grow plt"><b dir="auto">' + esc(p.title) + '</b><span class="muted small">' + prodPrice(p) + '</span></span></div>' : ''; }).join('') + '</div>' +
     '<button class="btn sm" id="shProds" style="margin-top:6px">' + ic('bag') + ' اختار من Shopify</button>' +
@@ -160,10 +196,13 @@ function shootTabHtml(sh, tab) {
 
   if (tab === 'ideas') {
     const ideas = sh.ideas || [];
-    return '<div class="muted small" style="margin:4px 0 10px">مراجع وأفكار للتصوير. حوّل أي فكرة للشوت ليست لما تتأكد منها.</div>' +
+    return '<div class="muted small" style="margin:4px 0 10px">مراجع وأفكار للتصوير. حدد كل مرجع هيتصور على أنهي قطعة، وبعدين حوّله للشوت ليست.</div>' + warnHtml(sh) +
       (ideas.length ? ideas.map(x => '<div class="lrow rich"><div class="grow">' + '<b>' + esc(x.title || 'فكرة') + '</b>' +
         (safeUrl(x.url) ? (isSocialLink(x.url) ? linkCard(x.url, { compact: true }) : '<div><a href="' + esc(safeUrl(x.url)) + '" target="_blank" rel="noopener" dir="ltr" class="small">' + esc(x.url.slice(0, 60)) + '</a></div>') : '') +
-        (x.note ? '<div class="muted small" dir="auto">' + esc(x.note) + '</div>' : '') + '<div class="muted small">' + esc(firstName(x.by)) + '</div></div>' +
+        (x.note ? '<div class="muted small" dir="auto">' + esc(x.note) + '</div>' : '') +
+        '<div class="shot-meta"><button class="btn sm' + ((x.product_ids || []).length || x.shot ? ' ghost' : '') + '" data-idprod="' + esc(x.id) + '"' + (x.shot ? ' disabled' : '') + '>' + ic('bag') + ' ' + ((x.product_ids || []).length ? 'القطع' : 'هيتصور على أنهي قطعة؟') + '</button>' +
+        ((x.product_ids || []).length ? '<span class="pchips">' + x.product_ids.map(pieceChip).join('') + '</span>' : (x.shot ? '' : '<span class="pill late">من غير قطعة</span>')) + '</div>' +
+        '<div class="muted small">' + esc(firstName(x.by)) + '</div></div>' +
         '<div class="row" style="flex-direction:column;gap:4px"><button class="btn sm" data-toshot="' + esc(x.id) + '"' + (x.shot ? ' disabled' : '') + '>' + (x.shot ? 'في الشوت ليست ' + ic('check') : '→ للشوت ليست') + '</button>' + rmBtn('ideas', x.id) + '</div></div>').join('') : '<div class="empty">مفيش أفكار لسه</div>') +
       '<div class="slinkadd" style="grid-template-columns:1fr 1.3fr auto"><input class="inp" id="idT" placeholder="الفكرة باختصار"><input class="inp" id="idU" dir="ltr" placeholder="رابط مرجع (اختياري)"><button class="btn" id="idAdd">إضافة</button></div>' +
       '<button class="btn sm ghost" id="idFromCards" style="margin-top:8px">' + ic('board') + ' ضيف من كروت «فكرة»</button>';
@@ -173,18 +212,27 @@ function shootTabHtml(sh, tab) {
     const shots = sh.shots || [], stage = sh.stage, dayMode = stage === 'shoot_day', selMode = stage === 'selects';
     const sel = S._shotSel && S._shotSel.id === sh.id ? S._shotSel.ids : new Set(shots.filter(x => x.done && !x.made_item).map(x => x.id));
     S._shotSel = { id: sh.id, ids: sel };
-    let h = '<div class="muted small" style="margin:4px 0 10px">' + (dayMode ? 'علّم كل لقطة أول ما تتصور.' : selMode ? 'اختار اللقطات اللي هتتحول لكروت محتوى، وبعدين اضغط «اعمل كروت».' : 'كل لقطة: الوصف، النوع، المسؤول عن المونتاج، والقطع.') + '</div>';
+    const view = selMode ? 'list' : shotViewOf(sh);
+    const models = shootModels(sh);
+    let h = '<div class="shview"><div class="seg" role="tablist">' + [['list', 'كل اللقطات'], ['piece', 'حسب القطعة'], ['model', 'حسب الموديل']].map(([k, n]) => '<button data-shview="' + k + '" class="' + (view === k ? 'on' : '') + '"' + (selMode && k !== 'list' ? ' disabled' : '') + '>' + n + '</button>').join('') + '</div></div>';
+    h += '<div class="muted small" style="margin:4px 0 10px">' + (view === 'piece' ? 'كل قطعة والمراجع اللي هتتصور عليها.' : view === 'model' ? 'كل موديل لابسة إيه وهتصور إيه.' : dayMode ? 'علّم كل لقطة أول ما تتصور.' : selMode ? 'اختار اللقطات اللي هتتحول لكروت محتوى، وبعدين اضغط «اعمل كروت».' : 'كل لقطة: المرجع، القطع، الموديل، النوع، والمسؤول عن المونتاج.') + '</div>';
+    h += warnHtml(sh);
+    if (view !== 'list') return h + shotGroups(sh, view) + (SHI[stage] >= SHI.shoot_day && shots.some(x => !x.made_item) ? '<div class="muted small" style="text-align:center;margin-top:12px">اختيار اللقطات وعمل الكروت من «كل اللقطات»</div>' : '');
     h += shots.length ? '<div class="shots">' + shots.map((x, i) => {
       const made = x.made_item && S.items.find(c => c.id === x.made_item);
       const lead = selMode ? (x.made_item ? '<span class="chk on" title="اتعمل كارت">' + ic('check', 14) + '</span>' : '<button class="chk' + (sel.has(x.id) ? ' on' : '') + '" data-shsel="' + esc(x.id) + '" aria-pressed="' + sel.has(x.id) + '" aria-label="اختيار">' + ic('check', 14) + '</button>')
         : '<button class="chk' + (x.done ? ' on' : '') + '" data-shdone="' + esc(x.id) + '" aria-pressed="' + !!x.done + '" aria-label="اتصورت">' + ic('check', 14) + '</button>';
       return '<div class="shot' + (x.done ? ' is-done' : '') + (dayMode ? ' big' : '') + '">' + lead +
         '<div class="grow"><input dir="auto" class="inp shot-t" data-shot="' + esc(x.id) + '" data-k="title" value="' + esc(x.title || '') + '" placeholder="وصف اللقطة"' + (dayMode ? ' readonly' : '') + '>' +
-        (dayMode ? (x.note ? '<div class="muted small" dir="auto">' + esc(x.note) + '</div>' : '') :
+        (dayMode ? shotDetails(sh, x) :
           '<div class="shot-meta"><select class="mini" data-shot="' + esc(x.id) + '" data-k="type">' + Object.entries(TYPES).map(([k, n]) => '<option value="' + k + '"' + ((x.type || 'reel') === k ? ' selected' : '') + '>' + n + '</option>').join('') + '</select>' +
           '<select class="mini" data-shot="' + esc(x.id) + '" data-k="owner">' + memberOpts(x.owner, 'المونتاج: —') + '</select>' +
-          '<button class="btn sm ghost" data-shprod="' + esc(x.id) + '">' + ic('bag') + ' ' + ((x.product_ids || []).length || '') + '</button><span class="pths">' + prodThumbs(x.product_ids) + '</span></div>' +
-          '<input dir="auto" class="inp shot-n" data-shot="' + esc(x.id) + '" data-k="note" value="' + esc(x.note || '') + '" placeholder="ملاحظة: زاوية، إضاءة، حركة…">') +
+          (models.length ? '<select class="mini" data-shot="' + esc(x.id) + '" data-k="model"><option value="">الموديل: —</option>' + models.map(c => '<option value="' + esc(c.id) + '"' + (c.id === x.model ? ' selected' : '') + '>' + esc(crewName(c)) + '</option>').join('') + '</select>' : '') +
+          '<button class="btn sm' + ((x.product_ids || []).length ? ' ghost' : '') + '" data-shprod="' + esc(x.id) + '">' + ic('bag') + ' ' + ((x.product_ids || []).length || 'القطع') + '</button>' +
+          ((x.product_ids || []).length ? '<span class="pchips">' + x.product_ids.map(pieceChip).join('') + '</span>' : '<span class="pill late">من غير قطعة</span>') + '</div>' +
+          (shotRef(x) ? refBlock(shotRef(x)) : '') +
+          '<input dir="ltr" class="inp shot-n" data-shot="' + esc(x.id) + '" data-k="ref_url" value="' + esc(shotRef(x)) + '" placeholder="رابط المرجع (ريل / بوست / صورة)">' +
+          '<input dir="auto" class="inp shot-n" data-shot="' + esc(x.id) + '" data-k="note" value="' + esc(shotRef(x) && !x.ref_url ? '' : (x.note || '')) + '" placeholder="ملاحظة: زاوية، إضاءة، حركة…">') +
         (made ? '<button class="linkbtn" data-openitem="' + made.id + '">' + ic('board', 14) + ' ' + SM[made.stage].n + ' — افتح الكارت</button>' : '') + '</div>' +
         (dayMode ? '' : '<div class="shot-ord"><button class="xbtn" data-shmove="' + esc(x.id) + '" data-dir="-1"' + (i ? '' : ' disabled') + ' aria-label="لفوق">▲</button><button class="xbtn" data-shmove="' + esc(x.id) + '" data-dir="1"' + (i < shots.length - 1 ? '' : ' disabled') + ' aria-label="لتحت">▼</button>' + (x.made_item ? '' : rmBtn('shots', x.id)) + '</div>') +
         '</div>';
@@ -203,7 +251,7 @@ function shootTabHtml(sh, tab) {
       (crew.length ? '<div class="card">' + crew.map(c => '<div class="srow" style="cursor:default">' + (c.member_id ? av(c.member_id) : '<span class="av" style="background:var(--faint)">' + esc((c.name || '?')[0]) + '</span>') +
         '<span class="grow"><b>' + esc(c.member_id ? nameOf(c.member_id) : c.name) + '</b><span class="muted small"> · ' + esc(c.role || '') + '</span>' + (c.phone ? '<div class="small" dir="ltr" style="text-align:right">' + esc(c.phone) + '</div>' : '') + '</span>' +
         (c.member_id ? '' : '<span class="pill">من برة الفريق</span>') + rmBtn('crew', c.id) + '</div>').join('') + '</div>' : '<div class="empty">ضيف الموديل والمصور وأي حد هيحضر</div>') +
-      '<div class="crewadd"><select class="inp" id="cwM"><option value="">من برة الفريق…</option>' + memberOpts('') + '</select><input class="inp" id="cwN" dir="auto" placeholder="الاسم (لو من برة)"><input class="inp" id="cwR" dir="auto" placeholder="الدور: موديل، مصور…"><input class="inp" id="cwP" dir="ltr" placeholder="رقم التليفون"><button class="btn" id="cwAdd">إضافة</button></div>' +
+      '<div class="crewadd"><select class="inp" id="cwM"><option value="">من برة الفريق…</option>' + memberOpts('') + '</select><input class="inp" id="cwN" dir="auto" placeholder="الاسم (لو من برة)"><input class="inp" id="cwR" dir="auto" placeholder="الدور: موديل، مصور… (اكتب «موديل» للموديلز)"><input class="inp" id="cwP" dir="ltr" placeholder="رقم التليفون"><button class="btn" id="cwAdd">إضافة</button></div>' +
       '<div class="sectitle">المعدات</div>' +
       (eq.length ? eq.map(x => '<div class="srow2"><button class="chk' + (x.done ? ' on' : '') + '" data-eqdone="' + esc(x.id) + '" aria-label="جاهز">' + ic('check', 14) + '</button><span class="grow' + (x.done ? ' done' : '') + '">' + esc(x.title) + '</span>' + rmBtn('equipment', x.id) + '</div>').join('') : '<div class="muted small">مفيش معدات مسجلة</div>') +
       '<div class="linkrow" style="margin-top:8px"><input class="inp" id="eqNew" dir="auto" placeholder="مثال: رينج لايت، ستاند، بطاريات"><button class="btn" id="eqAdd">إضافة</button></div>' +
@@ -229,6 +277,50 @@ function shootTabHtml(sh, tab) {
     return progBar({ n: posted, of: cards.length, l: 'منشور' }) + '<div class="list" style="margin-top:10px">' + cards.map(c => ccard(c)).join('') + '</div>';
   }
   return '';
+}
+
+/* Shot list views: «كل اللقطات» (edit + selects), «حسب القطعة», «حسب الموديل».
+   On shoot day the piece view opens first, so each piece is on screen with the references shot on it. */
+S.shotView = {};
+const shotViewOf = sh => S.shotView[sh.id] || (sh.stage === 'shoot_day' && shootPieces(sh).length ? 'piece' : 'list');
+function shotDetails(sh, x, skip = {}) {
+  const note = shotRef(x) && !x.ref_url ? '' : (x.note || '');
+  const pieces = (x.product_ids || []).filter(id => id !== skip.piece);
+  const meta = (skip.model ? '' : modelPill(sh, x)) + (pieces.length ? '<span class="pchips">' + pieces.map(pieceChip).join('') + '</span>' : '');
+  return (note ? '<div class="muted small" dir="auto">' + esc(note) + '</div>' : '') + (meta ? '<div class="shot-meta">' + meta + '</div>' : '') + refBlock(shotRef(x));
+}
+const shotMini = (sh, x, skip) => '<div class="shot mini' + (x.done ? ' is-done' : '') + '"><button class="chk' + (x.done ? ' on' : '') + '" data-shdone="' + esc(x.id) + '" aria-pressed="' + !!x.done + '" aria-label="اتصورت">' + ic('check', 14) + '</button>' +
+  '<div class="grow"><b class="shot-tt" dir="auto">' + esc(x.title || 'لقطة') + '</b>' + shotDetails(sh, x, skip) + '</div></div>';
+const ideaMini = x => '<div class="shot mini idea"><span class="shico">' + ic('bulb', 14) + '</span><div class="grow"><b class="shot-tt" dir="auto">' + esc(x.title || 'مرجع') + '</b><span class="muted small">مرجع لسه مش في الشوت ليست</span>' + refBlock(safeUrl(x.url)) + '</div>' +
+  '<button class="btn sm" data-toshot="' + esc(x.id) + '">→ للشوت ليست</button></div>';
+function shotGroups(sh, view) {
+  const shots = sh.shots || [], ideas = openIdeas(sh);
+  const grp = (head, rows, empty) => '<section class="shgrp">' + head + '<div class="shots">' + (rows || '<div class="muted small shgrp-e">' + empty + '</div>') + '</div></section>';
+  const count = list => { const d = list.filter(x => x.done).length; return list.length ? '<span class="muted small">' + d + ' من ' + list.length + ' اتصورت</span>' : ''; };
+  const blank = '<span class="av shgrp-q">?</span>';
+  let h = '';
+  if (view === 'piece') {
+    const pieces = shootPieces(sh);
+    if (!pieces.length && !shots.length && !ideas.length) return '<div class="empty">اختار القطع من «الخطة» أو من كل مرجع في «الأفكار»</div>';
+    pieces.forEach(id => {
+      const p = prod(id), mine = shots.filter(x => (x.product_ids || []).includes(id)), refs = ideas.filter(x => (x.product_ids || []).includes(id));
+      h += grp('<div class="shgrp-h"><span class="pth big" style="background-image:url(\'' + esc(shopImg(p.image, 240) || '') + '\')"></span><div class="grow"><b dir="auto">' + esc(p.title) + '</b>' + count(mine) + '</div></div>',
+        mine.map(x => shotMini(sh, x, { piece: id })).join('') + refs.map(ideaMini).join(''), '<span class="pill late">مفيش مرجع للقطعة دي</span>');
+    });
+    const loose = shots.filter(x => !(x.product_ids || []).length), looseRefs = ideas.filter(x => !(x.product_ids || []).length);
+    if (loose.length || looseRefs.length) h += grp('<div class="shgrp-h">' + blank + '<div class="grow"><b>من غير قطعة</b>' + count(loose) + '</div></div>', loose.map(x => shotMini(sh, x)).join('') + looseRefs.map(ideaMini).join(''));
+    return h;
+  }
+  const models = shootModels(sh);
+  if (!models.length) return '<div class="empty">ضيف الموديلز في «الكول شيت» ودورهم «موديل»، وبعدين اختار موديل لكل لقطة.</div>';
+  models.forEach(c => {
+    const mine = shots.filter(x => x.model === c.id), pieces = [...new Set(mine.flatMap(x => x.product_ids || []))];
+    h += grp('<div class="shgrp-h">' + (c.member_id ? av(c.member_id) : '<span class="av shgrp-q">' + esc((c.name || '?')[0]) + '</span>') + '<div class="grow"><b dir="auto">' + esc(crewName(c)) + '</b>' + count(mine) +
+      (pieces.length ? '<span class="pchips">' + pieces.map(pieceChip).join('') + '</span>' : '') + '</div></div>', mine.map(x => shotMini(sh, x, { model: true })).join(''), 'مفيش لقطات متحددة للموديل دي');
+  });
+  const loose = shots.filter(x => !models.some(c => c.id === x.model));
+  if (loose.length) h += grp('<div class="shgrp-h">' + blank + '<div class="grow"><b>من غير موديل</b>' + count(loose) + '</div></div>', loose.map(x => shotMini(sh, x)).join(''));
+  return h;
 }
 
 function shootActions(sh) {
@@ -314,17 +406,31 @@ function bindShoot(sh, tab) {
     const x = (sh.ideas || []).find(i => i.id === b.dataset.toshot); if (!x) return;
     b.disabled = true;
     const it = x.item_id && S.items.find(c => c.id === x.item_id);
-    const ok = await shootPatch(sh, 'shots', 'add', { title: x.title, note: x.url || x.note || '', item_id: x.item_id || null, type: it ? it.type : 'reel', product_ids: it ? (it.product_ids || []) : [] });
-    if (ok) { await shootPatch(sh, 'ideas', 'update', { shot: true }, x.id); toast('اتضافت للشوت ليست'); rer(); }
+    const pieces = (x.product_ids || []).length ? x.product_ids : it ? (it.product_ids || []) : [];
+    const ok = await shootPatch(sh, 'shots', 'add', { title: x.title, ref_url: safeUrl(x.url) || null, note: x.note || '', item_id: x.item_id || null, type: it ? it.type : 'reel', product_ids: pieces, idea_id: x.id });
+    if (ok) { await shootPatch(sh, 'ideas', 'update', { shot: true }, x.id); await syncPlanPieces(sh, pieces); toast(pieces.length ? 'اتضافت للشوت ليست' : 'اتضافت — حدد القطعة في الشوت ليست', 2200); rer(); }
   });
+  $$('[data-idprod]', root).forEach(b => b.onclick = async () => {
+    const x = (sh.ideas || []).find(i => i.id === b.dataset.idprod); if (!x) return;
+    const ids = await pickProducts(x.product_ids || [], 'المرجع ده هيتصور على أنهي قطعة؟'); if (ids === null) return;
+    if (await shootPatch(sh, 'ideas', 'update', { product_ids: ids }, x.id)) { await syncPlanPieces(sh, ids); rer(); }
+  });
+  $$('[data-shview]', root).forEach(b => b.onclick = () => { S.shotView[sh.id] = b.dataset.shview; rer(); });
   const fc = $('#idFromCards'); if (fc) fc.onclick = () => pickIdeaCards(sh);
 
   // shots
   $$('[data-shot]', root).forEach(el => el.addEventListener('change', async () => {
     const x = (sh.shots || []).find(s => s.id === el.dataset.shot); if (!x) return;
-    const k = el.dataset.k, v = el.value.trim();
+    const k = el.dataset.k, v = el.value.trim(), legacyRef = !x.ref_url && shotRef(x);
     if (k === 'title' && !v) { el.value = x.title || ''; return; }
-    if (await shootPatch(sh, 'shots', 'update', { [k]: v || null }, x.id)) toast('تم الحفظ', 900);
+    if (k === 'ref_url' && v && !safeUrl(v)) { el.value = shotRef(x); return toast('الرابط مش صحيح'); }
+    const patch = { [k]: k === 'ref_url' ? (safeUrl(v) || null) : (v || null) };
+    if (legacyRef && k === 'note') patch.ref_url = legacyRef;   // the old link lived in the note: keep it as the reference
+    if (legacyRef && k === 'ref_url') patch.note = null;
+    if (await shootPatch(sh, 'shots', 'update', patch, x.id)) {
+      toast('تم الحفظ', 900);
+      if (k === 'ref_url' || k === 'model') { if (patch.ref_url && typeof previewFor === 'function') previewFor(patch.ref_url); rer(); }
+    }
   }));
   $$('[data-shdone]', root).forEach(b => b.onclick = async () => {
     const x = (sh.shots || []).find(s => s.id === b.dataset.shdone); if (!x) return;
@@ -335,7 +441,7 @@ function bindShoot(sh, tab) {
   $$('[data-shprod]', root).forEach(b => b.onclick = async () => {
     const x = (sh.shots || []).find(s => s.id === b.dataset.shprod); if (!x) return;
     const ids = await pickProducts(x.product_ids || [], 'القطع في اللقطة دي'); if (ids === null) return;
-    if (await shootPatch(sh, 'shots', 'update', { product_ids: ids }, x.id)) rer();
+    if (await shootPatch(sh, 'shots', 'update', { product_ids: ids }, x.id)) { await syncPlanPieces(sh, ids); rer(); }
   });
   const sa = $('#shotAdd'), sn = $('#shotNew');
   if (sa) { const add = async () => { const t = sn.value.trim(); if (!t) return sn.focus(); sa.disabled = true; if (await shootPatch(sh, 'shots', 'add', { title: t, type: 'reel', done: false })) { rer(); setTimeout(() => $('#shotNew') && $('#shotNew').focus(), 50); } else sa.disabled = false; }; sa.onclick = add; sn.onkeydown = e => { if (e.key === 'Enter') add(); }; }
@@ -368,6 +474,8 @@ function bindShoot(sh, tab) {
     if (a.startsWith('to:')) return moveShoot(sh, a.slice(3));
     if (a === 'submit') {
       if (!(sh.shots || []).length && !confirm('الشوت ليست فاضية. تبعت للموافقة برضه؟')) return;
+      const wl = warnLines(sh);   // a warning only, never a block
+      if (wl.length && !confirm('تنبيه قبل الإرسال:\n• ' + wl.join('\n• ') + '\n\nتبعت للموافقة برضه؟')) return;
       if (await shootUpdate(sh, { submitted_at: new Date().toISOString(), submitted_by: S.me.id, changes_note: null }, true)) { push(approverIds(), '📸 خطة تصوير للموافقة', sh.title); toast('اتبعتت للموافقة'); rer(); renderAllBgShoot(); }
     } else if (a === 'approve') {
       if (await shootUpdate(sh, { approved_at: new Date().toISOString() }, true)) { push([sh.owner, sh.submitted_by], '✅ خطة التصوير اتوافق عليها', sh.title); toast('تمت الموافقة'); rer(); renderAllBgShoot(); }
